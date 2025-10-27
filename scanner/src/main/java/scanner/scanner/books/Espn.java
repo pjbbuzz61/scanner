@@ -113,38 +113,6 @@ public class Espn extends Book {
 				robot.keyRelease(KeyEvent.VK_PAGE_UP);
 			}
 				
-/*
-			int h = 0;
-			try {
-				WebElement mainView = 
-						driver.findElement(By.id("main-view"));
-				if(mainView != null) {
-					System.out.println("Main View size: w: " + mainView.getRect().width + ", h: " + mainView.getRect().height);
-					h = mainView.getRect().height;
-				}
-			} catch(Exception ee) {
-					
-			}
-
-			Robot robot3 = new Robot();
-			robot3.mouseMove(1510,400);
-			for(int i = 0; i < 5; ++i) {
-				Thread.sleep(10);
-				robot3.mouseWheel(100);
-			}
-			int numCycles = 0;
-			if(h > 0) {
-				numCycles = h/350;
-			} else {
-				numCycles = lastPersisted * 60 / 100;
-				if(numCycles < 35) numCycles = 35;
-			}
-			System.out.println("Number of scroll cycles up: " + numCycles);
-			for(int i = 0; i < numCycles; ++i) {
-				Thread.sleep(150);
-				robot3.mouseWheel(-3);
-			}
-*/
 			// move to a spot off the first line
 			Thread.sleep(100);
 			robot.mouseMove(500,1010);
@@ -213,18 +181,18 @@ public class Espn extends Book {
 					case MLB:
 						break;
 					case NBA:
-						list = parseNcaaf(filename, sport);
+						list = parseTeamEvent(filename, sport);
 						break;
 					case NCAAB:
 						break;
 					case NCAAF:
-						list = parseNcaaf(filename, sport);
+						list = parseTeamEvent(filename, sport);
 						break;
 					case NFL:
-						list = parseNcaaf(filename, sport);
+						list = parseTeamEvent(filename, sport);
 						break;
 					case NHL:
-						list = parseNcaaf(filename, sport);
+						list = parseTeamEvent(filename, sport);
 						break;
 					case SOCCER_EPL:
 						break;
@@ -260,7 +228,7 @@ public class Espn extends Book {
 		return null;
 	}
 	
-	private List<Odds> parseNcaaf(String file, Sport sport) {
+	private List<Odds> parseTeamEvent(String file, Sport sport) {
 
 		StringBuilder sb = new StringBuilder();
 		List<Odds> list = new ArrayList<>();
@@ -581,7 +549,6 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		}
 
 		Element dateTime = containers.get(1).select("span").first();
-		odds.setPeriod(Period.NONE); 
 		odds.setStatus(Status.SCHEDULED);
 		odds.setGameDateTime(getStartingDate(dateTime.text()));
 

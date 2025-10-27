@@ -42,6 +42,7 @@ public class Odds {
 	private Player     player1;
 	private Player     player2;
 	private Boolean    doubles;
+	
 
 
 	
@@ -264,4 +265,5 @@ public class Odds {
 	public void setDoubles(Boolean doubles) {
 		this.doubles = doubles;
 	}
+
 }

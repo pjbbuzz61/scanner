@@ -8,8 +8,6 @@ public enum Sport {
 	NHL,
 	NCAAB,
 	SOCCER_EPL,
-	TENNIS,
-	DUO;
-	
+	TENNIS;
 
 }
