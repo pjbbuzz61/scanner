@@ -27,12 +27,21 @@ public class OddsRepo {
     	return odds;
     }
 
+    public Odds save(Odds odds, String collection) {
+    	mongoTemplate.save(odds, collection);
+    	return odds;
+    }
+
     public List<Odds> getAll() {
        return mongoTemplate.findAll(Odds.class);
     }
 
 	public void removeAll() {
 		mongoTemplate.remove(new Query(), Odds.class);
+	}
+
+	public void removeAll(Sport sport) {
+		mongoTemplate.remove(new Query(), Odds.class, "odds" + "_" + sport);
 	}
 
 	public List<Odds> getOdds(Sport sport, Period period, String collectionName) {

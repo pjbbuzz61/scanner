@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import scanner.scanner.model.Odds;
 import scanner.scanner.repo.OddsRepo;
+import scanner.scanner.util.Sport;
 
 
 @Component
@@ -25,8 +26,22 @@ public class OddsService {
 		}
 	}
 
+	public void persistOdds(Odds odds, String collection) {
+
+		odds.setId(String.format("%d", odds.hashCode()));
+		try {
+			repo.save(odds, collection);
+		} catch(Exception e) {
+			System.out.println("Exception persisting odds: " + e.getMessage());
+		}
+	}
+
 	public void removeAll() {
 		repo.removeAll();
+	}
+
+	public void removeAll(Sport sport) {
+		repo.removeAll(sport);
 	}
 
 	public static void main(String args[]) {

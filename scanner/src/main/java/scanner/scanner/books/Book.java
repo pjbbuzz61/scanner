@@ -63,6 +63,10 @@ public abstract class Book {
 		oddsService.persistOdds(odds);
 	}
 
+	public void persistOdds(Odds odds, String collection) {
+		oddsService.persistOdds(odds, collection);
+	}
+
 	public void setTeamService(TeamService srv) {
 		teamService = srv;
 	}
@@ -100,7 +104,7 @@ public abstract class Book {
 		closeDriver();
 		System.setProperty(
 				"webdriver.gecko.driver", 
-				System.getProperty("user.dir") + "/drivers/geckodriver_34");
+				System.getProperty("user.dir") + "/scanner/drivers/geckodriver_34");
 		FirefoxOptions options = new FirefoxOptions()
 				.setAcceptInsecureCerts(true);
 		driver = new FirefoxDriver(options);

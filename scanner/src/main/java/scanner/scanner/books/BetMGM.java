@@ -211,15 +211,18 @@ public class BetMGM extends Book {
 					case MLB:
 						break;
 					case NBA:
+						list = parseTeamEvent(filename, sport);
 						break;
 					case NCAAB:
 						break;
 					case NCAAF:
-						list = parseNcaaf(filename, sport);
+						list = parseTeamEvent(filename, sport);
 						break;
 					case NFL:
+						list = parseTeamEvent(filename, sport);
 						break;
 					case NHL:
+						list = parseTeamEvent(filename, sport);
 						break;
 					case SOCCER_EPL:
 						break;
@@ -244,7 +247,7 @@ public class BetMGM extends Book {
 
 	        if(list != null) {
 		        for(Odds odds : list) {
-		        	persistOdds(odds);
+		        	persistOdds(odds, "odds" + "_" + sport);
 		        }
 	        }
 	        return list;
@@ -257,7 +260,7 @@ public class BetMGM extends Book {
 		return null;
 	}
 	
-	private List<Odds> parseNcaaf(String file, Sport sport) {
+	private List<Odds> parseTeamEvent(String file, Sport sport) {
 
 		StringBuilder sb = new StringBuilder();
 		List<Odds> list = new ArrayList<>();
@@ -365,7 +368,9 @@ public class BetMGM extends Book {
 		c.setTime(new Date());
 		Odds odds = new Odds();
 		odds.setTimeStamp(new Date());
-		
+		odds.setBook(this.sportsbook);
+		odds.setSport(sport);
+
 		Element link = e.select("a.grid-info-wrapper").first();
 		String url = link.attr("href");
 		String urlParts[] = url.split("-");
@@ -379,7 +384,7 @@ public class BetMGM extends Book {
 		if(liveTimer.size() <= 0) {
 			Elements preMatchTimer = timer.select("ms-prematch-timer");
 			if(preMatchTimer.size() > 0) {
-				odds.setPeriod(Period.NONE); 
+				odds.setPeriod(Period.GAME); 
 				odds.setStatus(Status.SCHEDULED);
 				String dateString = preMatchTimer.text();
 				String[] parts = dateString.split(" ");
@@ -560,7 +565,9 @@ public class BetMGM extends Book {
 		c.setTime(new Date());
 		Odds odds = new Odds();
 		odds.setTimeStamp(new Date());
-		
+		odds.setBook(this.sportsbook);
+		odds.setSport(sport);
+
 		Element link = e.select("a.grid-info-wrapper").first();
 		String url = link.attr("href");
 		String urlParts[] = url.split("-");
@@ -581,7 +588,7 @@ public class BetMGM extends Book {
 		if(liveTimer.size() <= 0) {
 			Elements preMatchTimer = timer.select("ms-prematch-timer");
 			if(preMatchTimer.size() > 0) {
-				odds.setPeriod(Period.NONE); 
+				odds.setPeriod(Period.GAME); 
 				odds.setStatus(Status.SCHEDULED);
 				String dateString = preMatchTimer.text();
 				String[] parts = dateString.split(" ");
@@ -670,15 +677,22 @@ public class BetMGM extends Book {
 			String p2 = participants.get(1).text().toUpperCase().trim();
 			Team p1Team = null;
 			Team p2Team = null;
+			boolean failed = false;
 			try {
 				p1Team = getTeam(this.sportsbook, sport, p1, true);
-				p2Team = getTeam(this.sportsbook, sport, p2, true);
 				odds.setAway(p1Team);
+			} catch(Exception e3) {
+				failed = true;
+			}
+			try {
+				p2Team = getTeam(this.sportsbook, sport, p2, true);
 				odds.setHome(p2Team);
 			} catch(Exception e3) {
+				failed = true;
+			}
+			if(failed) {
 				return;
 			}
-
 		} else if(participants.size() != 0) {
 			System.out.println("Dont have two particpants: " + e);
 			//continue;
@@ -809,6 +823,7 @@ public class BetMGM extends Book {
 			case MLB:
 				break;
 			case NBA:
+				url = "https://www.md.betmgm.com/en/sports/basketball-7/betting/usa-9/nba-6004";
 				break;
 			case NCAAB:
 				break;
@@ -816,8 +831,10 @@ public class BetMGM extends Book {
 				url = "https://www.md.betmgm.com/en/sports/football-11/betting/usa-9/college-football-211";
 				break;
 			case NFL:
+				url = "https://www.md.betmgm.com/en/sports/football-11/betting/usa-9/nfl-35";
 				break;
 			case NHL:
+				url = "https://www.md.betmgm.com/en/sports/hockey-12/betting/usa-9/nhl-34";
 				break;
 			case TENNIS:
 				url = "https://www.md.betmgm.com/en/sports/tennis-5";
@@ -1005,7 +1022,7 @@ public class BetMGM extends Book {
 		TeamService tSrv = new TeamService();
 		TeamRepo tRepo = new TeamRepo();
 		
-		ConnectionString connectionString = new ConnectionString("mongodb://192.168.1.203:27017/scanner");
+		ConnectionString connectionString = new ConnectionString("mongodb://localhost:27017/scanner");
 		MongoClientSettings mongoClientSettings = MongoClientSettings.builder()
 	          .applyConnectionString(connectionString)
 	          .build();
@@ -1036,7 +1053,7 @@ public class BetMGM extends Book {
 		mgm.setOddsService(os);
 		
 		if(deleteOdds) {
-			os.removeAll();
+			os.removeAll(sport);
 		}
 		try {
 			mgm.acquire(sport);
@@ -1044,6 +1061,7 @@ public class BetMGM extends Book {
 			System.out.println("Exception from acquire: " + e);
 			e.printStackTrace();
 		}
+		mgm.closeDriver();
 		
 	}
 
