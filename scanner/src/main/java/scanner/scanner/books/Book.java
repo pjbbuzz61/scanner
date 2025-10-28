@@ -112,19 +112,19 @@ public abstract class Book {
 		javascriptExecutor = (JavascriptExecutor) driver;
 /*
 		closeDriver();
-		String exe = "chromedriver_v128.exe";
-		if(System.getProperty("os.name").contentEquals("Linux")) {
-			exe = "chromedriver_141";
-		}
-		String drv = System.getProperty("user.dir") + 
-				File.separator +
-				"drivers" +
-				File.separator +
-				exe;
 		System.setProperty(
-				"webdriver.chrome.driver", 
-				drv);
-		driver = new ChromeDriver();
+				"webdriver.gecko.driver", 
+				System.getProperty("user.dir") + "/scanner/drivers/geckodriver_34");
+
+		File f = new File("/home/pat/snap/firefox/common/.cache/mozilla/firefox/pj2cz7pf.default");
+		
+		FirefoxProfile myProfile = new FirefoxProfile(f);
+
+		FirefoxOptions options = new FirefoxOptions()
+				.setProfile(myProfile)
+				.setAcceptInsecureCerts(true);
+		driver = new FirefoxDriver(options);
+		driver.manage().timeouts().pageLoadTimeout(20, TimeUnit.SECONDS);
 		javascriptExecutor = (JavascriptExecutor) driver;
 */
 	}
