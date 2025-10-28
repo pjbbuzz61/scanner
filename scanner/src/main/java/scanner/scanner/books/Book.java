@@ -109,6 +109,7 @@ public abstract class Book {
 				.setAcceptInsecureCerts(true);
 		driver = new FirefoxDriver(options);
 		driver.manage().timeouts().pageLoadTimeout(20, TimeUnit.SECONDS);
+		javascriptExecutor = (JavascriptExecutor) driver;
 /*
 		closeDriver();
 		String exe = "chromedriver_v128.exe";
