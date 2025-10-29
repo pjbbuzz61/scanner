@@ -25,7 +25,7 @@ public class FinderService {
 	private OddsService oddsService;
 	
 	private List<Play> playList = new ArrayList<>();
-	private int playListLimit = 10;
+	private int playListLimit = 15;
 	
 	
 	private List<Play> getBestPlays(Sportsbook book, double amt, Sport sport, Double pct, boolean isBonus) {
@@ -157,7 +157,7 @@ public class FinderService {
 				}
 				if(src.getSpread().getAwayPrice() != null) {
 					awayML = src.getSpread().getAwayPrice();
-					play.setSrcPts(awayML);
+					play.setSrcML(awayML);
 				} else {
 					noPlay = true;
 				}
@@ -332,7 +332,7 @@ public class FinderService {
 		}
 		
 		// Points must match. Unused are preset to 0.0 so they can be checked too
-		if(awayPts != homePts) {
+		if(awayPts != -homePts) {
 			return null;
 		}
 		if(overPts != underPts) {

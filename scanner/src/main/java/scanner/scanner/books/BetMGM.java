@@ -202,7 +202,7 @@ public class BetMGM extends Book {
 			robot.keyRelease(KeyEvent.VK_ENTER);
 				
 			String filename = 
-					System.getProperty("user.home") + "/" + 
+					System.getProperty("user.home") + "/" + "SCRAPE_" + 
 							this.sportsbook + "_" + System.currentTimeMillis() + ".html"; 
 			readClipboard(filename);
 			List<Odds> list = null;
