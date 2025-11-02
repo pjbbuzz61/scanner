@@ -61,7 +61,7 @@ public class Espn extends Book {
 	Random random = new Random(System.currentTimeMillis());
 
 	public Espn() {
-		super(Sportsbook.ESPN);
+		super(Sportsbook.ESPN, true);
 	}
 	
 	@Override
@@ -203,9 +203,7 @@ public class Espn extends Book {
 						break;
 				}
 			} catch(Exception eee) {
-				BufferedWriter writer = new BufferedWriter(new FileWriter(System.getProperty("user.home") + "/crash.txt"));
-				writer.write("parse crashed: " + eee);
-				writer.close();
+				eee.printStackTrace();
 			}
 			File fileToDelete = new File(filename);
 
@@ -257,11 +255,13 @@ public class Espn extends Book {
 		
 		Elements container = doc.select("section[data-testid=marketplace-shelf-]");
 		Elements games = container.select("article");
-		System.out.println(games.size());
 		for(Element game : games) {
 			processEventTeam(game, list, sport);
 		}
 		
+		System.out.println("Number of games read in:   " + games.size());
+		System.out.println("Number of games persisted: " + list.size());
+
 		return list;
 	}
 
@@ -510,7 +510,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		odds.setSport(sport);
 		odds.setPeriod(Period.GAME); 
 
-		Elements containers = e.select("div.bg-card-primary > div.relative > div");
+		Elements containers = e.select("article > div > div > div");
 		if(containers.size() != 4) {
 			System.out.println("Failed to get the expected containers for data");
 			return;
@@ -826,12 +826,12 @@ private List<Odds> parseTennis(String file, Sport sport) {
 				break;
 			}
 		}
-		System.out.println("Counter is " + cntr);
+		//System.out.println("Counter is " + cntr);
 		if(popup == null) {
 			System.out.println(this.sportsbook + ": Failed to get app start up");
 			return;
 		}
-		System.out.println("Clicking off the popup");
+		//System.out.println("Clicking off the popup");
 		popup.click();
 		try {Thread.sleep(500L);} catch (InterruptedException e) {}
 		
@@ -848,12 +848,12 @@ private List<Odds> parseTennis(String file, Sport sport) {
 				break;
 			}
 		}
-		System.out.println("Counter is " + cntr);
+		//System.out.println("Counter is " + cntr);
 		if(modalClose == null) {
 			System.out.println(this.sportsbook + ": Failed to get modal close");
 			return;
 		}
-		System.out.println("Clicking off the init offer");
+		//System.out.println("Clicking off the init offer");
 		modalClose.click();
 		return;
 		

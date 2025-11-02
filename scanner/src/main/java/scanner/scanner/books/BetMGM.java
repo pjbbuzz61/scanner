@@ -63,7 +63,7 @@ public class BetMGM extends Book {
 	Random random = new Random(System.currentTimeMillis());
 
 	public BetMGM() {
-		super(Sportsbook.BETMGM);
+		super(Sportsbook.BETMGM, true);
 	}
 	
 	@Override
@@ -119,7 +119,7 @@ public class BetMGM extends Book {
 				WebElement mainView = 
 						driver.findElement(By.id("main-view"));
 				if(mainView != null) {
-					System.out.println("Main View size: w: " + mainView.getRect().width + ", h: " + mainView.getRect().height);
+					//System.out.println("Main View size: w: " + mainView.getRect().width + ", h: " + mainView.getRect().height);
 					h = mainView.getRect().height;
 				}
 			} catch(Exception ee) {
@@ -139,7 +139,7 @@ public class BetMGM extends Book {
 				numCycles = lastPersisted * 60 / 100;
 				if(numCycles < 35) numCycles = 35;
 			}
-			System.out.println("Number of scroll cycles up: " + numCycles);
+//			/System.out.println("Number of scroll cycles up: " + numCycles);
 			for(int i = 0; i < numCycles; ++i) {
 				Thread.sleep(150);
 				robot3.mouseWheel(-3);
@@ -233,9 +233,7 @@ public class BetMGM extends Book {
 						break;
 				}
 			} catch(Exception eee) {
-				BufferedWriter writer = new BufferedWriter(new FileWriter(System.getProperty("user.home") + "/crash.txt"));
-				writer.write("parse crashed: " + eee);
-				writer.close();
+				eee.printStackTrace();
 			}
 			File fileToDelete = new File(filename);
 
@@ -300,14 +298,19 @@ public class BetMGM extends Book {
 		
 		Elements eventGroups = doc.select("ms-event-group");
 		String currTournament = null;
+		int numGames = 0;
 		for(Element eventGroup : eventGroups) {
 			for(Element child : eventGroup.children()) {
 				if (child.tag().getName().contentEquals("ms-six-pack-event")) {
+					numGames++;
 					processEventTeam(child, list, currTournament, sport, periods);
 				}
 			}
 		}
 		
+		System.out.println("Number of games read in:   " + numGames);
+		System.out.println("Number of games persisted: " + list.size());
+
 		return list;
 	}
 
@@ -568,11 +571,20 @@ public class BetMGM extends Book {
 		odds.setBook(this.sportsbook);
 		odds.setSport(sport);
 
-		Element link = e.select("a.grid-info-wrapper").first();
-		String url = link.attr("href");
-		String urlParts[] = url.split("-");
-		odds.setUrl(url);
-		odds.setGameNumber(urlParts[urlParts.length - 1]);
+		String url = "URL not set";
+		Elements link = e.select("a.grid-info-wrapper");
+		if((link != null) && (link.size() > 0)) {
+			url = link.first().attr("href");
+			if(url != null) {
+				String urlParts[] = url.split("-");
+				odds.setUrl(url);
+				odds.setGameNumber(urlParts[urlParts.length - 1]);
+			} else {
+				System.out.println("Failed to find href for the url, continuing without it");
+			}
+		} else {
+			System.out.println("Failed to find the game link, continuing without it");
+		}
 		
 		// Get the headers for the offers
 		Elements hdrs = e.select("ms-group-header");
@@ -755,7 +767,7 @@ public class BetMGM extends Book {
 								break;
 						} // switch
 					} else {
-						System.out.println("Didn't find two options for the offer: " + url);
+						System.out.println("Didn't find two options for the offer: " + url + " " + headers.get(col));
 					}
 					col++;
 				} // for 3 blocks
@@ -916,11 +928,11 @@ public class BetMGM extends Book {
 					moreEvents.click();
 					try {Thread.sleep(1000);} catch(Exception ee) {}
 				} else {
-					System.out.println("Didn't find more events text ...");
+//					System.out.println("Didn't find more events text ...");
 					break;
 				}
 			} catch(Exception e) {
-				System.out.println("Exception: Didn't find more events: " + e.getMessage());
+//				System.out.println("Exception: Didn't find more events: " + e.getMessage());
 				break;
 			}
 		}

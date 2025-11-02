@@ -25,10 +25,10 @@ public class FinderService {
 	private OddsService oddsService;
 	
 	private List<Play> playList = new ArrayList<>();
-	private int playListLimit = 15;
+	private int playListLimit = 16;
 	
 	
-	private List<Play> getBestPlays(Sportsbook book, double amt, Sport sport, Double pct, boolean isBonus) {
+	private List<Play> getBestPlays(Sportsbook book, double amt, Sport sport, Double pct, boolean isBonus, String part) {
 		
 		List<Odds> oddsList = oddsService.getOdds(sport, Period.GAME);
 		List<Odds> source = new ArrayList<>();
@@ -36,10 +36,26 @@ public class FinderService {
 		
 		// Make list of books we're looking from to all others
 		for(Odds o : oddsList) {
-			if(o.getBook() == book) {
+			if(part != null) {
+				if(
+						(o.getAway().getCommonName().contentEquals(part) == false) 
+							&&
+						(o.getHome().getCommonName().contentEquals(part) == false)
+						) {
+					continue;
+					
+				}
+			}
+			if(book == Sportsbook.ANY) {
 				source.add(o);
-			} else {
 				target.add(o);
+			} else {
+				if(o.getBook() == book) {
+					source.add(o);
+				} else {
+					target.add(o);
+				}
+
 			}
 		}
 
@@ -54,6 +70,11 @@ public class FinderService {
 
 		for(Odds src : source) {
 			for(Odds tgt : target) {
+				
+				if(src.getBook() == tgt.getBook()) {
+					continue;
+				}
+
 				// Check same participants
 				if(
 						src.getHome().getCommonName().contentEquals(tgt.getHome().getCommonName()) &&
@@ -415,6 +436,8 @@ public class FinderService {
 		Sportsbook book    = null;
 		Double     pct     = null;
 		boolean    isBonus = true;
+		String     part    = null;
+		
 		
 		// Handle input args
 		if(args.length == 0) {
@@ -457,6 +480,10 @@ public class FinderService {
 			        }
 					break;
 			
+				case "part":
+					part = parts[1];
+					break;
+					
 				case "pct":
 					try {
 						pct = Double.valueOf(parts[1]);
@@ -480,7 +507,7 @@ public class FinderService {
 		os.setRepo(oRepo);
 		service.setOddsService(os);
 		
-		List<Play> bestPlays = service.getBestPlays(book, amt, sport, pct, isBonus);
+		List<Play> bestPlays = service.getBestPlays(book, amt, sport, pct, isBonus, part);
 		for(Play p : bestPlays) {
 			System.out.println(p);
 		}

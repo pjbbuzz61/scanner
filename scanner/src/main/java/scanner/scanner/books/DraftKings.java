@@ -62,7 +62,7 @@ public class DraftKings extends Book {
 	Random random = new Random(System.currentTimeMillis());
 
 	public DraftKings() {
-		super(Sportsbook.DRAFTKINGS);
+		super(Sportsbook.DRAFTKINGS, true);
 	}
 	
 	@Override
@@ -203,9 +203,7 @@ public class DraftKings extends Book {
 						break;
 				}
 			} catch(Exception eee) {
-				BufferedWriter writer = new BufferedWriter(new FileWriter(System.getProperty("user.home") + "/crash.txt"));
-				writer.write("parse crashed: " + eee);
-				writer.close();
+				eee.printStackTrace();
 			}
 			File fileToDelete = new File(filename);
 
@@ -256,9 +254,10 @@ public class DraftKings extends Book {
 		}
 		
 		Elements containers = doc.select("div[data-testid=marketboard]");
+		int numGames = 0;
 		for(Element container : containers) {
 			Elements games = container.select("div.cb-static-parlay__content--inner");
-			System.out.println(games.size());
+			numGames += games.size()/3;
 			if((games.size() % 3) != 0) {
 				System.out.println("Problem: Should be three containers for each game");
 				return list;
@@ -268,7 +267,10 @@ public class DraftKings extends Book {
 				processEventTeam(games.get(i+0), games.get(i+1), games.get(i+2), list, sport);
 			}
 		}
-		
+
+		System.out.println("Number of games read in:   " + numGames);
+		System.out.println("Number of games persisted: " + list.size());
+	
 		return list;
 	}
 
@@ -548,32 +550,25 @@ public class DraftKings extends Book {
 
 		Elements oddsCon = match.select("div.cb-side-column__right");
 		Elements buttons = oddsCon.get(0).select("button");
-
-		String awaySpreadPts  = buttons.get(0).text().split(" ")[0];
-		String homeSpreadPts  = buttons.get(3).text().split(" ")[0];
-		String awaySpreadLine = fixIt(buttons.get(0).text().split(" ")[1]);
-		String homeSpreadLine = fixIt(buttons.get(3).text().split(" ")[1]);
-
-		String overPts   = buttons.get(1).text().split(" ")[0].replace("O", "");
-		String underPts  = buttons.get(4).text().split(" ")[0].replace("U", "");
-		String overLine  = fixIt(buttons.get(1).text().split(" ")[1]);
-		String underLine = fixIt(buttons.get(4).text().split(" ")[1]);
-		
-		String awayML    = fixIt(buttons.get(2).text());
-		String homeML    = fixIt(buttons.get(5).text());		
+		if(buttons.size() != 6) {
+			System.out.println("Not all odds populated, will ignore this contest");
+			return;
+		}
 		
 		Spread spread = new Spread();
 		spread.setPeriod(Period.GAME);
 		try {
+			String awaySpreadPts  = buttons.get(0).text().split(" ")[0];
+			String homeSpreadPts  = buttons.get(3).text().split(" ")[0];
+			String awaySpreadLine = fixIt(buttons.get(0).text().split(" ")[1]);
+			String homeSpreadLine = fixIt(buttons.get(3).text().split(" ")[1]);
 			spread.setAwayPoints(Double.parseDouble(awaySpreadPts));
 			spread.setHomePoints(Double.parseDouble(homeSpreadPts));
 			spread.setAwayPrice(Integer.parseInt(awaySpreadLine));
 			spread.setHomePrice(Integer.parseInt(homeSpreadLine));
 		} catch(Exception e3) {
-			System.out.println("Failed to parse Spread odds: " 
-					+ awaySpreadPts + " " + awaySpreadLine + " " 
-					+ homeSpreadPts + " " + homeSpreadLine);
-			
+			System.out.println("Failed to parse Spread odds: " + teams.get(0).text() + " at " + teams.get(1).text());
+			System.out.println("Odds Container: " + oddsCon.text());
 		}
 		odds.setSpread(spread);
 
@@ -582,23 +577,29 @@ public class DraftKings extends Book {
 		ml.setHomePoints(0.0);
 		ml.setPeriod(Period.GAME);
 		try {
+			String awayML    = fixIt(buttons.get(2).text());
+			String homeML    = fixIt(buttons.get(5).text());		
 			ml.setAwayPrice(Integer.parseInt(awayML));
 			ml.setHomePrice(Integer.parseInt(homeML));
 		} catch(Exception e3) {
-			System.out.println("Failed to parse ML odds: " 
-					+ awayML + " " + homeML);
+			System.out.println("Failed to parse Moneyline odds: " + teams.get(0).text() + " at " + teams.get(1).text());
+			System.out.println("Odds Container: " + oddsCon.text());
 		}
 		odds.setMl(ml);
 
 		OU ou = new OU();
 		ou.setPeriod(Period.GAME);
 		try {
+			String overPts   = buttons.get(1).text().split(" ")[0].replace("O", "");
+			String underPts  = buttons.get(4).text().split(" ")[0].replace("U", "");
+			String overLine  = fixIt(buttons.get(1).text().split(" ")[1]);
+			String underLine = fixIt(buttons.get(4).text().split(" ")[1]);
 			ou.setPoints(Double.parseDouble(overPts.trim()));
 			ou.setOver(Integer.parseInt(overLine));
 			ou.setUnder(Integer.parseInt(underLine));
 		} catch(Exception e3) {
-			System.out.println("Failed to parse OU odds: " 
-					+ overPts + " " + overLine + " " + underLine);
+			System.out.println("Failed to parse Totals odds: " + teams.get(0).text() + " at " + teams.get(1).text());
+			System.out.println("Odds Container: " + oddsCon.text());
 		}
 		odds.setOu(ou);
 

@@ -59,9 +59,10 @@ import scanner.scanner.util.Status;
 public class FanDuel extends Book {
 
 	Random random = new Random(System.currentTimeMillis());
+	int numPersisted = 0;
 
 	public FanDuel() {
-		super(Sportsbook.FANDUEL);
+		super(Sportsbook.FANDUEL, true);
 	}
 	
 	@Override
@@ -80,8 +81,6 @@ public class FanDuel extends Book {
 		refresh(sport);
 		
 		try {
-
-			WebElement scroll = driver.findElement(By.tagName("body"));
 
 			Actions actions = new Actions(driver);
 
@@ -217,9 +216,7 @@ public class FanDuel extends Book {
 						break;
 				}
 			} catch(Exception eee) {
-				BufferedWriter writer = new BufferedWriter(new FileWriter(System.getProperty("user.home") + "/crash.txt"));
-				writer.write("parse crashed: " + eee);
-				writer.close();
+				eee.printStackTrace();
 			}
 			File fileToDelete = new File(filename);
 
@@ -271,7 +268,7 @@ public class FanDuel extends Book {
 		
 		Elements container = doc.select("main > div > div > div > div:nth-child(2) > div:nth-child(3) > ul");
 		Elements games = container.select("li");
-		System.out.println(games.size());
+		int numGames = 0;
 		for(Element game : games) {
 			if(game.text().contains(sport + " Odds")) {
 				continue;
@@ -279,9 +276,12 @@ public class FanDuel extends Book {
 			if(game.text().contains("Spread Money Total")) {
 				continue;
 			}
+			numGames++;
 			processEventTeam(game, list, sport);
 		}
 		
+		System.out.println("Number of games read in:   " + numGames);
+		System.out.println("Number of games persisted: " + numPersisted);
 		return list;
 	}
 
@@ -530,47 +530,66 @@ public class FanDuel extends Book {
 		odds.setSport(sport);
 		odds.setPeriod(Period.GAME); 
 
-		Elements anchor = e.select("div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > a:nth-child(1)");
-		Elements spans = anchor.select("span[aria-label]");
+		String away = null;
+		String home = null;
 		
-		boolean failed = false;
 		try {
-			odds.setAway(getTeam(this.sportsbook, sport, spans.get(0).text(), true));
-		} catch(Exception e3) {
-			failed = true;
-		}
-		try {
-			odds.setHome(getTeam(this.sportsbook, sport, spans.get(1).text(), true));
-		} catch(Exception e3) {
-			failed = true;
-		}
-		if(failed) {
+			Elements anchor = e.select("div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > a:nth-child(1)");
+			Elements spans = anchor.select("span[aria-label]");
+			
+			boolean failed = false;
+			try {
+				away = spans.get(0).text().trim();
+				odds.setAway(getTeam(this.sportsbook, sport, away, true));
+			} catch(Exception e3) {
+				failed = true;
+			}
+			try {
+				home = spans.get(1).text().trim();
+				odds.setHome(getTeam(this.sportsbook, sport, home, true));
+			} catch(Exception e3) {
+				failed = true;
+			}
+			if(failed) {
+				System.out.println("Failed to look up both teams, not persisted game");
+				return;
+			}
+
+			// Look for live event marker
+			Elements live = e.select("div > div > a > div > div > svg:nth-child(2) > title");
+			if(live.text().contains("live event")) {
+				System.out.println(away + " at " + home + " is in progress, will not process");
+				return;
+			}
+
+			// TODO - set game time
+//			Elements gameTime = e.select("time");
+//			System.out.println(gameTime.text());
+
+		} catch(Exception e2) {
+			System.out.println("Failed to get teams, live marker, or time: " + e2.getMessage());
 			return;
 		}
-
-		// Look for live event marker
-		Elements live = e.select("div > div > a > div > div > svg:nth-child(2) > title");
-		if(live.text().contains("live event")) {
-			return;
-		}
-
-		Elements gameTime = e.select("time");
-//		System.out.println(gameTime.text());
-		// TODO - set game time
 		
-		Elements spreadPts = e.select("div[aria-label^=Spread] > span:nth-child(1)");
-		Elements spreadML = e.select("div[aria-label^=Spread] > span:nth-child(2)");
-		Elements moneylines = e.select("div[aria-label^=Money] > span:nth-child(1)");
-		Elements ouPts = e.select("div[aria-label^=Total] > span:nth-child(1)");
-		Elements ouML = e.select("div[aria-label^=Total] > span:nth-child(2)");
+		Elements spreadPts = null;
+		Elements spreadML = null;
+		Elements moneylines = null;
+		Elements ouPts = null;
+		Elements ouML = null;
 
 		Spread spread = new Spread();
 		spread.setPeriod(Period.GAME);
 		try {
-			spread.setAwayPoints(Double.parseDouble(spreadPts.get(0).text()));
-			spread.setHomePoints(Double.parseDouble(spreadPts.get(1).text()));
-			spread.setAwayPrice(Integer.parseInt(spreadML.get(0).text()));
-			spread.setHomePrice(Integer.parseInt(spreadML.get(1).text()));
+			spreadPts = e.select("div[aria-label^=Spread] > span:nth-child(1)");
+			spreadML = e.select("div[aria-label^=Spread] > span:nth-child(2)");
+			if((spreadPts == null) || (spreadML == null)) {
+				System.out.println("Failed to parse spread: " + away + " at " + home);
+			} else {
+				spread.setAwayPoints(Double.parseDouble(spreadPts.get(0).text()));
+				spread.setHomePoints(Double.parseDouble(spreadPts.get(1).text()));
+				spread.setAwayPrice(Integer.parseInt(spreadML.get(0).text()));
+				spread.setHomePrice(Integer.parseInt(spreadML.get(1).text()));
+			}
 		} catch(Exception e3) {
 			System.out.println("Failed to parse Spread odds: " 
 					+ spreadPts.get(0).text() + " " + spreadML.get(0).text() + " " 
@@ -584,8 +603,13 @@ public class FanDuel extends Book {
 		ml.setHomePoints(0.0);
 		ml.setPeriod(Period.GAME);
 		try {
-			ml.setAwayPrice(Integer.parseInt(moneylines.get(0).text()));
-			ml.setHomePrice(Integer.parseInt(moneylines.get(1).text()));
+			moneylines = e.select("div[aria-label^=Money] > span:nth-child(1)");
+			if((moneylines == null)) {
+				System.out.println("Failed to parse moneylines: " + away + " at " + home);
+			} else {
+				ml.setAwayPrice(Integer.parseInt(moneylines.get(0).text()));
+				ml.setHomePrice(Integer.parseInt(moneylines.get(1).text()));
+			}
 		} catch(Exception e3) {
 			System.out.println("Failed to parse ML odds: " 
 					+ moneylines.get(0).text() + " " + moneylines.get(1).text());
@@ -595,9 +619,15 @@ public class FanDuel extends Book {
 		OU ou = new OU();
 		ou.setPeriod(Period.GAME);
 		try {
-			ou.setPoints(Double.parseDouble(ouPts.get(0).text().replace("O", "").trim()));
-			ou.setOver(Integer.parseInt(ouML.get(0).text()));
-			ou.setUnder(Integer.parseInt(ouML.get(1).text()));
+			ouPts = e.select("div[aria-label^=Total] > span:nth-child(1)");
+			ouML = e.select("div[aria-label^=Total] > span:nth-child(2)");
+			if((ouPts == null) || (ouML == null)) {
+				System.out.println("Failed to parse totals: " + away + " at " + home);
+			} else {
+				ou.setPoints(Double.parseDouble(ouPts.get(0).text().replace("O", "").trim()));
+				ou.setOver(Integer.parseInt(ouML.get(0).text()));
+				ou.setUnder(Integer.parseInt(ouML.get(1).text()));
+			}
 		} catch(Exception e3) {
 			System.out.println("Failed to parse OU odds: " 
 					+ ouPts.get(0).text().replace("O", "").trim() + " " + ouML.get(0).text() + " " + ouML.get(1).text());
@@ -605,12 +635,13 @@ public class FanDuel extends Book {
 		odds.setOu(ou);
 
 		if((odds.getAway() != null) && (odds.getHome() != null)) {
+			numPersisted++;
 			list.add(odds);
 		} else {
 			System.out.println("Not persisting: " + odds);
 		}
 	}
-
+/*
 	private Date getStartingDate(String dateString) {
 
 		// Oct 26, 2025 · 4:25 PM
@@ -704,7 +735,7 @@ public class FanDuel extends Book {
 		
 		return d;
 	}
-
+*/
 	private Period getPeriod(String text) {
 		switch(text) {
 			case "Set 1": return Period.SET1; 

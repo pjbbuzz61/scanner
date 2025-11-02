@@ -14,7 +14,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -62,7 +61,7 @@ public class BetRivers extends Book {
 	Random random = new Random(System.currentTimeMillis());
 
 	public BetRivers() {
-		super(Sportsbook.BETRIVERS);
+		super(Sportsbook.BETRIVERS, true);
 	}
 	
 	@Override
@@ -184,12 +183,12 @@ public class BetRivers extends Book {
 				try {
 					WebElement moreEventsLabel = driver
 							.findElement(By.cssSelector("button[data-testid=show-more-events-button]"));
-					System.out.println("Clicking for more events ...");
+					//System.out.println("Clicking for more events ...");
 					javascriptExecutor.executeScript("arguments[0].scrollIntoView();", moreEventsLabel);
 					moreEventsLabel.click();
 					try {Thread.sleep(1000);} catch(Exception ee) {}
 				} catch(Exception e) {
-					System.out.println("Exception: Didn't find more events: " + e.getMessage());
+					//System.out.println("Exception: Didn't find more events: " + e.getMessage());
 					moreEvents = false;
 				}
 
@@ -224,9 +223,7 @@ public class BetRivers extends Book {
 						break;
 				}
 			} catch(Exception eee) {
-				BufferedWriter writer = new BufferedWriter(new FileWriter(System.getProperty("user.home") + "/crash.txt"));
-				writer.write("parse crashed: " + eee);
-				writer.close();
+				eee.printStackTrace();
 			}
 			for(String file : files) {
 				
@@ -256,6 +253,7 @@ public class BetRivers extends Book {
 
 		List<Odds> list = new ArrayList<>();
 
+		int numGames = 0;
 		for(String file : files) {
 			
 			StringBuilder sb = new StringBuilder();
@@ -282,11 +280,21 @@ public class BetRivers extends Book {
 			}
 
 			Elements container = doc.select("div.main-page-view-sportsbook");
+			if((container == null) || (container.size() == 0)) {
+				System.out.println("Failed to find the main page, outta here");
+				return list;
+			}
 			Elements games = container.get(0).select("article");
 			for(Element game : games) {
-				processEventTeam(game, list, sport);
+				boolean valid = processEventTeam(game, list, sport);
+				if(valid) {
+					numGames++;
+				}
 			}
 		}
+		
+		System.out.println("Number of games read in:   " + numGames);
+		System.out.println("Number of games persisted: " + list.size());
 		
 		return list;
 	}
@@ -528,7 +536,7 @@ public class BetRivers extends Book {
 		
 	}
 
-	private void processEventTeam(Element match,  List<Odds> list, Sport sport) {
+	private boolean processEventTeam(Element match,  List<Odds> list, Sport sport) {
 		
 		Odds odds = new Odds();
 		odds.setTimeStamp(new Date());
@@ -540,10 +548,10 @@ public class BetRivers extends Book {
 		Element homeTeamContainer = match.select("div > div > div > div:nth-child(2) > div > div > div:nth-child(2) > div").first();
 
 		if(awayTeamContainer == null) {
-			return;
+			return false;
 		}
 		if(homeTeamContainer == null) {
-			return;
+			return false;
 		}
 		String awayTeam = awayTeamContainer.text();
 		String homeTeam = homeTeamContainer.text();
@@ -565,14 +573,14 @@ public class BetRivers extends Book {
 			failed = true;
 		}
 		if(failed) {
-			return;
+			return true;
 		}
 
 		// Look for live event marker
 		Elements live = match.select("div > div > div > div > div > div > div");
 		if(live.size() > 0) {
 			if(live.text().contains("Live")) {
-				return;
+				return true;
 			}
 		}
 
@@ -581,33 +589,21 @@ public class BetRivers extends Book {
 //		System.out.println(gameTime.text());
 
 		Elements oddsCon = match.select("div > div > div > div:nth-child(4)");
-
-		String awaySpreadPts  = oddsCon.get(0).select("div > div > button > span").get(0).text();
-		String homeSpreadPts  = oddsCon.get(0).select("div > div > button:nth-child(2) > span").get(0).text();
-		String awaySpreadLine = oddsCon.get(0).select("div > div > button > div").get(0).text();
-		String homeSpreadLine = oddsCon.get(0).select("div > div > button:nth-child(2) > div").get(0).text();
-
-		String awayML    = oddsCon.get(0).select("div > div:nth-child(2) > button").get(0).text();
-		String homeML    = oddsCon.get(0).select("div > div:nth-child(2) > button:nth-child(2)").get(0).text();
-
-		String overPts   = oddsCon.get(0).select("div > div:nth-child(3) > button > span").get(0).text().replace("O", "").trim();
-		String underPts  = oddsCon.get(0).select("div > div:nth-child(3) > button:nth-child(2) > span").get(0).text().replace("U", "").trim();
-		String overLine  = oddsCon.get(0).select("div > div:nth-child(3) > button > div").get(0).text();
-		String underLine = oddsCon.get(0).select("div > div:nth-child(3) > button:nth-child(2) > div").get(0).text();
-
 		
 		Spread spread = new Spread();
 		spread.setPeriod(Period.GAME);
 		try {
+			String awaySpreadPts  = oddsCon.get(0).select("div > div > button > span").get(0).text();
+			String homeSpreadPts  = oddsCon.get(0).select("div > div > button:nth-child(2) > span").get(0).text();
+			String awaySpreadLine = oddsCon.get(0).select("div > div > button > div").get(0).text();
+			String homeSpreadLine = oddsCon.get(0).select("div > div > button:nth-child(2) > div").get(0).text();
 			spread.setAwayPoints(Double.parseDouble(awaySpreadPts));
 			spread.setHomePoints(Double.parseDouble(homeSpreadPts));
 			spread.setAwayPrice(Integer.parseInt(awaySpreadLine));
 			spread.setHomePrice(Integer.parseInt(homeSpreadLine));
 		} catch(Exception e3) {
 			System.out.println("Failed to parse Spread odds: " 
-					+ awaySpreadPts + " " + awaySpreadLine + " " 
-					+ homeSpreadPts + " " + homeSpreadLine);
-			
+					+ awayTeam + " at " + homeTeam +  oddsCon.text());
 		}
 		odds.setSpread(spread);
 
@@ -616,23 +612,28 @@ public class BetRivers extends Book {
 		ml.setHomePoints(0.0);
 		ml.setPeriod(Period.GAME);
 		try {
+			String awayML    = oddsCon.get(0).select("div > div:nth-child(2) > button").get(0).text();
+			String homeML    = oddsCon.get(0).select("div > div:nth-child(2) > button:nth-child(2)").get(0).text();
 			ml.setAwayPrice(Integer.parseInt(awayML));
 			ml.setHomePrice(Integer.parseInt(homeML));
 		} catch(Exception e3) {
 			System.out.println("Failed to parse ML odds: " 
-					+ awayML + " " + homeML);
+					+ awayTeam + " at " + homeTeam +  oddsCon.text());
 		}
 		odds.setMl(ml);
 
 		OU ou = new OU();
 		ou.setPeriod(Period.GAME);
 		try {
+			String overPts   = oddsCon.get(0).select("div > div:nth-child(3) > button > span").get(0).text().replace("O", "").trim();
+			String overLine  = oddsCon.get(0).select("div > div:nth-child(3) > button > div").get(0).text();
+			String underLine = oddsCon.get(0).select("div > div:nth-child(3) > button:nth-child(2) > div").get(0).text();
 			ou.setPoints(Double.parseDouble(overPts.trim()));
 			ou.setOver(Integer.parseInt(overLine));
 			ou.setUnder(Integer.parseInt(underLine));
 		} catch(Exception e3) {
 			System.out.println("Failed to parse OU odds: " 
-					+ overPts + " " + overLine + " " + underLine);
+					+ awayTeam + " at " + homeTeam +  oddsCon.text());
 		}
 		odds.setOu(ou);
 
@@ -641,8 +642,11 @@ public class BetRivers extends Book {
 		} else {
 			System.out.println("Not persisting: " + odds);
 		}
+		
+		return true;
 	}
 
+	/*
 	private Date getStartingDate(String dateString) {
 
 		// Oct 26, 2025 · 4:25 PM
@@ -736,7 +740,7 @@ public class BetRivers extends Book {
 		
 		return d;
 	}
-
+*/
 	private Period getPeriod(String text) {
 		switch(text) {
 			case "Set 1": return Period.SET1; 

@@ -21,6 +21,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
+import java.util.Scanner;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -61,7 +62,7 @@ public class Caesars extends Book {
 	Random random = new Random(System.currentTimeMillis());
 
 	public Caesars() {
-		super(Sportsbook.CAESARS);
+		super(Sportsbook.CAESARS, false);
 	}
 	
 	@Override
@@ -77,169 +78,184 @@ public class Caesars extends Book {
 
 	private List<Odds> getMatchups(Sport sport) throws IOException, OddsException {
 
-		refresh(sport);
-		
-		try {
+		if(useDriver) {
+			
+			refresh(sport);
+			
+			try {
 
-			WebElement scroll = driver.findElement(By.tagName("body"));
+				//WebElement scroll = driver.findElement(By.tagName("body"));
 
-			Actions actions = new Actions(driver);
+				Actions actions = new Actions(driver);
 
-			WebElement body = driver.findElement(By.tagName("body"));
-			List<WebElement> links = body.findElements(By.tagName("li"));
-			for(WebElement link : links) {
-				if(
-						link.getText().contentEquals(sport.toString() + " Odds")
-							||
-						((sport == Sport.NCAAF) && link.getText().contains("College Football Games"))
-						) {
-					System.out.println(link.getText());
-					javascriptExecutor.executeScript("arguments[0].scrollIntoView(true);", link);
-					actions.contextClick(link).build().perform();
-					break;
+				WebElement body = driver.findElement(By.tagName("body"));
+				List<WebElement> links = body.findElements(By.tagName("li"));
+				for(WebElement link : links) {
+					if(
+							link.getText().contentEquals(sport.toString() + " Odds")
+								||
+							((sport == Sport.NCAAF) && link.getText().contains("College Football Games"))
+							) {
+						System.out.println(link.getText());
+						javascriptExecutor.executeScript("arguments[0].scrollIntoView(true);", link);
+						actions.contextClick(link).build().perform();
+						break;
+					}
 				}
-			}
 
-			// Pull up context menu
-//			actions.contextClick(scroll).build().perform();
+				// Pull up context menu
+//				actions.contextClick(scroll).build().perform();
 
-			Robot robot = new Robot();
-			
-			// Select the debug window from the context menu
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_Q);
-			robot.keyRelease(KeyEvent.VK_Q);
-			
-			// Mouse into the Elements display and click to gain focus
-			robot.mouseMove(500,1000);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-
-			// Page up enough times to get to the top
-			for(int i = 0; i < 25; ++i) {
+				Robot robot = new Robot();
+				
+				// Select the debug window from the context menu
 				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_PAGE_UP);
+				robot.keyPress(KeyEvent.VK_Q);
+				robot.keyRelease(KeyEvent.VK_Q);
+				
+				// Mouse into the Elements display and click to gain focus
+				robot.mouseMove(500,1000);
 				Thread.sleep(100);
-				robot.keyRelease(KeyEvent.VK_PAGE_UP);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+
+				// Page up enough times to get to the top
+				for(int i = 0; i < 25; ++i) {
+					Thread.sleep(100);
+					robot.keyPress(KeyEvent.VK_PAGE_UP);
+					Thread.sleep(100);
+					robot.keyRelease(KeyEvent.VK_PAGE_UP);
+				}
+					
+				// move to a spot off the first line
+				Thread.sleep(100);
+				robot.mouseMove(500,1010);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+
+				// select the first line of the elements output (the body of the html)
+				Thread.sleep(100);
+				robot.mouseMove(500,910);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+					
+				// bring up the context menu
+				Thread.sleep(100);
+				robot.mousePress(InputEvent.BUTTON3_DOWN_MASK);
+				Thread.sleep(100);
+				robot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
+
+				// Go to copy option
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+
+				// Bring up copy options
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_RIGHT);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_RIGHT);
+
+				// Select copy inner html
+				Thread.sleep(1000);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(500);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+				Thread.sleep(500);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(500);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+					
+			} catch(Exception eee) {
+				eee.printStackTrace();
 			}
-				
-			// move to a spot off the first line
-			Thread.sleep(100);
-			robot.mouseMove(500,1010);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-
-			// select the first line of the elements output (the body of the html)
-			Thread.sleep(100);
-			robot.mouseMove(500,910);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-				
-			// bring up the context menu
-			Thread.sleep(100);
-			robot.mousePress(InputEvent.BUTTON3_DOWN_MASK);
-			Thread.sleep(100);
-			robot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
-
-			// Go to copy option
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-
-			// Bring up copy options
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_RIGHT);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_RIGHT);
-
-			// Select copy inner html
-			Thread.sleep(1000);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(500);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-			Thread.sleep(500);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(500);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-				
-			String filename = 
+		}
+		
+		String filename = null;
+		if(useDriver) {
+			filename = 
 					System.getProperty("user.home") + "/" + "SCRAPE_" + 
 							this.sportsbook + "_" + System.currentTimeMillis() + ".html"; 
-			
 			readClipboard(filename);
+		} else {
+			filename = 
+					System.getProperty("user.home") + "/" + this.sportsbook + "_" + sport +  ".html"; 
+			
+			Scanner scanner = new Scanner(System.in);
+			System.out.print("Copy sport " + sport + " from Caesars to the clipboard, then return");
+		    scanner.nextLine();
+		    scanner.close();
+			readClipboard(filename);
+			
+		}
+			
 
-			List<Odds> list = null;
-			try {
-				switch(sport) {
-					case MLB:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NBA:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NCAAB:
-						break;
-					case NCAAF:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NFL:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NHL:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case SOCCER_EPL:
-						break;
-					case TENNIS:
-						list = parseTennis(filename, sport);
-						break;
-					default:
-						break;
-				}
-			} catch(Exception eee) {
-				BufferedWriter writer = new BufferedWriter(new FileWriter(System.getProperty("user.home") + "/crash.txt"));
-				writer.write("parse crashed: " + eee);
-				writer.close();
+		List<Odds> list = null;
+		try {
+			switch(sport) {
+				case MLB:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NBA:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NCAAB:
+					break;
+				case NCAAF:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NFL:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NHL:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case SOCCER_EPL:
+					break;
+				case TENNIS:
+					list = parseTennis(filename, sport);
+					break;
+				default:
+					break;
 			}
-			File fileToDelete = new File(filename);
+		} catch(Exception eee) {
+			eee.printStackTrace();
+		}
+		
+		File fileToDelete = new File(filename);
 
-	        if (fileToDelete.delete()) {
-	            System.out.println("File deleted successfully: " + filename);
-	        } else {
-	            System.out.println("Failed to delete the file: " + filename);
-	        }
-
-	        for(Odds odds : list) {
-	        	persistOdds(odds, "odds" + "_" + sport);
-	        }
-	        return list;
-		} catch(Exception e) {
-			// might not be a visible scrollbar
-			System.out.println(e);
-			e.printStackTrace();
+		if (fileToDelete.delete()) {
+			System.out.println("File deleted successfully: " + filename);
+		} else {
+			System.out.println("Failed to delete the file: " + filename);
 		}
 
-		return null;
+		if(list != null) {
+			for(Odds odds : list) {
+				persistOdds(odds, "odds" + "_" + sport);
+			}
+		}
+
+		return list;
 	}
 	
 	private List<Odds> parseTeamEvent(String file, Sport sport) {
@@ -269,19 +285,16 @@ public class Caesars extends Book {
 			return list;
 		}
 		
-		Elements container = doc.select("main > div > div > div > div:nth-child(2) > div:nth-child(3) > ul");
-		Elements games = container.select("li");
-		System.out.println(games.size());
+		
+		Elements container = doc.select("div[data-testid='sport-comp-page-content']");
+		Elements games = container.select("div.EventCard");
 		for(Element game : games) {
-			if(game.text().contains(sport + " Odds")) {
-				continue;
-			}
-			if(game.text().contains("Spread Money Total")) {
-				continue;
-			}
 			processEventTeam(game, list, sport);
 		}
 		
+		System.out.println("Number of games read in:   " + games.size());
+		System.out.println("Number of games persisted: " + list.size());
+
 		return list;
 	}
 
@@ -530,17 +543,94 @@ public class Caesars extends Book {
 		odds.setSport(sport);
 		odds.setPeriod(Period.GAME); 
 
-		Elements anchor = e.select("div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > a:nth-child(1)");
-		Elements spans = anchor.select("span[aria-label]");
+		
+		Element anchor = e.select("div.EventCard > div > div > div > div > div:nth-child(2)").first();
+
+		Element awayTeamContainer = anchor.select("div.cui-px-md > div > div > div").first();
+		Element homeTeamContainer = anchor.select("div.cui-px-md > div:nth-child(2) > div > div").first();
+
+		if(awayTeamContainer == null) {
+			System.out.println("Failed to find the away team in : " + anchor.text());
+			return;
+		}
+		if(homeTeamContainer == null) {
+			System.out.println("Failed to find the home team in : " + anchor.text());
+			return;
+		}
+
+		// Logic
+		// 1. If spans are present use the last one
+		// 2. If the last one is all digits, use next to last
+		// 3. If no spans just use text of whole thing
+		
+		String away = null;
+		String home = null;
+		try {
+			Elements atSpans = awayTeamContainer.select("span");
+			if(atSpans.size() > 0) {
+				if(allDigits(atSpans.get(atSpans.size()-1))) {
+					away = atSpans.get(atSpans.size()-2).text();
+				} else {
+					if(atSpans.size() > 1) {
+						away = atSpans.get(atSpans.size()-2).text();
+					} else {
+						away = awayTeamContainer.text();
+					}
+				}
+			} else {
+				away = awayTeamContainer.text();
+			}
+
+			Elements htSpans = homeTeamContainer.select("span");
+			if(htSpans.size() > 0) {
+				if(allDigits(htSpans.get(htSpans.size()-1))) {
+					home = htSpans.get(htSpans.size()-2).text();
+				} else {
+					if(htSpans.size() > 1) {
+						home = htSpans.get(htSpans.size()-2).text();
+					} else {
+						home = homeTeamContainer.text();
+					}
+				}
+			} else {
+				home = homeTeamContainer.text();
+			}
+
+			home = stripNumbers(home);
+			away = stripNumbers(away);
+			
+		} catch(Exception eee) {
+			System.out.println("Exception trying to get team names: " 
+					+ awayTeamContainer.text() 
+					+ " and " 
+					+ homeTeamContainer.text());
+			return;
+		}
+		
+		if(home.contains("Super Bowl Participant")) {
+			System.out.println("Not going to process " + away + " at " + home);
+			return;
+		}
+		if(away.contains("Super Bowl Participant")) {
+			System.out.println("Not going to process " + away + " at " + home);
+			return;
+		}
+		Element awaySpreadCon = anchor.select("div.cui-px-md > div > div > div:nth-child(2)").first();
+		Element awayMLCon     = anchor.select("div.cui-px-md > div > div > div:nth-child(3)").first();
+		Element overCon       = anchor.select("div.cui-px-md > div > div > div:nth-child(4)").first();
+
+		Element homeSpreadCon = anchor.select("div.cui-px-md > div:nth-child(2) > div > div:nth-child(2)").first();
+		Element homeMLCon     = anchor.select("div.cui-px-md > div:nth-child(2) > div > div:nth-child(3)").first();
+		Element undrCon       = anchor.select("div.cui-px-md > div:nth-child(2) > div > div:nth-child(4)").first();
 		
 		boolean failed = false;
 		try {
-			odds.setAway(getTeam(this.sportsbook, sport, spans.get(0).text(), true));
+			odds.setAway(getTeam(this.sportsbook, sport, away, true));
 		} catch(Exception e3) {
 			failed = true;
 		}
 		try {
-			odds.setHome(getTeam(this.sportsbook, sport, spans.get(1).text(), true));
+			odds.setHome(getTeam(this.sportsbook, sport, home, true));
 		} catch(Exception e3) {
 			failed = true;
 		}
@@ -549,32 +639,27 @@ public class Caesars extends Book {
 		}
 
 		// Look for live event marker
-		Elements live = e.select("div > div > a > div > div > svg:nth-child(2) > title");
-		if(live.text().contains("live event")) {
-			return;
-		}
+//		Elements live = atest.select("span._cui__score-xs_cui-_1");
+//		if(live.size() > 0) {
+//			return;
+//		}
+		
 
-		Elements gameTime = e.select("time");
+//		Elements gameTime = e.select("time");
 //		System.out.println(gameTime.text());
 		// TODO - set game time
 		
-		Elements spreadPts = e.select("div[aria-label^=Spread] > span:nth-child(1)");
-		Elements spreadML = e.select("div[aria-label^=Spread] > span:nth-child(2)");
-		Elements moneylines = e.select("div[aria-label^=Money] > span:nth-child(1)");
-		Elements ouPts = e.select("div[aria-label^=Total] > span:nth-child(1)");
-		Elements ouML = e.select("div[aria-label^=Total] > span:nth-child(2)");
-
 		Spread spread = new Spread();
 		spread.setPeriod(Period.GAME);
 		try {
-			spread.setAwayPoints(Double.parseDouble(spreadPts.get(0).text()));
-			spread.setHomePoints(Double.parseDouble(spreadPts.get(1).text()));
-			spread.setAwayPrice(Integer.parseInt(spreadML.get(0).text()));
-			spread.setHomePrice(Integer.parseInt(spreadML.get(1).text()));
+			spread.setAwayPoints(Double.parseDouble(awaySpreadCon.text().split(" ")[0]));
+			spread.setHomePoints(Double.parseDouble(homeSpreadCon.text().split(" ")[0]));
+			spread.setAwayPrice(Integer.parseInt(awaySpreadCon.text().split(" ")[1]));
+			spread.setHomePrice(Integer.parseInt(homeSpreadCon.text().split(" ")[1]));
 		} catch(Exception e3) {
-			System.out.println("Failed to parse Spread odds: " 
-					+ spreadPts.get(0).text() + " " + spreadML.get(0).text() + " " 
-					+ spreadPts.get(1).text() + " " + spreadML.get(1).text());
+			System.out.println(away + " at " + home + ": Failed to parse Spread odds: " 
+					+ ((awaySpreadCon == null) ? null: awaySpreadCon.text()) + " " 
+					+ ((homeSpreadCon == null) ? null: homeSpreadCon.text()));
 			
 		}
 		odds.setSpread(spread);
@@ -584,23 +669,25 @@ public class Caesars extends Book {
 		ml.setHomePoints(0.0);
 		ml.setPeriod(Period.GAME);
 		try {
-			ml.setAwayPrice(Integer.parseInt(moneylines.get(0).text()));
-			ml.setHomePrice(Integer.parseInt(moneylines.get(1).text()));
+			ml.setAwayPrice(Integer.parseInt(awayMLCon.text()));
+			ml.setHomePrice(Integer.parseInt(homeMLCon.text()));
 		} catch(Exception e3) {
-			System.out.println("Failed to parse ML odds: " 
-					+ moneylines.get(0).text() + " " + moneylines.get(1).text());
+			System.out.println(away + " at " + home + ": Failed to parse ML odds: " 
+					+ ((awayMLCon == null) ? null: awayMLCon.text()) + " " 
+					+ ((homeMLCon == null) ? null: homeMLCon.text()));
 		}
 		odds.setMl(ml);
 
 		OU ou = new OU();
 		ou.setPeriod(Period.GAME);
 		try {
-			ou.setPoints(Double.parseDouble(ouPts.get(0).text().replace("O", "").trim()));
-			ou.setOver(Integer.parseInt(ouML.get(0).text()));
-			ou.setUnder(Integer.parseInt(ouML.get(1).text()));
+			ou.setPoints(Double.parseDouble(overCon.text().split(" ")[0].trim()));
+			ou.setOver(Integer.parseInt(overCon.text().split(" ")[1].trim()));
+			ou.setUnder(Integer.parseInt(undrCon.text().split(" ")[1].trim()));
 		} catch(Exception e3) {
-			System.out.println("Failed to parse OU odds: " 
-					+ ouPts.get(0).text().replace("O", "").trim() + " " + ouML.get(0).text() + " " + ouML.get(1).text());
+			System.out.println(away + " at " + home + ": Failed to parse OU odds: " 
+					+ ((overCon == null) ? null: overCon.text()) + " " 
+					+ ((undrCon == null) ? null: undrCon.text()));
 		}
 		odds.setOu(ou);
 
@@ -611,6 +698,44 @@ public class Caesars extends Book {
 		}
 	}
 
+	private String stripNumbers(String str) {
+		int start = 0;
+		int end = str.length()-1;
+
+		for (char c : str.toCharArray()) {
+            if (!Character.isDigit(c)) {
+            	break;
+            } else {
+            	start++;
+            }
+        }
+
+		for(int i = str.length()-1; i >= 0; --i) {
+			char c = str.charAt(i);
+			if (!Character.isDigit(c)) {
+            	break;
+            } else {
+            	end--;
+            }
+		}
+
+		return str.substring(start, end+1).trim();
+	}
+
+	private boolean allDigits(Element element) {
+		String str = element.text().trim();
+		if(str == null) {
+			return true; // not all digits but dont want to use it
+		}
+		for (char c : str.toCharArray()) {
+            if (!Character.isDigit(c)) {
+                return false;
+            }
+        }
+		return true;
+	}
+
+	@SuppressWarnings("unused")
 	private Date getStartingDate(String dateString) {
 
 		// Oct 26, 2025 · 4:25 PM

@@ -25,6 +25,7 @@ public abstract class Book {
 	protected Process chromeProcess = null;
 	protected JavascriptExecutor javascriptExecutor = null;
 	protected String port;
+	protected Boolean useDriver = true;
 
 	
 	@Autowired
@@ -43,10 +44,13 @@ public abstract class Book {
 
 	public Sportsbook sportsbook;
 
-	public Book(Sportsbook sportsbook) {
+	public Book(Sportsbook sportsbook, boolean useDriver) {
 		this.sportsbook = sportsbook;
 		this.port = "9201";
-		bringUpDriver();
+		this.useDriver = useDriver;
+		if(useDriver) {
+			bringUpDriver();
+		}
 	}
 
 	public abstract void acquire(Sport sport);
@@ -71,7 +75,6 @@ public abstract class Book {
 		teamService = srv;
 	}
 	
-	@SuppressWarnings("deprecation")
 	public Process startBrowser() {
 		String cmd = null;
 		try {
@@ -99,6 +102,7 @@ public abstract class Book {
 		}
 	}
 	
+	@SuppressWarnings("deprecation")
 	public void bringUpDriver() {
 		
 		closeDriver();

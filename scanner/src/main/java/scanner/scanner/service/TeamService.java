@@ -31,6 +31,7 @@ public class TeamService {
 		List<Team> teams = repo.find(book, sport, sbSpecificTeamName);
 		if((teams == null) || (teams.size() == 0)) {
 			if(flagToUpdates) {
+				System.out.println("Failed to look up team: " + sbSpecificTeamName);
 				updateService.insert(new Update("team", book, sport, sbSpecificTeamName));
 			}
 			throw new OddsException("Did not find team with name " + sbSpecificTeamName + ", book: " + book + ", sport: " + sport);
