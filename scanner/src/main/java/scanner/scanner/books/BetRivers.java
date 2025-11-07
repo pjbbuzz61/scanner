@@ -21,6 +21,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
+import java.util.Scanner;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -60,6 +61,10 @@ public class BetRivers extends Book {
 
 	Random random = new Random(System.currentTimeMillis());
 
+	public BetRivers(boolean useTheDriver) {
+		super(Sportsbook.BETRIVERS, useTheDriver);
+	}
+
 	public BetRivers() {
 		super(Sportsbook.BETRIVERS, true);
 	}
@@ -77,176 +82,207 @@ public class BetRivers extends Book {
 
 	private List<Odds> getMatchups(Sport sport) throws IOException, OddsException {
 
-		refresh(sport);
-		
-		try {
-
-			List<String> files = new ArrayList<>();
-			boolean moreEvents = true;
-			int cntr = 0;
-			while(moreEvents) {
-				WebElement scroll = driver.findElement(
-						By.cssSelector("div.main-page-view-sportsbook"));
-
-				Actions actions = new Actions(driver);
-
-				// Pull up context menu
-				actions.contextClick(scroll).build().perform();
-
-				Robot robot = new Robot();
-				
-				// Select the debug window from the context menu
-				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_Q);
-				robot.keyRelease(KeyEvent.VK_Q);
-				
-				// Mouse into the Elements display and click to gain focus
-				robot.mouseMove(500,1000);
-				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_ENTER);
-				Thread.sleep(100);
-				robot.keyRelease(KeyEvent.VK_ENTER);
-				Thread.sleep(100);
-
-				// Page up enough times to get to the top
-				for(int i = 0; i < 25; ++i) {
-					Thread.sleep(100);
-					robot.keyPress(KeyEvent.VK_PAGE_UP);
-					Thread.sleep(100);
-					robot.keyRelease(KeyEvent.VK_PAGE_UP);
-				}
-					
-				// move to a spot off the first line
-				Thread.sleep(100);
-				robot.mouseMove(500,1010);
-				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_ENTER);
-				Thread.sleep(100);
-				robot.keyRelease(KeyEvent.VK_ENTER);
-
-				// select the first line of the elements output (the body of the html)
-				Thread.sleep(100);
-				robot.mouseMove(500,910);
-				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_ENTER);
-				Thread.sleep(100);
-				robot.keyRelease(KeyEvent.VK_ENTER);
-					
-				// bring up the context menu
-				Thread.sleep(100);
-				robot.mousePress(InputEvent.BUTTON3_DOWN_MASK);
-				Thread.sleep(100);
-				robot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
-
-				// Go to copy option
-				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_UP);
-				Thread.sleep(100);
-				robot.keyRelease(KeyEvent.VK_UP);
-				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_UP);
-				Thread.sleep(100);
-				robot.keyRelease(KeyEvent.VK_UP);
-				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_UP);
-				Thread.sleep(100);
-				robot.keyRelease(KeyEvent.VK_UP);
-				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_UP);
-				Thread.sleep(100);
-				robot.keyRelease(KeyEvent.VK_UP);
-
-				// Bring up copy options
-				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_RIGHT);
-				Thread.sleep(100);
-				robot.keyRelease(KeyEvent.VK_RIGHT);
-
-				// Select copy inner html
-				Thread.sleep(1000);
-				robot.keyPress(KeyEvent.VK_ENTER);
-				Thread.sleep(500);
-				robot.keyRelease(KeyEvent.VK_ENTER);
-				Thread.sleep(500);
-				robot.keyPress(KeyEvent.VK_ENTER);
-				Thread.sleep(500);
-				robot.keyRelease(KeyEvent.VK_ENTER);
-					
-				String filename = 
-						System.getProperty("user.home") + "/" + "SCRAPE_" +
-								this.sportsbook + "_" + System.currentTimeMillis() + "_" + cntr + ".html"; 
-				cntr++;
-				readClipboard(filename);
-				files.add(filename);
-				
-				// See if we have more events
-				try {
-					WebElement moreEventsLabel = driver
-							.findElement(By.cssSelector("button[data-testid=show-more-events-button]"));
-					//System.out.println("Clicking for more events ...");
-					javascriptExecutor.executeScript("arguments[0].scrollIntoView();", moreEventsLabel);
-					moreEventsLabel.click();
-					try {Thread.sleep(1000);} catch(Exception ee) {}
-				} catch(Exception e) {
-					//System.out.println("Exception: Didn't find more events: " + e.getMessage());
-					moreEvents = false;
-				}
-
-			}
+		List<String> files = new ArrayList<>();
+		if(useDriver) {
 			
-			List<Odds> list = null;
+			refresh(sport);
+			
 			try {
-				switch(sport) {
-					case MLB:
-						list = parseTeamEvent(files, sport);
-						break;
-					case NBA:
-						list = parseTeamEvent(files, sport);
-						break;
-					case NCAAB:
-						break;
-					case NCAAF:
-						list = parseTeamEvent(files, sport);
-						break;
-					case NFL:
-						list = parseTeamEvent(files, sport);
-						break;
-					case NHL:
-						list = parseTeamEvent(files, sport);
-						break;
-					case SOCCER_EPL:
-						break;
-					case TENNIS:
-						list = parseTennis(files, sport);
-						break;
-					default:
-						break;
-				}
-			} catch(Exception eee) {
-				eee.printStackTrace();
-			}
-			for(String file : files) {
+
+				int cntr = 0;
+				boolean moreEvents = true;
+				while(moreEvents) {
+					WebElement scroll = driver.findElement(
+							By.cssSelector("div.main-page-view-sportsbook"));
+
+					Actions actions = new Actions(driver);
+
+					// Pull up context menu
+					actions.contextClick(scroll).build().perform();
+
+					Robot robot = new Robot();
+					
+					// Select the debug window from the context menu
+					Thread.sleep(100);
+					robot.keyPress(KeyEvent.VK_Q);
+					robot.keyRelease(KeyEvent.VK_Q);
+					
+					// Mouse into the Elements display and click to gain focus
+					robot.mouseMove(500,1000);
+					Thread.sleep(100);
+					robot.keyPress(KeyEvent.VK_ENTER);
+					Thread.sleep(100);
+					robot.keyRelease(KeyEvent.VK_ENTER);
+					Thread.sleep(100);
+
+					// Page up enough times to get to the top
+					for(int i = 0; i < 25; ++i) {
+						Thread.sleep(100);
+						robot.keyPress(KeyEvent.VK_PAGE_UP);
+						Thread.sleep(100);
+						robot.keyRelease(KeyEvent.VK_PAGE_UP);
+					}
+						
+					// move to a spot off the first line
+					Thread.sleep(100);
+					robot.mouseMove(500,1010);
+					Thread.sleep(100);
+					robot.keyPress(KeyEvent.VK_ENTER);
+					Thread.sleep(100);
+					robot.keyRelease(KeyEvent.VK_ENTER);
+
+					// select the first line of the elements output (the body of the html)
+					Thread.sleep(100);
+					robot.mouseMove(500,910);
+					Thread.sleep(100);
+					robot.keyPress(KeyEvent.VK_ENTER);
+					Thread.sleep(100);
+					robot.keyRelease(KeyEvent.VK_ENTER);
+						
+					// bring up the context menu
+					Thread.sleep(100);
+					robot.mousePress(InputEvent.BUTTON3_DOWN_MASK);
+					Thread.sleep(100);
+					robot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
+
+					// Go to copy option
+					Thread.sleep(100);
+					robot.keyPress(KeyEvent.VK_UP);
+					Thread.sleep(100);
+					robot.keyRelease(KeyEvent.VK_UP);
+					Thread.sleep(100);
+					robot.keyPress(KeyEvent.VK_UP);
+					Thread.sleep(100);
+					robot.keyRelease(KeyEvent.VK_UP);
+					Thread.sleep(100);
+					robot.keyPress(KeyEvent.VK_UP);
+					Thread.sleep(100);
+					robot.keyRelease(KeyEvent.VK_UP);
+					Thread.sleep(100);
+					robot.keyPress(KeyEvent.VK_UP);
+					Thread.sleep(100);
+					robot.keyRelease(KeyEvent.VK_UP);
+
+					// Bring up copy options
+					Thread.sleep(100);
+					robot.keyPress(KeyEvent.VK_RIGHT);
+					Thread.sleep(100);
+					robot.keyRelease(KeyEvent.VK_RIGHT);
+
+					// Select copy inner html
+					Thread.sleep(1000);
+					robot.keyPress(KeyEvent.VK_ENTER);
+					Thread.sleep(500);
+					robot.keyRelease(KeyEvent.VK_ENTER);
+					Thread.sleep(500);
+					robot.keyPress(KeyEvent.VK_ENTER);
+					Thread.sleep(500);
+					robot.keyRelease(KeyEvent.VK_ENTER);
+
+					String filename = 
+							System.getProperty("user.home") + "/" + "SCRAPE_" +
+									this.sportsbook + "_" + System.currentTimeMillis() + "_" + cntr + ".html"; 
+					cntr++;
+					readClipboard(filename);
+					files.add(filename);
+					
+					// See if we have more events
+					try {
+						WebElement moreEventsLabel = driver
+								.findElement(By.cssSelector("button[data-testid=show-more-events-button]"));
+						//System.out.println("Clicking for more events ...");
+						javascriptExecutor.executeScript("arguments[0].scrollIntoView();", moreEventsLabel);
+						moreEventsLabel.click();
+						try {Thread.sleep(1000);} catch(Exception ee) {}
+					} catch(Exception e) {
+						//System.out.println("Exception: Didn't find more events: " + e.getMessage());
+						moreEvents = false;
+					}
 				
-				File fileToDelete = new File(file);
-
-		        if (fileToDelete.delete()) {
-		            System.out.println("File deleted successfully: " + file);
-		        } else {
-		            System.out.println("Failed to delete the file: " + file);
-		        }
+				} // while more events
+			} catch(Exception e) {
+				// might not be a visible scrollbar
+				System.out.println(e);
+				e.printStackTrace();
 			}
+		} // if useDriver
+		else {
 
-	        for(Odds odds : list) {
-	        	persistOdds(odds, "odds" + "_" + sport);
-	        }
-	        return list;
-		} catch(Exception e) {
-			// might not be a visible scrollbar
-			System.out.println(e);
-			e.printStackTrace();
+			boolean keepGoing = true;
+			Scanner scanner = new Scanner(System.in);
+			while(keepGoing) {
+				int cntr = 0;
+				String filename = System.getProperty("user.home") + "/" + "SCRAPE_" +
+						this.sportsbook + "_" + System.currentTimeMillis() + "_" + cntr + ".html"; 
+				cntr++;
+				
+				System.out.print("Copy sport " + sport + " from BetRiver to the clipboard, then return (x if done) ");
+			    String str = null;
+			    try {
+			    	str = scanner.nextLine();
+			    } catch(Exception er) {
+			    	// no nothing - this is just a return with nothing entered
+			    }
+			    if((str != null) && (str.length() > 0) &&  (str.charAt(0)) == 'x') {
+			    	keepGoing = false;
+			    } else {
+				    readClipboard(filename);
+					files.add(filename);
+			    }
+			}
+		    scanner.close();
+		}
+				
+			
+		List<Odds> list = null;
+		try {
+			switch(sport) {
+				case MLB:
+					list = parseTeamEvent(files, sport);
+					break;
+				case NBA:
+					list = parseTeamEvent(files, sport);
+					break;
+				case NCAAM:
+					list = parseTeamEvent(files, sport);
+					break;
+				case NCAAF:
+					list = parseTeamEvent(files, sport);
+					break;
+				case NFL:
+					list = parseTeamEvent(files, sport);
+					break;
+				case NHL:
+					list = parseTeamEvent(files, sport);
+					break;
+				case SOCCER_EPL:
+					break;
+				case TENNIS:
+					list = parseTennis(files, sport);
+					break;
+				default:
+					break;
+			}
+		} catch(Exception eee) {
+			eee.printStackTrace();
+		}
+		
+		for(String file : files) {
+				
+			File fileToDelete = new File(file);
+
+			if (fileToDelete.delete()) {
+				System.out.println("File deleted successfully: " + file);
+			} else {
+				System.out.println("Failed to delete the file: " + file);
+			}
 		}
 
-		return null;
+		for(Odds odds : list) {
+			persistOdds(odds, "odds" + "_" + sport);
+		}
+		
+		return list;
 	}
 	
 	private List<Odds> parseTeamEvent(List<String> files, Sport sport) {
@@ -588,54 +624,79 @@ public class BetRivers extends Book {
 //		Elements gameTime = e.select("time");
 //		System.out.println(gameTime.text());
 
+		Elements offersCon = match.select("div > div > div > div:nth-child(3)");
+		Elements offerSpans = offersCon.get(0).select("span");
+		List<String> offers = new ArrayList<>();
+		for(Element sp : offerSpans) {
+			offers.add(sp.text().trim().toUpperCase());
+		}
+
 		Elements oddsCon = match.select("div > div > div > div:nth-child(4)");
 		
-		Spread spread = new Spread();
-		spread.setPeriod(Period.GAME);
-		try {
-			String awaySpreadPts  = oddsCon.get(0).select("div > div > button > span").get(0).text();
-			String homeSpreadPts  = oddsCon.get(0).select("div > div > button:nth-child(2) > span").get(0).text();
-			String awaySpreadLine = oddsCon.get(0).select("div > div > button > div").get(0).text();
-			String homeSpreadLine = oddsCon.get(0).select("div > div > button:nth-child(2) > div").get(0).text();
-			spread.setAwayPoints(Double.parseDouble(awaySpreadPts));
-			spread.setHomePoints(Double.parseDouble(homeSpreadPts));
-			spread.setAwayPrice(Integer.parseInt(awaySpreadLine));
-			spread.setHomePrice(Integer.parseInt(homeSpreadLine));
-		} catch(Exception e3) {
-			System.out.println("Failed to parse Spread odds: " 
-					+ awayTeam + " at " + homeTeam +  oddsCon.text());
-		}
-		odds.setSpread(spread);
+		int indx = 0;
+		for(String offer : offers) {
 
-		Spread ml = new Spread();
-		ml.setAwayPoints(0.0);
-		ml.setHomePoints(0.0);
-		ml.setPeriod(Period.GAME);
-		try {
-			String awayML    = oddsCon.get(0).select("div > div:nth-child(2) > button").get(0).text();
-			String homeML    = oddsCon.get(0).select("div > div:nth-child(2) > button:nth-child(2)").get(0).text();
-			ml.setAwayPrice(Integer.parseInt(awayML));
-			ml.setHomePrice(Integer.parseInt(homeML));
-		} catch(Exception e3) {
-			System.out.println("Failed to parse ML odds: " 
-					+ awayTeam + " at " + homeTeam +  oddsCon.text());
-		}
-		odds.setMl(ml);
+			if(offer.contentEquals("SPREAD") || offer.contentEquals("PUCK LINE")) {
+				Spread spread = new Spread();
+				spread.setPeriod(Period.GAME);
+				try {
+					String awaySpreadPts  = oddsCon.get(0).select("div > div:nth-child(" + (indx+1) + ") > button              > span").get(0).text();
+					String homeSpreadPts  = oddsCon.get(0).select("div > div:nth-child(" + (indx+1) + ") > button:nth-child(2) > span").get(0).text();
+					String awaySpreadLine = oddsCon.get(0).select("div > div:nth-child(" + (indx+1) + ") > button              >  div").get(0).text();
+					String homeSpreadLine = oddsCon.get(0).select("div > div:nth-child(" + (indx+1) + ") > button:nth-child(2) >  div").get(0).text();
+					spread.setAwayPoints(Double.parseDouble(awaySpreadPts));
+					spread.setHomePoints(Double.parseDouble(homeSpreadPts));
+					spread.setAwayPrice(Integer.parseInt(awaySpreadLine));
+					spread.setHomePrice(Integer.parseInt(homeSpreadLine));
+				} catch(Exception e3) {
+					System.out.println("Failed to parse Spread odds: " 
+							+ awayTeam + " at " + homeTeam +  oddsCon.text());
+				}
+				odds.setSpread(spread);
+			}
 
-		OU ou = new OU();
-		ou.setPeriod(Period.GAME);
-		try {
-			String overPts   = oddsCon.get(0).select("div > div:nth-child(3) > button > span").get(0).text().replace("O", "").trim();
-			String overLine  = oddsCon.get(0).select("div > div:nth-child(3) > button > div").get(0).text();
-			String underLine = oddsCon.get(0).select("div > div:nth-child(3) > button:nth-child(2) > div").get(0).text();
-			ou.setPoints(Double.parseDouble(overPts.trim()));
-			ou.setOver(Integer.parseInt(overLine));
-			ou.setUnder(Integer.parseInt(underLine));
-		} catch(Exception e3) {
-			System.out.println("Failed to parse OU odds: " 
-					+ awayTeam + " at " + homeTeam +  oddsCon.text());
+			else if(offer.contentEquals("WIN")) {
+				Spread ml = new Spread();
+				ml.setAwayPoints(0.0);
+				ml.setHomePoints(0.0);
+				ml.setPeriod(Period.GAME);
+				try {
+					String awayML    = oddsCon.get(0).select("div > div:nth-child(" + (indx+1) + ") > button").get(0).text();
+					String homeML    = oddsCon.get(0).select("div > div:nth-child(" + (indx+1) + ") > button:nth-child(2)").get(0).text();
+					if(awayML.contentEquals("Closed") == false) {
+						ml.setAwayPrice(Integer.parseInt(awayML));
+					}
+					if(homeML.contentEquals("Closed") == false) {
+						ml.setHomePrice(Integer.parseInt(homeML));
+					}
+				} catch(Exception e3) {
+					System.out.println("Failed to parse ML odds: " 
+							+ awayTeam + " at " + homeTeam +  oddsCon.text());
+				}
+				odds.setMl(ml);
+			}
+
+			else if(offer.contentEquals("TOTAL POINTS") || offer.contentEquals("TOTAL GOALS")) {
+				OU ou = new OU();
+				ou.setPeriod(Period.GAME);
+				try {
+					String overPts   = oddsCon.get(0).select("div > div:nth-child(" + (indx+1) + ") > button              > span").get(0).text().replace("O", "").trim();
+					String overLine  = oddsCon.get(0).select("div > div:nth-child(" + (indx+1) + ") > button              >  div").get(0).text();
+					String underLine = oddsCon.get(0).select("div > div:nth-child(" + (indx+1) + ") > button:nth-child(2) >  div").get(0).text();
+					ou.setPoints(Double.parseDouble(overPts.trim()));
+					ou.setOver(Integer.parseInt(overLine));
+					ou.setUnder(Integer.parseInt(underLine));
+				} catch(Exception e3) {
+					System.out.println("Failed to parse OU odds: " 
+							+ awayTeam + " at " + homeTeam +  oddsCon.text());
+				}
+				odds.setOu(ou);
+			} else {
+				System.out.println("Error: don't know the heading: " + offer);
+			}
+
+			indx++;
 		}
-		odds.setOu(ou);
 
 		if((odds.getAway() != null) && (odds.getHome() != null)) {
 			list.add(odds);
@@ -805,7 +866,8 @@ public class BetRivers extends Book {
 			case NBA:
 				url.add("https://md.betrivers.com/?page=sportsbook&group=1000093652&type=matches");
 				break;
-			case NCAAB:
+			case NCAAM:
+				url.add("https://md.betrivers.com/?page=sportsbook&group=1000093654&type=matches");
 				break;
 			case NCAAF:
 				url.add("https://md.betrivers.com/?page=sportsbook&group=1000093655&type=matches");
@@ -885,8 +947,8 @@ public class BetRivers extends Book {
 	
 	public static void main(String args[]) {
 
-		if(args.length != 2) {
-			System.out.println("Requires two args: sport and delete odds flag");
+		if(args.length < 2) {
+			System.out.println("Requires two args: sport and delete odds flag, along with optional useDriver flag");
 			return;
 		}
 		Sport sport = null;
@@ -896,7 +958,7 @@ public class BetRivers extends Book {
 			case "NBA":    sport = Sport.NBA;    break;
 			case "NFL":    sport = Sport.NFL;    break;
 			case "NCAAF":  sport = Sport.NCAAF;  break;
-			case "NCAAB":  sport = Sport.NCAAB;  break;
+			case "NCAAM":  sport = Sport.NCAAM;  break;
 			case "MLB":    sport = Sport.MLB;    break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}
@@ -908,7 +970,15 @@ public class BetRivers extends Book {
 		}
 		System.out.println("Delete existing set to " + deleteOdds);
 		
-		BetRivers mgm = new BetRivers();
+		boolean useTheDriver = true;
+		if(args.length == 3) {
+			if(args[2].toUpperCase().contentEquals("USEDRIVER=FALSE")) {
+				useTheDriver = false;
+			}
+		}
+		System.out.println("UseDriver is " + useTheDriver);
+
+		BetRivers mgm = new BetRivers(useTheDriver);
 		TeamService tSrv = new TeamService();
 		TeamRepo tRepo = new TeamRepo();
 		

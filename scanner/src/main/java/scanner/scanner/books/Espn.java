@@ -21,6 +21,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
+import java.util.Scanner;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -60,6 +61,10 @@ public class Espn extends Book {
 
 	Random random = new Random(System.currentTimeMillis());
 
+	public Espn(boolean useTheDriver) {
+		super(Sportsbook.ESPN, useTheDriver);
+	}
+
 	public Espn() {
 		super(Sportsbook.ESPN, true);
 	}
@@ -77,153 +82,168 @@ public class Espn extends Book {
 
 	private List<Odds> getMatchups(Sport sport) throws IOException, OddsException {
 
-		refresh(sport);
-		
-		try {
-
-			WebElement scroll = driver.findElement(By.cssSelector("section[data-testid='marketplace-shelf-']"));
-
-			Actions actions = new Actions(driver);
-
-			// Pull up context menu
-			actions.contextClick(scroll).build().perform();
-
-			Robot robot = new Robot();
+		if(useDriver) {
 			
-			// Select the debug window from the context menu
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_Q);
-			robot.keyRelease(KeyEvent.VK_Q);
+			refresh(sport);
 			
-			// Mouse into the Elements display and click to gain focus
+			try {
 
+				WebElement scroll = driver.findElement(By.cssSelector("section[data-testid='marketplace-shelf-']"));
 
-			robot.mouseMove(500,1000);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
+				Actions actions = new Actions(driver);
 
-			// Page up enough times to get to the top
-			for(int i = 0; i < 25; ++i) {
+				// Pull up context menu
+				actions.contextClick(scroll).build().perform();
+
+				Robot robot = new Robot();
+				
+				// Select the debug window from the context menu
 				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_PAGE_UP);
+				robot.keyPress(KeyEvent.VK_Q);
+				robot.keyRelease(KeyEvent.VK_Q);
+				
+				// Mouse into the Elements display and click to gain focus
+
+
+				robot.mouseMove(500,1000);
 				Thread.sleep(100);
-				robot.keyRelease(KeyEvent.VK_PAGE_UP);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+
+				// Page up enough times to get to the top
+				for(int i = 0; i < 25; ++i) {
+					Thread.sleep(100);
+					robot.keyPress(KeyEvent.VK_PAGE_UP);
+					Thread.sleep(100);
+					robot.keyRelease(KeyEvent.VK_PAGE_UP);
+				}
+					
+				// move to a spot off the first line
+				Thread.sleep(100);
+				robot.mouseMove(500,1010);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+
+				// select the first line of the elements output (the body of the html)
+				Thread.sleep(100);
+				robot.mouseMove(500,910);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+					
+				// bring up the context menu
+				Thread.sleep(100);
+				robot.mousePress(InputEvent.BUTTON3_DOWN_MASK);
+				Thread.sleep(100);
+				robot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
+
+				// Go to copy option
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+
+				// Bring up copy options
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_RIGHT);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_RIGHT);
+
+				// Select copy inner html
+				Thread.sleep(1000);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(500);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+				Thread.sleep(500);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(500);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+			} catch(Exception e) {
+				// might not be a visible scrollbar
+				System.out.println(e);
+				e.printStackTrace();
 			}
+		}
 				
-			// move to a spot off the first line
-			Thread.sleep(100);
-			robot.mouseMove(500,1010);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-
-			// select the first line of the elements output (the body of the html)
-			Thread.sleep(100);
-			robot.mouseMove(500,910);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-				
-			// bring up the context menu
-			Thread.sleep(100);
-			robot.mousePress(InputEvent.BUTTON3_DOWN_MASK);
-			Thread.sleep(100);
-			robot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
-
-			// Go to copy option
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-
-			// Bring up copy options
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_RIGHT);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_RIGHT);
-
-			// Select copy inner html
-			Thread.sleep(1000);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(500);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-			Thread.sleep(500);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(500);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-				
-			String filename = 
+		String filename = null;
+		if(useDriver) {
+			filename = 
 					System.getProperty("user.home") + "/" + "SCRAPE_" + 
 							this.sportsbook + "_" + System.currentTimeMillis() + ".html"; 
-			
 			readClipboard(filename);
-
-			List<Odds> list = null;
-			try {
-				switch(sport) {
-					case MLB:
-						break;
-					case NBA:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NCAAB:
-						break;
-					case NCAAF:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NFL:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NHL:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case SOCCER_EPL:
-						break;
-					case TENNIS:
-						list = parseTennis(filename, sport);
-						break;
-					default:
-						break;
-				}
-			} catch(Exception eee) {
-				eee.printStackTrace();
-			}
-			File fileToDelete = new File(filename);
-
-	        if (fileToDelete.delete()) {
-	            System.out.println("File deleted successfully: " + filename);
-	        } else {
-	            System.out.println("Failed to delete the file: " + filename);
-	        }
-
-	        for(Odds odds : list) {
-	        	persistOdds(odds, "odds" + "_" + sport);
-	        }
-	        return list;
-		} catch(Exception e) {
-			// might not be a visible scrollbar
-			System.out.println(e);
-			e.printStackTrace();
+		} else {
+			filename = 
+					System.getProperty("user.home") + "/" + this.sportsbook + "_" + sport +  ".html"; 
+			
+			Scanner scanner = new Scanner(System.in);
+			System.out.print("Copy sport " + sport + " from Espn to the clipboard, then return");
+		    scanner.nextLine();
+		    scanner.close();
+			readClipboard(filename);
 		}
 
-		return null;
+		List<Odds> list = null;
+		try {
+			switch(sport) {
+				case MLB:
+					break;
+				case NBA:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NCAAM:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NCAAF:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NFL:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NHL:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case SOCCER_EPL:
+					break;
+				case TENNIS:
+					list = parseTennis(filename, sport);
+					break;
+				default:
+					break;
+			}
+		} catch(Exception eee) {
+			eee.printStackTrace();
+		}
+		
+		File fileToDelete = new File(filename);
+
+		if (fileToDelete.delete()) {
+			System.out.println("File deleted successfully: " + filename);
+		} else {
+			System.out.println("Failed to delete the file: " + filename);
+		}
+
+		for(Odds odds : list) {
+			persistOdds(odds, "odds" + "_" + sport);
+		}
+
+		return list;
 	}
 	
 	private List<Odds> parseTeamEvent(String file, Sport sport) {
@@ -789,7 +809,8 @@ private List<Odds> parseTennis(String file, Sport sport) {
 			case NBA:
 				url = "https://espnbet.com/sport/basketball/organization/united-states/competition/nba";
 				break;
-			case NCAAB:
+			case NCAAM:
+				url = "https://espnbet.com/sport/basketball/organization/united-states/competition/ncaab/section/lines";
 				break;
 			case NCAAF:
 				url = "https://espnbet.com/sport/football/organization/united-states/competition/ncaaf";
@@ -908,8 +929,8 @@ private List<Odds> parseTennis(String file, Sport sport) {
 	
 	public static void main(String args[]) {
 
-		if(args.length != 2) {
-			System.out.println("Requires two args: sport and delete odds flag");
+		if(args.length < 2) {
+			System.out.println("Requires two args: sport and delete odds flag, alogn with optional useDriver flag");
 			return;
 		}
 		Sport sport = null;
@@ -919,7 +940,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 			case "NBA":    sport = Sport.NBA;    break;
 			case "NFL":    sport = Sport.NFL;    break;
 			case "NCAAF":  sport = Sport.NCAAF;  break;
-			case "NCAAB":  sport = Sport.NCAAB;  break;
+			case "NCAAM":  sport = Sport.NCAAM;  break;
 			case "MLB":    sport = Sport.MLB;    break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}
@@ -931,7 +952,15 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		}
 		System.out.println("Delete existing set to " + deleteOdds);
 		
-		Espn mgm = new Espn();
+		boolean useTheDriver = true;
+		if(args.length == 3) {
+			if(args[2].toUpperCase().contentEquals("USEDRIVER=FALSE")) {
+				useTheDriver = false;
+			}
+		}
+		System.out.println("UseDriver is " + useTheDriver);
+
+		Espn mgm = new Espn(useTheDriver);
 		TeamService tSrv = new TeamService();
 		TeamRepo tRepo = new TeamRepo();
 		

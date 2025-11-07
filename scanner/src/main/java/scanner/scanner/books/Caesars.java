@@ -61,8 +61,12 @@ public class Caesars extends Book {
 
 	Random random = new Random(System.currentTimeMillis());
 
+	public Caesars(boolean useTheDriver) {
+		super(Sportsbook.CAESARS, useTheDriver);
+	}
+
 	public Caesars() {
-		super(Sportsbook.CAESARS, false);
+		super(Sportsbook.CAESARS, true);
 	}
 	
 	@Override
@@ -218,7 +222,8 @@ public class Caesars extends Book {
 				case NBA:
 					list = parseTeamEvent(filename, sport);
 					break;
-				case NCAAB:
+				case NCAAM:
+					list = parseTeamEvent(filename, sport);
 					break;
 				case NCAAF:
 					list = parseTeamEvent(filename, sport);
@@ -652,10 +657,12 @@ public class Caesars extends Book {
 		Spread spread = new Spread();
 		spread.setPeriod(Period.GAME);
 		try {
-			spread.setAwayPoints(Double.parseDouble(awaySpreadCon.text().split(" ")[0]));
-			spread.setHomePoints(Double.parseDouble(homeSpreadCon.text().split(" ")[0]));
-			spread.setAwayPrice(Integer.parseInt(awaySpreadCon.text().split(" ")[1]));
-			spread.setHomePrice(Integer.parseInt(homeSpreadCon.text().split(" ")[1]));
+			if(awaySpreadCon.text().contains("--") == false) {
+				spread.setAwayPoints(Double.parseDouble(awaySpreadCon.text().split(" ")[0].replace("PICK", "0.0")));
+				spread.setHomePoints(Double.parseDouble(homeSpreadCon.text().split(" ")[0].replace("PICK", "0.0")));
+				spread.setAwayPrice(Integer.parseInt(awaySpreadCon.text().split(" ")[1]));
+				spread.setHomePrice(Integer.parseInt(homeSpreadCon.text().split(" ")[1]));
+			}
 		} catch(Exception e3) {
 			System.out.println(away + " at " + home + ": Failed to parse Spread odds: " 
 					+ ((awaySpreadCon == null) ? null: awaySpreadCon.text()) + " " 
@@ -669,8 +676,10 @@ public class Caesars extends Book {
 		ml.setHomePoints(0.0);
 		ml.setPeriod(Period.GAME);
 		try {
-			ml.setAwayPrice(Integer.parseInt(awayMLCon.text()));
-			ml.setHomePrice(Integer.parseInt(homeMLCon.text()));
+			if((awayMLCon.text().contains("--") == false) && (homeMLCon.text().contains("--") == false)) {
+				ml.setAwayPrice(Integer.parseInt(awayMLCon.text()));
+				ml.setHomePrice(Integer.parseInt(homeMLCon.text()));
+			}
 		} catch(Exception e3) {
 			System.out.println(away + " at " + home + ": Failed to parse ML odds: " 
 					+ ((awayMLCon == null) ? null: awayMLCon.text()) + " " 
@@ -681,9 +690,11 @@ public class Caesars extends Book {
 		OU ou = new OU();
 		ou.setPeriod(Period.GAME);
 		try {
-			ou.setPoints(Double.parseDouble(overCon.text().split(" ")[0].trim()));
-			ou.setOver(Integer.parseInt(overCon.text().split(" ")[1].trim()));
-			ou.setUnder(Integer.parseInt(undrCon.text().split(" ")[1].trim()));
+			if(overCon.text().contains("--") == false) {
+				ou.setPoints(Double.parseDouble(overCon.text().split(" ")[0].trim()));
+				ou.setOver(Integer.parseInt(overCon.text().split(" ")[1].trim()));
+				ou.setUnder(Integer.parseInt(undrCon.text().split(" ")[1].trim()));
+			}
 		} catch(Exception e3) {
 			System.out.println(away + " at " + home + ": Failed to parse OU odds: " 
 					+ ((overCon == null) ? null: overCon.text()) + " " 
@@ -895,7 +906,7 @@ public class Caesars extends Book {
 //				url.add("https://sportsbook.caesars.com/us/md/bet/");
 				url.add("https://sportsbook.caesars.com/us/md/bet/basketball?id=5806c896-4eec-4de1-874f-afed93114b8c");
 				break;
-			case NCAAB:
+			case NCAAM:
 				url.add("https://sportsbook.caesars.com/us/md/bet/");
 				break;
 			case NCAAF:
@@ -980,15 +991,12 @@ public class Caesars extends Book {
 
 		return;
 	}
-
-
-
-
+ 
 	
 	public static void main(String args[]) {
 
-		if(args.length != 2) {
-			System.out.println("Requires two args: sport and delete odds flag");
+		if(args.length < 2) {
+			System.out.println("Requires two args: sport and delete odds flag, along with optional useDriver flag");
 			return;
 		}
 		Sport sport = null;
@@ -998,7 +1006,7 @@ public class Caesars extends Book {
 			case "NBA":    sport = Sport.NBA;    break;
 			case "NFL":    sport = Sport.NFL;    break;
 			case "NCAAF":  sport = Sport.NCAAF;  break;
-			case "NCAAB":  sport = Sport.NCAAB;  break;
+			case "NCAAM":  sport = Sport.NCAAM;  break;
 			case "MLB":    sport = Sport.MLB;    break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}
@@ -1010,7 +1018,15 @@ public class Caesars extends Book {
 		}
 		System.out.println("Delete existing set to " + deleteOdds);
 		
-		Caesars mgm = new Caesars();
+		boolean useTheDriver = true;
+		if(args.length == 3) {
+			if(args[2].toUpperCase().contentEquals("USEDRIVER=FALSE")) {
+				useTheDriver = false;
+			}
+		}
+		System.out.println("UseDriver is " + useTheDriver);
+
+		Caesars mgm = new Caesars(useTheDriver);
 		TeamService tSrv = new TeamService();
 		TeamRepo tRepo = new TeamRepo();
 		

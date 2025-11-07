@@ -21,6 +21,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
+import java.util.Scanner;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -61,6 +62,10 @@ public class FanDuel extends Book {
 	Random random = new Random(System.currentTimeMillis());
 	int numPersisted = 0;
 
+	public FanDuel(boolean useTheDriver) {
+		super(Sportsbook.FANDUEL, useTheDriver);
+	}
+
 	public FanDuel() {
 		super(Sportsbook.FANDUEL, true);
 	}
@@ -78,165 +83,184 @@ public class FanDuel extends Book {
 
 	private List<Odds> getMatchups(Sport sport) throws IOException, OddsException {
 
-		refresh(sport);
-		
-		try {
+		if(useDriver) {
+			
+			refresh(sport);
+			
+			try {
 
-			Actions actions = new Actions(driver);
+				Actions actions = new Actions(driver);
 
-			WebElement body = driver.findElement(By.tagName("body"));
-			List<WebElement> links = body.findElements(By.tagName("li"));
-			for(WebElement link : links) {
-				if(
-						link.getText().contentEquals(sport.toString() + " Odds")
-							||
-						((sport == Sport.NCAAF) && link.getText().contains("College Football Games"))
-						) {
-					System.out.println(link.getText());
-					javascriptExecutor.executeScript("arguments[0].scrollIntoView(true);", link);
-					actions.contextClick(link).build().perform();
-					break;
+				WebElement body = driver.findElement(By.tagName("body"));
+				List<WebElement> links = body.findElements(By.tagName("li"));
+				for(WebElement link : links) {
+					if(
+							link.getText().contentEquals(sport.toString() + " Odds")
+								||
+							((sport == Sport.NCAAF) && link.getText().contains("College Football Games"))
+								||
+							((sport == Sport.NCAAM) && link.getText().contains("College Basketball"))
+							
+							) {
+						System.out.println(link.getText());
+						javascriptExecutor.executeScript("arguments[0].scrollIntoView(true);", link);
+						actions.contextClick(link).build().perform();
+						break;
+					}
 				}
-			}
 
-			// Pull up context menu
-//			actions.contextClick(scroll).build().perform();
+				// Pull up context menu
+//				actions.contextClick(scroll).build().perform();
 
-			Robot robot = new Robot();
-			
-			// Select the debug window from the context menu
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_Q);
-			robot.keyRelease(KeyEvent.VK_Q);
-			
-			// Mouse into the Elements display and click to gain focus
-			robot.mouseMove(500,1000);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-
-			// Page up enough times to get to the top
-			for(int i = 0; i < 25; ++i) {
+				Robot robot = new Robot();
+				
+				// Select the debug window from the context menu
 				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_PAGE_UP);
+				robot.keyPress(KeyEvent.VK_Q);
+				robot.keyRelease(KeyEvent.VK_Q);
+				
+				// Mouse into the Elements display and click to gain focus
+				robot.mouseMove(500,1000);
 				Thread.sleep(100);
-				robot.keyRelease(KeyEvent.VK_PAGE_UP);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+
+				// Page up enough times to get to the top
+				for(int i = 0; i < 25; ++i) {
+					Thread.sleep(100);
+					robot.keyPress(KeyEvent.VK_PAGE_UP);
+					Thread.sleep(100);
+					robot.keyRelease(KeyEvent.VK_PAGE_UP);
+				}
+					
+				// move to a spot off the first line
+				Thread.sleep(100);
+				robot.mouseMove(500,1010);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+
+				// select the first line of the elements output (the body of the html)
+				Thread.sleep(100);
+				robot.mouseMove(500,910);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+					
+				// bring up the context menu
+				Thread.sleep(100);
+				robot.mousePress(InputEvent.BUTTON3_DOWN_MASK);
+				Thread.sleep(100);
+				robot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
+
+				// Go to copy option
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+
+				// Bring up copy options
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_RIGHT);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_RIGHT);
+
+				// Select copy inner html
+				Thread.sleep(1000);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(500);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+				Thread.sleep(500);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(500);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+			} catch(Exception e) {
+				// might not be a visible scrollbar
+				System.out.println(e);
+				e.printStackTrace();
 			}
+		}
 				
-			// move to a spot off the first line
-			Thread.sleep(100);
-			robot.mouseMove(500,1010);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-
-			// select the first line of the elements output (the body of the html)
-			Thread.sleep(100);
-			robot.mouseMove(500,910);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-				
-			// bring up the context menu
-			Thread.sleep(100);
-			robot.mousePress(InputEvent.BUTTON3_DOWN_MASK);
-			Thread.sleep(100);
-			robot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
-
-			// Go to copy option
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-
-			// Bring up copy options
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_RIGHT);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_RIGHT);
-
-			// Select copy inner html
-			Thread.sleep(1000);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(500);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-			Thread.sleep(500);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(500);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-				
-			String filename = 
+		String filename = null;
+		if(useDriver) {
+			filename = 
 					System.getProperty("user.home") + "/" + "SCRAPE_" + 
 							this.sportsbook + "_" + System.currentTimeMillis() + ".html"; 
-			
 			readClipboard(filename);
+		} else {
+			filename = 
+					System.getProperty("user.home") + "/" + this.sportsbook + "_" + sport +  ".html"; 
+			
+			Scanner scanner = new Scanner(System.in);
+			System.out.print("Copy sport " + sport + " from FanDuel to the clipboard, then return");
+		    scanner.nextLine();
+		    scanner.close();
+			readClipboard(filename);
+			
+		}
+			
 
-			List<Odds> list = null;
-			try {
-				switch(sport) {
-					case MLB:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NBA:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NCAAB:
-						break;
-					case NCAAF:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NFL:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NHL:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case SOCCER_EPL:
-						break;
-					case TENNIS:
-						list = parseTennis(filename, sport);
-						break;
-					default:
-						break;
-				}
-			} catch(Exception eee) {
-				eee.printStackTrace();
+		List<Odds> list = null;
+		try {
+			switch(sport) {
+				case MLB:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NBA:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NCAAM:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NCAAF:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NFL:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NHL:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case SOCCER_EPL:
+					break;
+				case TENNIS:
+					list = parseTennis(filename, sport);
+					break;
+				default:
+					break;
 			}
-			File fileToDelete = new File(filename);
+		} catch(Exception eee) {
+			eee.printStackTrace();
+		}
+		File fileToDelete = new File(filename);
 
-	        if (fileToDelete.delete()) {
-	            System.out.println("File deleted successfully: " + filename);
-	        } else {
-	            System.out.println("Failed to delete the file: " + filename);
-	        }
-
-	        for(Odds odds : list) {
-	        	persistOdds(odds, "odds" + "_" + sport);
-	        }
-	        return list;
-		} catch(Exception e) {
-			// might not be a visible scrollbar
-			System.out.println(e);
-			e.printStackTrace();
+		if (fileToDelete.delete()) {
+			System.out.println("File deleted successfully: " + filename);
+		} else {
+			System.out.println("Failed to delete the file: " + filename);
 		}
 
-		return null;
+		for(Odds odds : list) {
+			persistOdds(odds, "odds" + "_" + sport);
+		}
+		return list;
+
 	}
 	
 	private List<Odds> parseTeamEvent(String file, Sport sport) {
@@ -551,7 +575,7 @@ public class FanDuel extends Book {
 				failed = true;
 			}
 			if(failed) {
-				System.out.println("Failed to look up both teams, not persisted game");
+				System.out.println("Failed to look up both teams, not persisted game: " + e.text());
 				return;
 			}
 
@@ -580,9 +604,13 @@ public class FanDuel extends Book {
 		Spread spread = new Spread();
 		spread.setPeriod(Period.GAME);
 		try {
-			spreadPts = e.select("div[aria-label^=Spread] > span:nth-child(1)");
-			spreadML = e.select("div[aria-label^=Spread] > span:nth-child(2)");
-			if((spreadPts == null) || (spreadML == null)) {
+			String label = "Spread";
+			if(sport == Sport.NHL) {
+				label = "Puck Line";
+			}
+			spreadPts = e.select("div[aria-label^=" + label + "] > span:nth-child(1)");
+			spreadML  = e.select("div[aria-label^=" + label + "] > span:nth-child(2)");
+			if((spreadPts == null) || (spreadML == null) || (spreadPts.size() < 2) || (spreadML.size() < 2)) {
 				System.out.println("Failed to parse spread: " + away + " at " + home);
 			} else {
 				spread.setAwayPoints(Double.parseDouble(spreadPts.get(0).text()));
@@ -604,7 +632,7 @@ public class FanDuel extends Book {
 		ml.setPeriod(Period.GAME);
 		try {
 			moneylines = e.select("div[aria-label^=Money] > span:nth-child(1)");
-			if((moneylines == null)) {
+			if((moneylines == null) || (moneylines.size() < 2)) {
 				System.out.println("Failed to parse moneylines: " + away + " at " + home);
 			} else {
 				ml.setAwayPrice(Integer.parseInt(moneylines.get(0).text()));
@@ -621,7 +649,7 @@ public class FanDuel extends Book {
 		try {
 			ouPts = e.select("div[aria-label^=Total] > span:nth-child(1)");
 			ouML = e.select("div[aria-label^=Total] > span:nth-child(2)");
-			if((ouPts == null) || (ouML == null)) {
+			if((ouPts == null) || (ouML == null) || (ouML.size() < 2) || (ouPts.size() < 1)) {
 				System.out.println("Failed to parse totals: " + away + " at " + home);
 			} else {
 				ou.setPoints(Double.parseDouble(ouPts.get(0).text().replace("O", "").trim()));
@@ -800,7 +828,8 @@ public class FanDuel extends Book {
 			case NBA:
 				url.add("https://sportsbook.fanduel.com/navigation/nba");
 				break;
-			case NCAAB:
+			case NCAAM:
+				url.add("https://sportsbook.fanduel.com/navigation/ncaab");
 				break;
 			case NCAAF:
 				url.add("https://sportsbook.fanduel.com/navigation/ncaaf");
@@ -895,8 +924,8 @@ public class FanDuel extends Book {
 	
 	public static void main(String args[]) {
 
-		if(args.length != 2) {
-			System.out.println("Requires two args: sport and delete odds flag");
+		if(args.length < 2) {
+			System.out.println("Requires two args: sport and delete odds flag, along with optional useDriver flag");
 			return;
 		}
 		Sport sport = null;
@@ -906,7 +935,7 @@ public class FanDuel extends Book {
 			case "NBA":    sport = Sport.NBA;    break;
 			case "NFL":    sport = Sport.NFL;    break;
 			case "NCAAF":  sport = Sport.NCAAF;  break;
-			case "NCAAB":  sport = Sport.NCAAB;  break;
+			case "NCAAM":  sport = Sport.NCAAM;  break;
 			case "MLB":    sport = Sport.MLB;    break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}
@@ -917,8 +946,17 @@ public class FanDuel extends Book {
 			deleteOdds = true;
 		}
 		System.out.println("Delete existing set to " + deleteOdds);
+
+		boolean useTheDriver = true;
+		if(args.length == 3) {
+			if(args[2].toUpperCase().contentEquals("USEDRIVER=FALSE")) {
+				useTheDriver = false;
+			}
+		}
+		System.out.println("UseDriver is " + useTheDriver);
 		
-		FanDuel mgm = new FanDuel();
+		
+		FanDuel mgm = new FanDuel(useTheDriver);
 		TeamService tSrv = new TeamService();
 		TeamRepo tRepo = new TeamRepo();
 		

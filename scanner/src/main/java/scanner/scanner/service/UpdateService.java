@@ -226,7 +226,7 @@ public class UpdateService {
 	        if(map.size() == 0) break;
 
 			count++;
-		} while(count < 10);
+		} while(count < 20);
 
 		return choices;
 	}

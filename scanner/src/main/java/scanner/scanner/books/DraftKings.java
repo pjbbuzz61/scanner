@@ -22,6 +22,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
+import java.util.Scanner;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -61,6 +62,10 @@ public class DraftKings extends Book {
 
 	Random random = new Random(System.currentTimeMillis());
 
+	public DraftKings(boolean useTheDriver) {
+		super(Sportsbook.DRAFTKINGS, useTheDriver);
+	}
+
 	public DraftKings() {
 		super(Sportsbook.DRAFTKINGS, true);
 	}
@@ -78,152 +83,166 @@ public class DraftKings extends Book {
 
 	private List<Odds> getMatchups(Sport sport) throws IOException, OddsException {
 
-		refresh(sport);
-		
-		try {
-
-			WebElement scroll = driver.findElement(By.cssSelector("section[data-testid='league-page-widget-container']"));
-
-			Actions actions = new Actions(driver);
-
-			// Pull up context menu
-			actions.contextClick(scroll).build().perform();
-
-			Robot robot = new Robot();
+		if(useDriver) {
 			
-			// Select the debug window from the context menu
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_Q);
-			robot.keyRelease(KeyEvent.VK_Q);
+			refresh(sport);
 			
-			// Mouse into the Elements display and click to gain focus
-			robot.mouseMove(500,1000);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-
-			// Page up enough times to get to the top
-			for(int i = 0; i < 25; ++i) {
-				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_PAGE_UP);
-				Thread.sleep(100);
-				robot.keyRelease(KeyEvent.VK_PAGE_UP);
-			}
-				
-			// move to a spot off the first line
-			Thread.sleep(100);
-			robot.mouseMove(500,1010);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-
-			// select the first line of the elements output (the body of the html)
-			Thread.sleep(100);
-			robot.mouseMove(500,910);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-				
-			// bring up the context menu
-			Thread.sleep(100);
-			robot.mousePress(InputEvent.BUTTON3_DOWN_MASK);
-			Thread.sleep(100);
-			robot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
-
-			// Go to copy option
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_UP);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_UP);
-
-			// Bring up copy options
-			Thread.sleep(100);
-			robot.keyPress(KeyEvent.VK_RIGHT);
-			Thread.sleep(100);
-			robot.keyRelease(KeyEvent.VK_RIGHT);
-
-			// Select copy inner html
-			Thread.sleep(1000);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(500);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-			Thread.sleep(500);
-			robot.keyPress(KeyEvent.VK_ENTER);
-			Thread.sleep(500);
-			robot.keyRelease(KeyEvent.VK_ENTER);
-				
-			String filename = 
-					System.getProperty("user.home") + "/" + 
-							this.sportsbook + "_" + System.currentTimeMillis() + ".html"; 
-			
-			readClipboard(filename);
-
-			List<Odds> list = null;
 			try {
-				switch(sport) {
-					case MLB:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NBA:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NCAAB:
-						break;
-					case NCAAF:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NFL:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case NHL:
-						list = parseTeamEvent(filename, sport);
-						break;
-					case SOCCER_EPL:
-						break;
-					case TENNIS:
-						list = parseTennis(filename, sport);
-						break;
-					default:
-						break;
+
+				WebElement scroll = driver.findElement(By.cssSelector("section[data-testid='league-page-widget-container']"));
+
+				Actions actions = new Actions(driver);
+
+				// Pull up context menu
+				actions.contextClick(scroll).build().perform();
+
+				Robot robot = new Robot();
+				
+				// Select the debug window from the context menu
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_Q);
+				robot.keyRelease(KeyEvent.VK_Q);
+				
+				// Mouse into the Elements display and click to gain focus
+				robot.mouseMove(500,1000);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+
+				// Page up enough times to get to the top
+				for(int i = 0; i < 25; ++i) {
+					Thread.sleep(100);
+					robot.keyPress(KeyEvent.VK_PAGE_UP);
+					Thread.sleep(100);
+					robot.keyRelease(KeyEvent.VK_PAGE_UP);
 				}
-			} catch(Exception eee) {
-				eee.printStackTrace();
+					
+				// move to a spot off the first line
+				Thread.sleep(100);
+				robot.mouseMove(500,1010);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+
+				// select the first line of the elements output (the body of the html)
+				Thread.sleep(100);
+				robot.mouseMove(500,910);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+					
+				// bring up the context menu
+				Thread.sleep(100);
+				robot.mousePress(InputEvent.BUTTON3_DOWN_MASK);
+				Thread.sleep(100);
+				robot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
+
+				// Go to copy option
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_UP);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_UP);
+
+				// Bring up copy options
+				Thread.sleep(100);
+				robot.keyPress(KeyEvent.VK_RIGHT);
+				Thread.sleep(100);
+				robot.keyRelease(KeyEvent.VK_RIGHT);
+
+				// Select copy inner html
+				Thread.sleep(1000);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(500);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+				Thread.sleep(500);
+				robot.keyPress(KeyEvent.VK_ENTER);
+				Thread.sleep(500);
+				robot.keyRelease(KeyEvent.VK_ENTER);
+			} catch(Exception e) {
+				// might not be a visible scrollbar
+				System.out.println(e);
+				e.printStackTrace();
 			}
-			File fileToDelete = new File(filename);
-
-	        if (fileToDelete.delete()) {
-	            System.out.println("File deleted successfully: " + filename);
-	        } else {
-	            System.out.println("Failed to delete the file: " + filename);
-	        }
-
-	        for(Odds odds : list) {
-	        	persistOdds(odds, "odds" + "_" + sport);
-	        }
-	        return list;
-		} catch(Exception e) {
-			// might not be a visible scrollbar
-			System.out.println(e);
-			e.printStackTrace();
+		}
+				
+		String filename = null;
+		if(useDriver) {
+			filename = 
+					System.getProperty("user.home") + "/" + "SCRAPE_" + 
+							this.sportsbook + "_" + System.currentTimeMillis() + ".html"; 
+			readClipboard(filename);
+		} else {
+			filename = 
+					System.getProperty("user.home") + "/" + this.sportsbook + "_" + sport +  ".html"; 
+				
+			Scanner scanner = new Scanner(System.in);
+			System.out.print("Copy sport " + sport + " from Draftkings to the clipboard, then return");
+			scanner.nextLine();
+			scanner.close();
+			readClipboard(filename);
 		}
 
-		return null;
+		List<Odds> list = null;
+		try {
+			switch(sport) {
+				case MLB:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NBA:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NCAAM:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NCAAF:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NFL:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NHL:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case SOCCER_EPL:
+					break;
+				case TENNIS:
+					list = parseTennis(filename, sport);
+					break;
+				default:
+					break;
+			}
+		} catch(Exception eee) {
+			eee.printStackTrace();
+		}
+		File fileToDelete = new File(filename);
+
+		if (fileToDelete.delete()) {
+			System.out.println("File deleted successfully: " + filename);
+		} else {
+			System.out.println("Failed to delete the file: " + filename);
+		}
+
+		for(Odds odds : list) {
+			persistOdds(odds, "odds" + "_" + sport);
+		}
+	        
+		return list;
 	}
 	
 	private List<Odds> parseTeamEvent(String file, Sport sport) {
@@ -549,7 +568,8 @@ public class DraftKings extends Book {
 //		System.out.println(gameTime.text());
 
 		Elements oddsCon = match.select("div.cb-side-column__right");
-		Elements buttons = oddsCon.get(0).select("button");
+//		Elements buttons = oddsCon.get(0).select("button");
+		Elements buttons = oddsCon.get(0).select(".cb-market__button");
 		if(buttons.size() != 6) {
 			System.out.println("Not all odds populated, will ignore this contest");
 			return;
@@ -558,14 +578,20 @@ public class DraftKings extends Book {
 		Spread spread = new Spread();
 		spread.setPeriod(Period.GAME);
 		try {
-			String awaySpreadPts  = buttons.get(0).text().split(" ")[0];
-			String homeSpreadPts  = buttons.get(3).text().split(" ")[0];
-			String awaySpreadLine = fixIt(buttons.get(0).text().split(" ")[1]);
-			String homeSpreadLine = fixIt(buttons.get(3).text().split(" ")[1]);
-			spread.setAwayPoints(Double.parseDouble(awaySpreadPts));
-			spread.setHomePoints(Double.parseDouble(homeSpreadPts));
-			spread.setAwayPrice(Integer.parseInt(awaySpreadLine));
-			spread.setHomePrice(Integer.parseInt(homeSpreadLine));
+			if(
+					(buttons.get(0).tag().getName().contentEquals("button"))
+						&&
+					(buttons.get(3).tag().getName().contentEquals("button"))
+					) {
+				String awaySpreadPts  = buttons.get(0).text().split(" ")[0];
+				String homeSpreadPts  = buttons.get(3).text().split(" ")[0];
+				String awaySpreadLine = fixIt(buttons.get(0).text().split(" ")[1]);
+				String homeSpreadLine = fixIt(buttons.get(3).text().split(" ")[1]);
+				spread.setAwayPoints(Double.parseDouble(awaySpreadPts));
+				spread.setHomePoints(Double.parseDouble(homeSpreadPts));
+				spread.setAwayPrice(Integer.parseInt(awaySpreadLine));
+				spread.setHomePrice(Integer.parseInt(homeSpreadLine));
+			}
 		} catch(Exception e3) {
 			System.out.println("Failed to parse Spread odds: " + teams.get(0).text() + " at " + teams.get(1).text());
 			System.out.println("Odds Container: " + oddsCon.text());
@@ -577,10 +603,16 @@ public class DraftKings extends Book {
 		ml.setHomePoints(0.0);
 		ml.setPeriod(Period.GAME);
 		try {
-			String awayML    = fixIt(buttons.get(2).text());
-			String homeML    = fixIt(buttons.get(5).text());		
-			ml.setAwayPrice(Integer.parseInt(awayML));
-			ml.setHomePrice(Integer.parseInt(homeML));
+			if(
+					(buttons.get(2).tag().getName().contentEquals("button"))
+						&&
+					(buttons.get(5).tag().getName().contentEquals("button"))
+					) {
+				String awayML    = fixIt(buttons.get(2).text());
+				String homeML    = fixIt(buttons.get(5).text());		
+				ml.setAwayPrice(Integer.parseInt(awayML));
+				ml.setHomePrice(Integer.parseInt(homeML));
+			}
 		} catch(Exception e3) {
 			System.out.println("Failed to parse Moneyline odds: " + teams.get(0).text() + " at " + teams.get(1).text());
 			System.out.println("Odds Container: " + oddsCon.text());
@@ -590,13 +622,19 @@ public class DraftKings extends Book {
 		OU ou = new OU();
 		ou.setPeriod(Period.GAME);
 		try {
-			String overPts   = buttons.get(1).text().split(" ")[0].replace("O", "");
-			String underPts  = buttons.get(4).text().split(" ")[0].replace("U", "");
-			String overLine  = fixIt(buttons.get(1).text().split(" ")[1]);
-			String underLine = fixIt(buttons.get(4).text().split(" ")[1]);
-			ou.setPoints(Double.parseDouble(overPts.trim()));
-			ou.setOver(Integer.parseInt(overLine));
-			ou.setUnder(Integer.parseInt(underLine));
+			if(
+					(buttons.get(1).tag().getName().contentEquals("button"))
+						&&
+					(buttons.get(4).tag().getName().contentEquals("button"))
+					) {
+
+				String overPts   = buttons.get(1).text().split(" ")[0].replace("O", "");
+				String overLine  = fixIt(buttons.get(1).text().split(" ")[1]);
+				String underLine = fixIt(buttons.get(4).text().split(" ")[1]);
+				ou.setPoints(Double.parseDouble(overPts.trim()));
+				ou.setOver(Integer.parseInt(overLine));
+				ou.setUnder(Integer.parseInt(underLine));
+			}
 		} catch(Exception e3) {
 			System.out.println("Failed to parse Totals odds: " + teams.get(0).text() + " at " + teams.get(1).text());
 			System.out.println("Odds Container: " + oddsCon.text());
@@ -636,100 +674,6 @@ public class DraftKings extends Book {
 		}
 		
 		return(new String(out, StandardCharsets.UTF_8));
-	}
-
-	private Date getStartingDate(String dateString) {
-
-		// Oct 26, 2025 · 4:25 PM
-		// 10/27/25 • 8:15 PM (Bet MGM)
-		String mnths[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "aug", "Sep", "Oct", "Nov", "Dec"};
-		Calendar c = Calendar.getInstance();
-		c.setTime(new Date());
-
-		String[] parts = dateString.split(" ");
-		int month, day, year;
-		int hour, minute;
-		if(parts[0].contentEquals("Today")) {
-			month = c.get(Calendar.MONTH) + 1;
-			day = c.get(Calendar.DAY_OF_MONTH);
-			year = c.get(Calendar.YEAR);
-			String[] hm = parts[2].split(":");
-			hour = Integer.parseInt(hm[0]);
-			minute = Integer.parseInt(hm[1]);
-			if(parts[3].contentEquals("PM")) {
-				if(hour != 12) {
-					hour +=12;
-				}
-			} else {
-				if(hour == 12) {
-					hour = 0;
-				}
-			}
-		} else if(parts[0].contentEquals("Tomorrow")) {
-			c.add(Calendar.DATE, 1);
-			month = c.get(Calendar.MONTH) + 1;
-			day = c.get(Calendar.DAY_OF_MONTH);
-			year = c.get(Calendar.YEAR);
-			String[] hm = parts[2].split(":");
-			hour = Integer.parseInt(hm[0]);
-			minute = Integer.parseInt(hm[1]);
-			if(parts[3].contentEquals("PM")) {
-				if(hour != 12) {
-					hour +=12;
-				}
-			} else {
-				if(hour == 12) {
-					hour = 0;
-				}
-			}
-		} else if(parts[0].contentEquals("Starting")) {
-			if(parts[1].contentEquals("now") == false) {
-				c.add(Calendar.MINUTE, Integer.parseInt(parts[2]));
-			}
-			month = c.get(Calendar.MONTH) + 1;
-			day = c.get(Calendar.DAY_OF_MONTH);
-			year = c.get(Calendar.YEAR);
-			hour = c.get(Calendar.HOUR_OF_DAY);
-			minute = c.get(Calendar.MINUTE);
-		} else {
-			int m = -1;
-			for(int i = 0; i < 12; ++i) {
-				if(parts[0].contentEquals(mnths[i])) {
-					m = i+1;
-					break;
-				}
-			}
-			if(m < 0) {
-				System.out.println("Failed to parse timestamp: " + dateString);
-				return null;
-			}
-			
-			month = m;
-			day   = Integer.parseInt(parts[1].replace(",", ""));
-			year  = Integer.parseInt(parts[2]);
-			String[] hm = parts[4].split(":");
-			hour = Integer.parseInt(hm[0]);
-			minute = Integer.parseInt(hm[1]);
-			if(parts[5].contentEquals("PM")) {
-				if(hour != 12) {
-					hour +=12;
-				}
-			} else {
-				if(hour == 12) {
-					hour = 0;
-				}
-			}
-		}
-		// set the starting time
-		Date d = null;
-		try {
-			d = new SimpleDateFormat("yyyy-MM-dd HH:mm")
-						.parse(String.format("%04d-%02d-%02d %02d:%02d", year, month, day, hour, minute));
-		} catch (ParseException e1) {
-			e1.printStackTrace();
-		}
-		
-		return d;
 	}
 
 	private Period getPeriod(String text) {
@@ -796,7 +740,8 @@ public class DraftKings extends Book {
 			case NBA:
 				url.add("https://sportsbook.draftkings.com/leagues/basketball/nba");
 				break;
-			case NCAAB:
+			case NCAAM:
+				url.add("https://sportsbook.draftkings.com/leagues/basketball/ncaab");
 				break;
 			case NCAAF:
 				url.add("https://sportsbook.draftkings.com/leagues/football/ncaaf");
@@ -876,8 +821,8 @@ public class DraftKings extends Book {
 	
 	public static void main(String args[]) {
 
-		if(args.length != 2) {
-			System.out.println("Requires two args: sport and delete odds flag");
+		if(args.length < 2) {
+			System.out.println("Requires two args: sport and delete odds flag, along with optional useDriver flag");
 			return;
 		}
 		Sport sport = null;
@@ -887,7 +832,7 @@ public class DraftKings extends Book {
 			case "NBA":    sport = Sport.NBA;    break;
 			case "NFL":    sport = Sport.NFL;    break;
 			case "NCAAF":  sport = Sport.NCAAF;  break;
-			case "NCAAB":  sport = Sport.NCAAB;  break;
+			case "NCAAM":  sport = Sport.NCAAM;  break;
 			case "MLB":    sport = Sport.MLB;    break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}
@@ -899,7 +844,15 @@ public class DraftKings extends Book {
 		}
 		System.out.println("Delete existing set to " + deleteOdds);
 		
-		DraftKings mgm = new DraftKings();
+		boolean useTheDriver = true;
+		if(args.length == 3) {
+			if(args[2].toUpperCase().contentEquals("USEDRIVER=FALSE")) {
+				useTheDriver = false;
+			}
+		}
+		System.out.println("UseDriver is " + useTheDriver);
+
+		DraftKings mgm = new DraftKings(useTheDriver);
 		TeamService tSrv = new TeamService();
 		TeamRepo tRepo = new TeamRepo();
 		

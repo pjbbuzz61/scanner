@@ -6,8 +6,10 @@ public enum Sport {
 	NCAAF,
 	NBA,
 	NHL,
-	NCAAB,
+	NCAAM,
+	NCAAW,
 	SOCCER_EPL,
-	TENNIS;
+	TENNIS,
+	WNBA
 
 }
