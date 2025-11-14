@@ -109,8 +109,15 @@ public abstract class Book {
 		System.setProperty(
 				"webdriver.gecko.driver", 
 				System.getProperty("user.dir") + "/scanner/drivers/geckodriver_34");
+
+		String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36 OPR/60.0.3255.170";
 		FirefoxOptions options = new FirefoxOptions()
-				.setAcceptInsecureCerts(true);
+//				.addPreference("general.useragent.override",userAgent)
+				.setAcceptInsecureCerts(true)
+				;
+		
+
+		
 		driver = new FirefoxDriver(options);
 		driver.manage().timeouts().pageLoadTimeout(20, TimeUnit.SECONDS);
 		javascriptExecutor = (JavascriptExecutor) driver;

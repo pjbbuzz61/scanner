@@ -88,7 +88,7 @@ public class Espn extends Book {
 			
 			try {
 
-				WebElement scroll = driver.findElement(By.cssSelector("section[data-testid='marketplace-shelf-']"));
+				WebElement scroll = driver.findElement(By.cssSelector("main"));
 
 				Actions actions = new Actions(driver);
 
@@ -100,11 +100,11 @@ public class Espn extends Book {
 				// Select the debug window from the context menu
 				Thread.sleep(100);
 				robot.keyPress(KeyEvent.VK_Q);
+				robot.keyPress(KeyEvent.VK_Q);
+				robot.keyRelease(KeyEvent.VK_Q);
 				robot.keyRelease(KeyEvent.VK_Q);
 				
 				// Mouse into the Elements display and click to gain focus
-
-
 				robot.mouseMove(500,1000);
 				Thread.sleep(100);
 				robot.keyPress(KeyEvent.VK_ENTER);
@@ -119,23 +119,11 @@ public class Espn extends Book {
 					Thread.sleep(100);
 					robot.keyRelease(KeyEvent.VK_PAGE_UP);
 				}
-					
-				// move to a spot off the first line
-				Thread.sleep(100);
-				robot.mouseMove(500,1010);
-				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_ENTER);
-				Thread.sleep(100);
-				robot.keyRelease(KeyEvent.VK_ENTER);
 
-				// select the first line of the elements output (the body of the html)
+				// moves to the html tag ...
+				robot.mouseMove(200, 900);
 				Thread.sleep(100);
-				robot.mouseMove(500,910);
-				Thread.sleep(100);
-				robot.keyPress(KeyEvent.VK_ENTER);
-				Thread.sleep(100);
-				robot.keyRelease(KeyEvent.VK_ENTER);
-					
+
 				// bring up the context menu
 				Thread.sleep(100);
 				robot.mousePress(InputEvent.BUTTON3_DOWN_MASK);
@@ -273,7 +261,8 @@ public class Espn extends Book {
 			return list;
 		}
 		
-		Elements container = doc.select("section[data-testid=marketplace-shelf-]");
+//		Elements container = doc.select("section[data-testid=marketplace-shelf-]");
+		Elements container = doc.select("main");
 		Elements games = container.select("article");
 		for(Element game : games) {
 			processEventTeam(game, list, sport);
@@ -537,11 +526,17 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		}
 		
 		Element away = containers.get(2).select("div.text-primary").first();
+		if(away == null) {
+			return;
+		}
 		String awayTeam = away.text().toUpperCase();
 		if(awayTeam.contains(")")) {
 			awayTeam = awayTeam.substring(awayTeam.indexOf(")")+1).trim();
 		}
 		Element home = containers.get(3).select("div.text-primary").first();
+		if(home == null) {
+			return;
+		}
 		String homeTeam = home.text().toUpperCase();
 		if(homeTeam.contains(")")) {
 			homeTeam = homeTeam.substring(homeTeam.indexOf(")")+1).trim();
@@ -876,6 +871,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		}
 		//System.out.println("Clicking off the init offer");
 		modalClose.click();
+		
 		return;
 		
 	}
@@ -904,7 +900,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		boolean found = false;
 		for(int i = 0; i < 100; ++i) {
 			try {
-				driver.findElement(By.cssSelector("section[data-testid='marketplace-shelf-']"));
+				driver.findElement(By.cssSelector("main"));
 				found = true;
 				break;
 			} catch(Exception e) {

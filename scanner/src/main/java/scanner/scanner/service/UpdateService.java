@@ -54,6 +54,8 @@ public class UpdateService {
 		return updateRepo.find(update);
 	}
 
+	// db.teams.updateMany({ commonName: { $regex: " " } }, [{$set: {commonName: {$replaceAll: {input: "$commonName", find: " ", replacement: "_"}}}}])
+	
 	public static void main (String args[] ) {
 
 		logger.info("Starting ....");
@@ -114,7 +116,7 @@ public class UpdateService {
 				System.out.print("Enter number or the team name (return to use the one above, 0 to remove): ");
 			    String teamName = scanner.nextLine();
 			    if(teamName.trim().length() == 0) {
-			    	teamName = u.getTeamName().trim().toUpperCase();
+			    	teamName = u.getTeamName().trim().toUpperCase().replace(" ", "_");
 			    } else {
 			    	int choice = -1;
 			    	try {
