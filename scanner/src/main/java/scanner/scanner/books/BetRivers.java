@@ -71,21 +71,57 @@ public class BetRivers extends Book {
 	
 	@Override
 	public void acquire(Sport sport) {
-		
+
+		List<String> urls = getUrls(sport);
+
 		try {
-			getMatchups(sport);
+			for(String url : urls) {
+				getMatchups(sport, url);
+			}
 		} catch (OddsException | IOException e) {
 			System.out.println("Exception getting matchups for " + this.sportsbook + ": " + e.getMessage());
 		}
 		
 	}
 
-	private List<Odds> getMatchups(Sport sport) throws IOException, OddsException {
+	private List<String> getUrls(Sport sport) {
+		
+		List<String> urls = new ArrayList<>();
+		switch(sport) {
+			case MLB:
+				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093616&type=prematch");
+				break;
+			case NBA:
+				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093652&type=prematch");
+				break;
+			case NCAAM:
+				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093654&type=prematch");
+				break;
+			case NCAAF:
+				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093655&type=prematch");
+				break;
+			case NFL:
+				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093656&type=prematch");
+				break;
+			case NHL:
+				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093657&type=prematch");
+				break;
+			case TENNIS:
+				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000096469&type=matches");
+				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000096472&type=matches");
+				break;
+			default:
+				break;
+		}
+		return urls;
+	}
+
+	private List<Odds> getMatchups(Sport sport, String url) throws IOException, OddsException {
 
 		List<String> files = new ArrayList<>();
 		if(useDriver) {
 			
-			refresh(sport);
+			refresh(sport, url);
 			
 			try {
 
@@ -108,12 +144,12 @@ public class BetRivers extends Book {
 					robot.keyRelease(KeyEvent.VK_Q);
 					
 					// Mouse into the Elements display and click to gain focus
-					robot.mouseMove(500,1000);
-					Thread.sleep(100);
-					robot.keyPress(KeyEvent.VK_ENTER);
-					Thread.sleep(100);
-					robot.keyRelease(KeyEvent.VK_ENTER);
-					Thread.sleep(100);
+//					robot.mouseMove(500,900);
+//					Thread.sleep(100);
+//					robot.keyPress(KeyEvent.VK_ENTER);
+//					Thread.sleep(100);
+//					robot.keyRelease(KeyEvent.VK_ENTER);
+//					Thread.sleep(100);
 
 					// Page up enough times to get to the top
 					for(int i = 0; i < 25; ++i) {
@@ -258,7 +294,7 @@ public class BetRivers extends Book {
 				case SOCCER_EPL:
 					break;
 				case TENNIS:
-					list = parseTennis(files, sport);
+					list = parseTeamEvent(files, sport);
 					break;
 				default:
 					break;
@@ -335,242 +371,6 @@ public class BetRivers extends Book {
 		return list;
 	}
 
-
-	private List<Odds> parseTennis(List<String> file, Sport sport) {
-
-		StringBuilder sb = new StringBuilder();
-		List<Odds> list = new ArrayList<>();
-
-		try {
-			BufferedReader reader = new BufferedReader(new FileReader(file.get(0)));
-			String line;
-			while ((line = reader.readLine()) != null) {
-			    sb.append(line);
-			}
-			reader.close();
-
-		} catch (IOException e) {
-			e.printStackTrace();
-			return list;
-		}
-		
-		Document doc = null;
-		try {
-			doc = Jsoup.parse(sb.toString());
-		} catch(Exception e) {
-			System.out.println("Exception parsing file: " + e);
-			e.printStackTrace();
-			return list;
-		}
-		
-		Elements eventGroups = doc.select("ms-event-group");
-		String currTournament = null;
-		for(Element eventGroup : eventGroups) {
-			for(Element child : eventGroup.children()) {
-				if(child.tag().getName().contentEquals("div") && child.hasClass("header-wrapper")) {
-					Elements divs = child.select("div");
-					for(Element divChildren : divs) {
-						if(divChildren.hasClass("title")) {
-							Elements spans = divChildren.select("span");
-							for(Element span : spans) {
-								currTournament = span.ownText();
-							}
-						}
-					}
-				}
-				else if (child.tag().getName().contentEquals("ms-event")) {
-					processEventSingle(child, list, currTournament, sport);
-				}
-			}
-		}
-		
-		return list;
-	}
-
-	private void processEventSingle(Element e, List<Odds> list, String tournament, Sport sport) {
-		
-		Calendar c = Calendar.getInstance();
-
-		c.setTime(new Date());
-		Odds odds = new Odds();
-		odds.setTimeStamp(new Date());
-		odds.setBook(this.sportsbook);
-		odds.setSport(sport);
-
-		Element link = e.select("a.grid-info-wrapper").first();
-		String url = link.attr("href");
-		String urlParts[] = url.split("-");
-		odds.setUrl(url);
-		odds.setGameNumber(urlParts[urlParts.length - 1]);
-		
-		
-		// Get event status
-		Elements timer = e.select("ms-event-timer");
-		Elements liveTimer = timer.select("ms-live-timer");
-		if(liveTimer.size() <= 0) {
-			Elements preMatchTimer = timer.select("ms-prematch-timer");
-			if(preMatchTimer.size() > 0) {
-				odds.setPeriod(Period.GAME); 
-				odds.setStatus(Status.SCHEDULED);
-				String dateString = preMatchTimer.text();
-				String[] parts = dateString.split(" ");
-				int month, day, year;
-				int hour, minute;
-				if(parts[0].contentEquals("Today")) {
-					month = c.get(Calendar.MONTH) + 1;
-					day = c.get(Calendar.DAY_OF_MONTH);
-					year = c.get(Calendar.YEAR);
-					String[] hm = parts[2].split(":");
-					hour = Integer.parseInt(hm[0]);
-					minute = Integer.parseInt(hm[1]);
-					if(parts[3].contentEquals("PM")) {
-						if(hour != 12) {
-							hour +=12;
-						}
-					} else {
-						if(hour == 12) {
-							hour = 0;
-						}
-					}
-				} else if(parts[0].contentEquals("Tomorrow")) {
-					c.add(Calendar.DATE, 1);
-					month = c.get(Calendar.MONTH) + 1;
-					day = c.get(Calendar.DAY_OF_MONTH);
-					year = c.get(Calendar.YEAR);
-					String[] hm = parts[2].split(":");
-					hour = Integer.parseInt(hm[0]);
-					minute = Integer.parseInt(hm[1]);
-					if(parts[3].contentEquals("PM")) {
-						if(hour != 12) {
-							hour +=12;
-						}
-					} else {
-						if(hour == 12) {
-							hour = 0;
-						}
-					}
-				} else if(parts[0].contentEquals("Starting")) {
-					if(parts[1].contentEquals("now") == false) {
-						c.add(Calendar.MINUTE, Integer.parseInt(parts[2]));
-					}
-					month = c.get(Calendar.MONTH) + 1;
-					day = c.get(Calendar.DAY_OF_MONTH);
-					year = c.get(Calendar.YEAR);
-					hour = c.get(Calendar.HOUR_OF_DAY);
-					minute = c.get(Calendar.MINUTE);
-				} else {
-					String[] dmy = parts[0].split("/");
-					month = Integer.parseInt(dmy[0]);
-					day   = Integer.parseInt(dmy[1]);
-					year  = Integer.parseInt(dmy[2]) + 2000;
-					String[] hm = parts[2].split(":");
-					hour = Integer.parseInt(hm[0]);
-					minute = Integer.parseInt(hm[1]);
-					if(parts[3].contentEquals("PM")) {
-						if(hour != 12) {
-							hour +=12;
-						}
-					} else {
-						if(hour == 12) {
-							hour = 0;
-						}
-					}
-				}
-				// set the starting time
-				try {
-					odds.setGameDateTime(
-							new SimpleDateFormat("yyyy-MM-dd HH:mm")
-								.parse(String.format("%04d-%02d-%02d %02d:%02d", year, month, day, hour, minute)));
-				} catch (ParseException e1) {
-					e1.printStackTrace();
-				}
-			} 
-				
-			
-		} else {
-			System.out.println("Match in progress, will not process: " + url);
-			return; // don't want matches in progress
-		}
-		
-		// Get participants
-		Elements participants = e.select("div.participant");
-		Elements doubles = participants.select("div.second-participant");
-		if(doubles.size() > 0) {
-			odds.setDoubles(true);
-			return;
-		} else {
-			odds.setDoubles(false);
-		}
-		if(participants.size() == 2) {
-			String p1 = participants.get(0).text().toUpperCase().trim();
-			String p2 = participants.get(1).text().toUpperCase().trim();
-			Team p1Team = null;
-			Team p2Team = null;
-			try {
-				p1Team = getTeam(this.sportsbook, sport, "Tennis", true);
-				p2Team = getTeam(this.sportsbook, sport, "Tennis", true);
-				
-			} catch(Exception e3) {
-				return;
-			}
-			Player player1 = null;
-			Player player2 = null;
-        	try {
-        		player1 = getPlayer(p1Team, p1);
-        		player2 = getPlayer(p2Team, p2);
-        		odds.setPlayer1(player1);
-        		odds.setPlayer2(player2);
-        	} catch(Exception e2) {
-        		return;
-        	}
-
-		} else if(participants.size() != 0) {
-			System.out.println("Dont have two particpants: " + e);
-			//continue;
-		}
-		
-		// Find the current odds
-		Elements oddsList = e.select("div.grid-group-container");
-		if(oddsList.size() > 0) {
-			Elements optionGroups = oddsList.select("ms-option-group");
-			if(optionGroups.size() > 0) {
-				for(int i = 0; i < optionGroups.size(); ++i) {
-					Elements options = optionGroups.get(i).select("ms-option");
-					if(options.size() == 2) {
-						Elements optName = options.get(0).select("div.option-name");
-						Elements optValue = options.get(0).select("div.option-value");
-						Spread spread = new Spread();
-						spread.setAwayPoints(0.0);
-						spread.setHomePoints(0.0);
-						spread.setPeriod(getPeriod(optName.text().trim()));
-						try {
-							spread.setAwayPrice(Integer.parseInt(optValue.text()));
-							optValue = options.get(1).select("div.option-value");
-							spread.setHomePrice(Integer.parseInt(optValue.text()));
-						} catch(Exception e3) {
-							// do nothing
-						}
-						odds.setMl(spread);
-					} else if(options.size() != 0) {
-						System.out.println("Did not get two options: " + e);
-						continue;
-					} else {
-						continue; // no options, so dont add
-					}
-				} // for
-			} else {
-				//System.out.println("No odds for the match");
-			}
-		} else {
-			System.out.println("No posted odds");
-		}
-		if((odds.getPlayer1() != null) && (odds.getPlayer2() != null) && (odds.getDoubles() == false)) {
-			list.add(odds);
-		} else {
-			System.out.println("Not persisting: " + odds);
-		}
-		
-	}
 
 	private boolean processEventTeam(Element match,  List<Odds> list, Sport sport) {
 		
@@ -676,7 +476,7 @@ public class BetRivers extends Book {
 				odds.setMl(ml);
 			}
 
-			else if(offer.contentEquals("TOTAL POINTS") || offer.contentEquals("TOTAL GOALS")) {
+			else if(offer.contentEquals("TOTAL POINTS") || offer.contentEquals("TOTAL GOALS") || offer.contentEquals("TOTAL")) {
 				OU ou = new OU();
 				ou.setPeriod(Period.GAME);
 				try {
@@ -706,113 +506,6 @@ public class BetRivers extends Book {
 		
 		return true;
 	}
-
-	/*
-	private Date getStartingDate(String dateString) {
-
-		// Oct 26, 2025 · 4:25 PM
-		// 10/27/25 • 8:15 PM (Bet MGM)
-		String mnths[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "aug", "Sep", "Oct", "Nov", "Dec"};
-		Calendar c = Calendar.getInstance();
-		c.setTime(new Date());
-
-		String[] parts = dateString.split(" ");
-		int month, day, year;
-		int hour, minute;
-		if(parts[0].contentEquals("Today")) {
-			month = c.get(Calendar.MONTH) + 1;
-			day = c.get(Calendar.DAY_OF_MONTH);
-			year = c.get(Calendar.YEAR);
-			String[] hm = parts[2].split(":");
-			hour = Integer.parseInt(hm[0]);
-			minute = Integer.parseInt(hm[1]);
-			if(parts[3].contentEquals("PM")) {
-				if(hour != 12) {
-					hour +=12;
-				}
-			} else {
-				if(hour == 12) {
-					hour = 0;
-				}
-			}
-		} else if(parts[0].contentEquals("Tomorrow")) {
-			c.add(Calendar.DATE, 1);
-			month = c.get(Calendar.MONTH) + 1;
-			day = c.get(Calendar.DAY_OF_MONTH);
-			year = c.get(Calendar.YEAR);
-			String[] hm = parts[2].split(":");
-			hour = Integer.parseInt(hm[0]);
-			minute = Integer.parseInt(hm[1]);
-			if(parts[3].contentEquals("PM")) {
-				if(hour != 12) {
-					hour +=12;
-				}
-			} else {
-				if(hour == 12) {
-					hour = 0;
-				}
-			}
-		} else if(parts[0].contentEquals("Starting")) {
-			if(parts[1].contentEquals("now") == false) {
-				c.add(Calendar.MINUTE, Integer.parseInt(parts[2]));
-			}
-			month = c.get(Calendar.MONTH) + 1;
-			day = c.get(Calendar.DAY_OF_MONTH);
-			year = c.get(Calendar.YEAR);
-			hour = c.get(Calendar.HOUR_OF_DAY);
-			minute = c.get(Calendar.MINUTE);
-		} else {
-			int m = -1;
-			for(int i = 0; i < 12; ++i) {
-				if(parts[0].contentEquals(mnths[i])) {
-					m = i+1;
-					break;
-				}
-			}
-			if(m < 0) {
-				System.out.println("Failed to parse timestamp: " + dateString);
-				return null;
-			}
-			
-			month = m;
-			day   = Integer.parseInt(parts[1].replace(",", ""));
-			year  = Integer.parseInt(parts[2]);
-			String[] hm = parts[4].split(":");
-			hour = Integer.parseInt(hm[0]);
-			minute = Integer.parseInt(hm[1]);
-			if(parts[5].contentEquals("PM")) {
-				if(hour != 12) {
-					hour +=12;
-				}
-			} else {
-				if(hour == 12) {
-					hour = 0;
-				}
-			}
-		}
-		// set the starting time
-		Date d = null;
-		try {
-			d = new SimpleDateFormat("yyyy-MM-dd HH:mm")
-						.parse(String.format("%04d-%02d-%02d %02d:%02d", year, month, day, hour, minute));
-		} catch (ParseException e1) {
-			e1.printStackTrace();
-		}
-		
-		return d;
-	}
-*/
-	private Period getPeriod(String text) {
-		switch(text) {
-			case "Set 1": return Period.SET1; 
-			case "Set 2": return Period.SET2; 
-			case "Set 3": return Period.SET3; 
-			case "Set 4": return Period.SET4; 
-			case "Set 5": return Period.SET5;
-		}
-		return Period.MATCH;
-	}
-
 
 	private String readClipboard (String file) {
 		
@@ -856,34 +549,8 @@ public class BetRivers extends Book {
 	     return null;
 	}
 
-	private void refresh(Sport sport) {
+	private void refresh(Sport sport, String url) {
 
-		List<String> url = new ArrayList<>();
-		switch(sport) {
-			case MLB:
-				url.add("https://md.betrivers.com/?page=sportsbook&group=1000093616&type=matches");
-				break;
-			case NBA:
-				url.add("https://md.betrivers.com/?page=sportsbook&group=1000093652&type=matches");
-				break;
-			case NCAAM:
-				url.add("https://md.betrivers.com/?page=sportsbook&group=1000093654&type=matches");
-				break;
-			case NCAAF:
-				url.add("https://md.betrivers.com/?page=sportsbook&group=1000093655&type=matches");
-				break;
-			case NFL:
-				url.add("https://md.betrivers.com/?page=sportsbook&group=1000093656&type=matches");
-				break;
-			case NHL:
-				url.add("https://md.betrivers.com/?page=sportsbook&group=1000093657&type=matches");
-				break;
-			case TENNIS:
-				break;
-			default:
-				break;
-		
-		}
 		try {
 			getWindowHandle(sport, url);
 		} catch (OddsException e) {
@@ -894,28 +561,26 @@ public class BetRivers extends Book {
 		
 	}
 
-	private void getWindowHandle(Sport sport, List<String> urlList) throws OddsException {
+	private void getWindowHandle(Sport sport, String url) throws OddsException {
 
-		for(String url : urlList) {
-			int tries = 0;
-			boolean success = false;
-			while(!success && (tries < 3)) {
+		int tries = 0;
+		boolean success = false;
+		while(!success && (tries < 3)) {
 
-				try {
-					driver.get(url);
-					driver.manage().window().maximize();
-					success = true;
-				} catch(Exception e) {
-					tries++;
-					System.out.println(this.sportsbook + ": Failed to GET url, try number " + tries);
-				}
+			try {
+				driver.get(url);
+				driver.manage().window().maximize();
+				success = true;
+			} catch(Exception e) {
+				tries++;
+				System.out.println(this.sportsbook + ": Failed to GET url, try number " + tries);
 			}
+		}
 
-			if(success == false) {
-				throw new OddsException("Failed to get url for " + this.sportsbook);
-			} else {
-				try {Thread.sleep(2000L);} catch (InterruptedException e) {}
-			}
+		if(success == false) {
+			throw new OddsException("Failed to get url for " + this.sportsbook);
+		} else {
+			try {Thread.sleep(2000L);} catch (InterruptedException e) {}
 		}
 
 		// Make sure the panel is active

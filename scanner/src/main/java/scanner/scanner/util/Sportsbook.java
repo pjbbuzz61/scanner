@@ -8,5 +8,7 @@ public enum Sportsbook {
 	DRAFTKINGS,
 	FANDUEL,
 	BETMGM, 
-	BETRIVERS;
+	BETRIVERS,
+	BET365,
+	HARDROCK;
 }

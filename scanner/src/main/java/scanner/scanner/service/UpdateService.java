@@ -269,7 +269,7 @@ public class UpdateService {
 	        if(map.size() == 0) break;
 
 			count++;
-		} while(count < 8);
+		} while(count < 10);
 
 		return choices;
 	}

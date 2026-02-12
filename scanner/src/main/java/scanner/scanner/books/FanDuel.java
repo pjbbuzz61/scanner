@@ -99,7 +99,11 @@ public class FanDuel extends Book {
 								||
 							((sport == Sport.NCAAF) && link.getText().contains("College Football Games"))
 								||
+							((sport == Sport.NCAAF) && link.getText().contains("College Football Odds"))
+								||
 							((sport == Sport.NCAAM) && link.getText().contains("College Basketball"))
+								||
+							((sport == Sport.TENNIS) && link.getText().contains("Australian Open Matches"))
 							
 							) {
 						System.out.println(link.getText());
@@ -240,7 +244,7 @@ public class FanDuel extends Book {
 				case SOCCER_EPL:
 					break;
 				case TENNIS:
-					list = parseTennis(filename, sport);
+					list = parseTeamEvent(filename, sport);
 					break;
 				default:
 					break;
@@ -290,16 +294,29 @@ public class FanDuel extends Book {
 			return list;
 		}
 		
-		Elements container = doc.select("main > div > div > div > div:nth-child(2) > div:nth-child(3) > ul");
+		Elements container = null;
+		if(sport == Sport.TENNIS) {
+			container = doc.select("main > div > div > div > div > div:nth-child(2) > div:nth-child(2) > ul");
+		} else {
+			container = doc.select("main > div > div > div > div:nth-child(2) > div:nth-child(3) > ul");
+		}
 		Elements games = container.select("li");
 		int numGames = 0;
 		for(Element game : games) {
-			if(game.text().contains(sport + " Odds")) {
+			Elements hdrs = game.select("h2[role=heading]");
+			if(hdrs.size() > 0) {
 				continue;
 			}
-			if(game.text().contains("Spread Money Total")) {
+			hdrs = game.select("h3[role=heading]");
+			if(hdrs.size() > 0) {
 				continue;
 			}
+//			if(game.text().contains(sport + " Odds")) {
+//				continue;
+//			}
+//			if(game.text().contains("Spread Money Total")) {
+//				continue;
+//			}
 			numGames++;
 			processEventTeam(game, list, sport);
 		}
@@ -564,12 +581,22 @@ public class FanDuel extends Book {
 			boolean failed = false;
 			try {
 				away = spans.get(0).text().trim();
+				if(sport == Sport.TENNIS) {
+					if(away.contains("/")) {
+						return; // a doubles match
+					}
+				}
 				odds.setAway(getTeam(this.sportsbook, sport, away, true));
 			} catch(Exception e3) {
 				failed = true;
 			}
 			try {
 				home = spans.get(1).text().trim();
+				if(sport == Sport.TENNIS) {
+					if(home.contains("/")) {
+						return; // a doubles match
+					}
+				}
 				odds.setHome(getTeam(this.sportsbook, sport, home, true));
 			} catch(Exception e3) {
 				failed = true;
@@ -580,8 +607,9 @@ public class FanDuel extends Book {
 			}
 
 			// Look for live event marker
-			Elements live = e.select("div > div > a > div > div > svg:nth-child(2) > title");
-			if(live.text().contains("live event")) {
+			Elements liveBlock = e.select("div > div > a");
+			Elements live = liveBlock.select("svg[aria-label='live event']");
+			if((live != null) && (live.size() > 0)) {
 				System.out.println(away + " at " + home + " is in progress, will not process");
 				return;
 			}
@@ -611,7 +639,9 @@ public class FanDuel extends Book {
 			spreadPts = e.select("div[aria-label^=" + label + "] > span:nth-child(1)");
 			spreadML  = e.select("div[aria-label^=" + label + "] > span:nth-child(2)");
 			if((spreadPts == null) || (spreadML == null) || (spreadPts.size() < 2) || (spreadML.size() < 2)) {
-				System.out.println("Failed to parse spread: " + away + " at " + home);
+				if(sport != Sport.TENNIS) {
+					System.out.println("Failed to parse spread: " + away + " at " + home);
+				}
 			} else {
 				spread.setAwayPoints(Double.parseDouble(spreadPts.get(0).text()));
 				spread.setHomePoints(Double.parseDouble(spreadPts.get(1).text()));
@@ -631,13 +661,25 @@ public class FanDuel extends Book {
 		ml.setHomePoints(0.0);
 		ml.setPeriod(Period.GAME);
 		try {
-			moneylines = e.select("div[aria-label^=Money] > span:nth-child(1)");
-			if((moneylines == null) || (moneylines.size() < 2)) {
-				System.out.println("Failed to parse moneylines: " + away + " at " + home);
+			if(sport != Sport.TENNIS) {
+				moneylines = e.select("div[aria-label^=Money] > span:nth-child(1)");
+				if((moneylines == null) || (moneylines.size() < 2)) {
+					//System.out.println("Failed to parse moneylines: " + away + " at " + home);
+				} else {
+					ml.setAwayPrice(Integer.parseInt(moneylines.get(0).text()));
+					ml.setHomePrice(Integer.parseInt(moneylines.get(1).text()));
+				}
 			} else {
-				ml.setAwayPrice(Integer.parseInt(moneylines.get(0).text()));
-				ml.setHomePrice(Integer.parseInt(moneylines.get(1).text()));
+				// for tennis
+				moneylines = e.select("div[aria-label*=to win] > span:nth-child(1)");
+				if((moneylines == null) || (moneylines.size() < 2)) {
+					//System.out.println("Failed to parse moneylines: " + away + " at " + home);
+				} else {
+					ml.setAwayPrice(Integer.parseInt(moneylines.get(0).text()));
+					ml.setHomePrice(Integer.parseInt(moneylines.get(1).text()));
+				}
 			}
+
 		} catch(Exception e3) {
 			System.out.println("Failed to parse ML odds: " 
 					+ moneylines.get(0).text() + " " + moneylines.get(1).text());
@@ -650,7 +692,9 @@ public class FanDuel extends Book {
 			ouPts = e.select("div[aria-label^=Total] > span:nth-child(1)");
 			ouML = e.select("div[aria-label^=Total] > span:nth-child(2)");
 			if((ouPts == null) || (ouML == null) || (ouML.size() < 2) || (ouPts.size() < 1)) {
-				System.out.println("Failed to parse totals: " + away + " at " + home);
+				if(sport != Sport.TENNIS) {
+					System.out.println("Failed to parse totals: " + away + " at " + home);
+				}
 			} else {
 				ou.setPoints(Double.parseDouble(ouPts.get(0).text().replace("O", "").trim()));
 				ou.setOver(Integer.parseInt(ouML.get(0).text()));
@@ -841,6 +885,7 @@ public class FanDuel extends Book {
 				url.add("https://sportsbook.fanduel.com/navigation/nhl");
 				break;
 			case TENNIS:
+				url.add("https://sportsbook.fanduel.com/tennis");
 				break;
 			default:
 				break;

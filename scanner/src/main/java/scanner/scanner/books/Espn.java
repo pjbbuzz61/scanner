@@ -72,19 +72,54 @@ public class Espn extends Book {
 	@Override
 	public void acquire(Sport sport) {
 		
+		List<String> urls = getUrls(sport);
+		
 		try {
-			getMatchups(sport);
+			for(String url : urls) {
+				getMatchups(sport, url);
+			}
 		} catch (OddsException | IOException e) {
 			System.out.println("Exception getting matchups for " + this.sportsbook + ": " + e.getMessage());
 		}
 		
 	}
 
-	private List<Odds> getMatchups(Sport sport) throws IOException, OddsException {
+	private List<String> getUrls(Sport sport) {
+		
+		List<String> urls = new ArrayList<>();
+		switch(sport) {
+			case MLB:
+				break;
+			case NBA:
+				urls.add("https://sportsbook.thescore.bet/sport/basketball/organization/united-states/competition/nba#lines");
+				break;
+			case NCAAM:
+				urls.add("https://sportsbook.thescore.bet/sport/basketball/organization/united-states/competition/ncaab#lines");
+				break;
+			case NCAAF:
+				urls.add("https://sportsbook.thescore.bet/sport/football/organization/united-states/competition/ncaaf#lines");
+				break;
+			case NFL:
+				urls.add("https://sportsbook.thescore.bet/sport/football/organization/united-states/competition/nfl#lines");
+				break;
+			case NHL:
+				urls.add("https://sportsbook.thescore.bet/sport/hockey/organization/united-states/competition/nhl#lines");
+				break;
+			case TENNIS:
+				urls.add("https://sportsbook.thescore.bet/sport/tennis/organization/grand-slam/competition/australian-open-men#lines");
+				urls.add("https://sportsbook.thescore.bet/sport/tennis/organization/grand-slam/competition/australian-open-women#lines");
+				break;
+			default:
+				break;
+		}
+		return urls;
+	}
+
+	private List<Odds> getMatchups(Sport sport, String url) throws IOException, OddsException {
 
 		if(useDriver) {
 			
-			refresh(sport);
+			refresh(sport, url);
 			
 			try {
 
@@ -210,7 +245,7 @@ public class Espn extends Book {
 				case SOCCER_EPL:
 					break;
 				case TENNIS:
-					list = parseTennis(filename, sport);
+					list = parseTeamEvent(filename, sport);
 					break;
 				default:
 					break;
@@ -275,6 +310,7 @@ public class Espn extends Book {
 	}
 
 
+@SuppressWarnings("unused")
 private List<Odds> parseTennis(String file, Sport sport) {
 
 		StringBuilder sb = new StringBuilder();
@@ -520,12 +556,23 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		odds.setPeriod(Period.GAME); 
 
 		Elements containers = e.select("article > div > div > div");
-		if(containers.size() != 4) {
-			System.out.println("Failed to get the expected containers for data");
-			return;
+		if(sport == Sport.TENNIS) {
+			if(containers.size() != 3) {
+				System.out.println("Failed to get the expected containers for data");
+				return;
+			}
+		} else {
+			if(containers.size() != 4) {
+				System.out.println("Failed to get the expected containers for data");
+				return;
+			}
 		}
-		
-		Element away = containers.get(2).select("div.text-primary").first();
+
+		int awayBlock = containers.size() - 2;
+		int homeBlock = containers.size() - 1;
+		int liveBlock = containers.size() - 3;
+
+		Element away = containers.get(awayBlock).select("div.text-primary").first();
 		if(away == null) {
 			return;
 		}
@@ -533,7 +580,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		if(awayTeam.contains(")")) {
 			awayTeam = awayTeam.substring(awayTeam.indexOf(")")+1).trim();
 		}
-		Element home = containers.get(3).select("div.text-primary").first();
+		Element home = containers.get(homeBlock).select("div.text-primary").first();
 		if(home == null) {
 			return;
 		}
@@ -558,86 +605,121 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		}
 		
 		// Look for LIVE indicator
-		Elements isLive = containers.get(1).select("div[data-testid='live-indicator']");
+		Elements isLive = containers.get(liveBlock).select("div[data-testid='live-indicator']");
 		if(isLive.size() > 0) {
 			return;
 		}
 
-		Element dateTime = containers.get(1).select("span").first();
+		Element dateTime = containers.get(liveBlock).select("span").first();
 		odds.setStatus(Status.SCHEDULED);
 		odds.setGameDateTime(getStartingDate(dateTime.text()));
 
-		Elements line = containers.get(2).select("button");
-		// should be 4 buttons --
-		// #2 is away spread
-		// #3 is over points and line
-		// #4 is ml away
+		String awaySpreadPts = null;
+		String awaySpreadLine = null;
+		String homeSpreadPts = null;
+		String homeSpreadLine = null;
+		String overUnderPts = null;
+		String overLine = null;
+		String underLine = null;
+		String awayMl = null;
+		String homeMl = null;
 
-		Elements scans = line.get(1).select("span");
-		// second scan contains fir line (o/u points or spread points)
-		// third line is the spread ml, or o/u line
-		String awaySpreadPts = scans.get(1).text();
-		String awaySpreadLine = scans.get(2).text().replace("Even", "+100");
-		
-		scans = line.get(2).select("span");
-		// second scan contains fir line (o/u points or spread points)
-		// third line is the spread ml, or o/u line
-		String overUnderPts = scans.get(1).text().replace("O", "");
-		String overLine = scans.get(2).text().replace("Even", "+100");
-
-		scans = line.get(3).select("span");
-		String awayMl = scans.get(2).text().replace("Even", "+100");
-
-		line = containers.get(3).select("button");
-
-		scans = line.get(1).select("span");
-		String homeSpreadPts = scans.get(1).text();
-		String homeSpreadLine = scans.get(2).text().replace("Even", "+100");
-		
-		scans = line.get(2).select("span");
-		String underLine = scans.get(2).text().replace("Even", "+100");
-
-		scans = line.get(3).select("span");
-		String homeMl = scans.get(2).text().replace("Even", "+100");
-
-		Spread spread = new Spread();
-		spread.setPeriod(Period.GAME);
-		try {
-			spread.setAwayPoints(Double.parseDouble(awaySpreadPts));
-			spread.setHomePoints(Double.parseDouble(homeSpreadPts));
-			spread.setAwayPrice(Integer.parseInt(awaySpreadLine));
-			spread.setHomePrice(Integer.parseInt(homeSpreadLine));
-		} catch(Exception e3) {
-			System.out.println("Failed to parse Spread odds: " 
-					+ awaySpreadPts + " " + awaySpreadLine + " " + homeSpreadPts + " " + homeSpreadLine);
+		if(sport != Sport.TENNIS) {
 			
-		}
-		odds.setSpread(spread);
-		
-		Spread ml = new Spread();
-		ml.setAwayPoints(0.0);
-		ml.setHomePoints(0.0);
-		ml.setPeriod(Period.GAME);
-		try {
-			ml.setAwayPrice(Integer.parseInt(awayMl));
-			ml.setHomePrice(Integer.parseInt(homeMl));
-		} catch(Exception e3) {
-			System.out.println("Failed to parse ML odds: " 
-					+ awayMl + " " + homeMl);
-		}
-		odds.setMl(ml);
+			Elements line = containers.get(awayBlock).select("button");
+			// should be 4 buttons --
+			// #1 is the team
+			// #2 is away spread
+			// #3 is over points and line
+			// #4 is ml away
 
-		OU ou = new OU();
-		ou.setPeriod(Period.GAME);
-		try {
-			ou.setPoints(Double.parseDouble(overUnderPts.trim()));
-			ou.setOver(Integer.parseInt(overLine));
-			ou.setUnder(Integer.parseInt(underLine));
-		} catch(Exception e3) {
-			System.out.println("Failed to parse OU odds: " 
-					+ overUnderPts + " " + overLine + " " + underLine);
+			Elements scans = line.get(1).select("span");
+			// second scan contains fir line (o/u points or spread points)
+			// third line is the spread ml, or o/u line
+			awaySpreadPts = scans.get(1).text();
+			awaySpreadLine = scans.get(2).text().replace("Even", "+100");
+			
+			scans = line.get(2).select("span");
+			// second scan contains fir line (o/u points or spread points)
+			// third line is the spread ml, or o/u line
+			overUnderPts = scans.get(1).text().replace("O", "");
+			overLine = scans.get(2).text().replace("Even", "+100");
+
+			scans = line.get(3).select("span");
+			awayMl = scans.get(2).text().replace("Even", "+100");
+
+			line = containers.get(homeBlock).select("button");
+
+			scans = line.get(1).select("span");
+			homeSpreadPts = scans.get(1).text();
+			homeSpreadLine = scans.get(2).text().replace("Even", "+100");
+			
+			scans = line.get(2).select("span");
+			underLine = scans.get(2).text().replace("Even", "+100");
+
+			scans = line.get(3).select("span");
+			homeMl = scans.get(2).text().replace("Even", "+100");
+		
+		} else {
+			Elements line = containers.get(awayBlock).select("button");
+			// should be 2 buttons --
+			// #1 is the away team
+			// #2 is ml away
+
+			Elements scans = line.get(1).select("span");
+			awayMl = scans.get(2).text().replace("Even", "+100");
+
+			line = containers.get(homeBlock).select("button");
+			// should be 2 buttons --
+			// #1 is the home team
+			// #2 is ml home
+
+			scans = line.get(1).select("span");
+			homeMl = scans.get(2).text().replace("Even", "+100");
 		}
-		odds.setOu(ou);
+
+		if(sport != Sport.TENNIS) {
+			Spread spread = new Spread();
+			spread.setPeriod(Period.GAME);
+			try {
+				spread.setAwayPoints(Double.parseDouble(awaySpreadPts));
+				spread.setHomePoints(Double.parseDouble(homeSpreadPts));
+				spread.setAwayPrice(Integer.parseInt(awaySpreadLine));
+				spread.setHomePrice(Integer.parseInt(homeSpreadLine));
+			} catch(Exception e3) {
+				System.out.println("Failed to parse Spread odds: " 
+						+ awaySpreadPts + " " + awaySpreadLine + " " + homeSpreadPts + " " + homeSpreadLine);
+				
+			}
+			odds.setSpread(spread);
+
+			OU ou = new OU();
+			ou.setPeriod(Period.GAME);
+			try {
+				ou.setPoints(Double.parseDouble(overUnderPts.trim()));
+				ou.setOver(Integer.parseInt(overLine));
+				ou.setUnder(Integer.parseInt(underLine));
+			} catch(Exception e3) {
+				System.out.println("Failed to parse OU odds: " 
+						+ overUnderPts + " " + overLine + " " + underLine);
+			}
+			odds.setOu(ou);
+		}
+		
+		if((awayMl.length() > 0) && (homeMl.length() > 0)) {
+			Spread ml = new Spread();
+			ml.setAwayPoints(0.0);
+			ml.setHomePoints(0.0);
+			ml.setPeriod(Period.GAME);
+			try {
+				ml.setAwayPrice(Integer.parseInt(awayMl));
+				ml.setHomePrice(Integer.parseInt(homeMl));
+			} catch(Exception e3) {
+				System.out.println("Failed to parse ML odds: " 
+						+ awayMl + " " + homeMl);
+			}
+			odds.setMl(ml);
+		}
 
 		
 		if((odds.getAway() != null) && (odds.getHome() != null)) {
@@ -795,33 +877,8 @@ private List<Odds> parseTennis(String file, Sport sport) {
 	     return null;
 	}
 
-	private void refresh(Sport sport) {
+	private void refresh(Sport sport, String url) {
 
-		String url = null;
-		switch(sport) {
-			case MLB:
-				break;
-			case NBA:
-				url = "https://espnbet.com/sport/basketball/organization/united-states/competition/nba";
-				break;
-			case NCAAM:
-				url = "https://espnbet.com/sport/basketball/organization/united-states/competition/ncaab/section/lines";
-				break;
-			case NCAAF:
-				url = "https://espnbet.com/sport/football/organization/united-states/competition/ncaaf";
-				break;
-			case NFL:
-				url = "https://espnbet.com/sport/football/organization/united-states/competition/nfl";
-				break;
-			case NHL:
-				url = "https://espnbet.com/sport/hockey/organization/united-states/competition/nhl";
-				break;
-			case TENNIS:
-				break;
-			default:
-				break;
-		
-		}
 		try {
 			getWindowHandle(sport, url);
 		} catch (OddsException e) {
@@ -833,7 +890,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		int cntr = 0;
 		while(popup == null) {
 			try {
-				popup = driver.findElement(By.cssSelector("button[id='onetrust-accept-btn-handler']"));
+				popup = driver.findElement(By.cssSelector("button[aria-label='Got it']"));
 			} catch(Exception e) {
 				
 			}
@@ -850,27 +907,6 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		//System.out.println("Clicking off the popup");
 		popup.click();
 		try {Thread.sleep(500L);} catch (InterruptedException e) {}
-		
-		WebElement modalClose = null;
-		cntr = 0;
-		while(modalClose == null) {
-			try {
-				modalClose = driver.findElement(By.cssSelector("button[id='modal-close-button']"));
-			} catch(Exception e) {
-				
-			}
-			try {Thread.sleep(100L);} catch (InterruptedException e) {}
-			if(cntr++ >= 100) {
-				break;
-			}
-		}
-		//System.out.println("Counter is " + cntr);
-		if(modalClose == null) {
-			System.out.println(this.sportsbook + ": Failed to get modal close");
-			return;
-		}
-		//System.out.println("Clicking off the init offer");
-		modalClose.click();
 		
 		return;
 		
@@ -896,6 +932,23 @@ private List<Odds> parseTennis(String file, Sport sport) {
 			throw new OddsException("Failed to get url for " + this.sportsbook);
 		}
 					
+		try {
+			Robot robot2 = new Robot();
+			robot2.keyPress(KeyEvent.VK_ALT);
+			try {Thread.sleep(500);} catch(Exception ee) {}
+			robot2.keyPress(KeyEvent.VK_A);
+			try {Thread.sleep(500);} catch(Exception ee) {}
+			robot2.keyRelease(KeyEvent.VK_ALT);
+			try {Thread.sleep(500);} catch(Exception ee) {}
+			robot2.keyRelease(KeyEvent.VK_A);
+			try {Thread.sleep(500);} catch(Exception ee) {}
+
+		} catch (Exception e) {
+			System.out.println("Issue when trying to close Allow window");
+			return;
+		}
+
+
 		// Make sure the panel is active
 		boolean found = false;
 		for(int i = 0; i < 100; ++i) {

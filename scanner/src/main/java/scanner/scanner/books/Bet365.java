@@ -57,15 +57,15 @@ import scanner.scanner.util.Sportsbook;
 import scanner.scanner.util.Status;
 
 @Component
-public class Caesars extends Book {
+public class Bet365 extends Book {
 
 	Random random = new Random(System.currentTimeMillis());
 
-	public Caesars(boolean useTheDriver) {
-		super(Sportsbook.CAESARS, useTheDriver);
+	public Bet365(boolean useTheDriver) {
+		super(Sportsbook.BET365, useTheDriver);
 	}
 
-	public Caesars() {
+	public Bet365() {
 		super(Sportsbook.CAESARS, true);
 	}
 	
@@ -212,7 +212,7 @@ public class Caesars extends Book {
 						this.sportsbook + "_" + System.currentTimeMillis() + "_" + cntr + ".html"; 
 				cntr++;
 				
-				System.out.print("Copy sport " + sport + " from Caesars to the clipboard, then return (x if done) ");
+				System.out.print("Copy sport " + sport + " from Bet365 to the clipboard, then return (x if done) ");
 			    String str = null;
 			    try {
 			    	str = scanner.nextLine();
@@ -314,9 +314,14 @@ public class Caesars extends Book {
 			}
 			
 			
-			Elements container = doc.select("div[data-testid='sport-comp-page-content']");
-			Elements games = container.select("div.EventCard");
+			Elements container = doc.select("div.gl-MarketGroupContainer");
+			Elements gamesWrapperLeftSide = container.select("div.sgl-MarketFixtureDetailsLabel");
+			Elements games = gamesWrapperLeftSide.select("div.scb-ParticipantFixtureDetailsHigherBasketball_TeamNames");
+			
+			System.out.println(games.size());
+			
 			for(Element game : games) {
+				
 				boolean valid = processEventTeam(game, list, sport);
 				if(valid) {
 					numGames++;
@@ -339,6 +344,18 @@ public class Caesars extends Book {
 		odds.setSport(sport);
 		odds.setPeriod(Period.GAME); 
 
+		
+		Elements teams = e.select("div.scb-ParticipantFixtureDetailsHigherBasketball_Team");
+		if(teams.size() != 2) {
+			System.out.println("Didnt get two team names");
+			return false;
+		}
+		
+		System.out.println("Team away: " + teams.get(0).text());
+		System.out.println("Team home: " + teams.get(1).text());
+
+
+		// change below
 		
 		Element anchor = e.select("div.EventCard > div > div > div > div > div:nth-child(2)").first();
 
@@ -819,7 +836,7 @@ public class Caesars extends Book {
 		}
 		System.out.println("UseDriver is " + useTheDriver);
 
-		Caesars mgm = new Caesars(useTheDriver);
+		Bet365 mgm = new Bet365(useTheDriver);
 		TeamService tSrv = new TeamService();
 		TeamRepo tRepo = new TeamRepo();
 		

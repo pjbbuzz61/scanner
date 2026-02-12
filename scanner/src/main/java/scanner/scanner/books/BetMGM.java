@@ -74,19 +74,55 @@ public class BetMGM extends Book {
 	@Override
 	public void acquire(Sport sport) {
 		
+		List<String> urls = getUrls(sport);
+		
 		try {
-			getMatchups(sport);
+			for(String url : urls) {
+				getMatchups(sport, url);
+			}
 		} catch (OddsException | IOException e) {
 			System.out.println("Exception getting matchups for " + this.sportsbook + ": " + e.getMessage());
 		}
 		
 	}
 
-	private List<Odds> getMatchups(Sport sport) throws IOException, OddsException {
+	private List<String> getUrls(Sport sport) {
+		
+		List<String> urls = new ArrayList<>();
+		switch(sport) {
+			case MLB:
+				break;
+			case NBA:
+				urls.add("https://www.md.betmgm.com/en/sports/basketball-7/betting/usa-9/nba-6004");
+				break;
+			case NCAAM:
+				urls.add("https://www.md.betmgm.com/en/sports/basketball-7/betting/usa-9/ncaa-264");
+				break;
+			case NCAAF:
+				urls.add("https://www.md.betmgm.com/en/sports/football-11/betting/usa-9/college-football-211");
+				break;
+			case NFL:
+				urls.add("https://www.md.betmgm.com/en/sports/football-11/betting/usa-9/nfl-35");
+				break;
+			case NHL:
+				urls.add("https://www.md.betmgm.com/en/sports/hockey-12/betting/usa-9/nhl-34");
+				break;
+			case TENNIS:
+				urls.add("https://www.md.betmgm.com/en/sports/tennis-5/betting/grand-slam-tournaments-5/australian-open-0:3/men-13");
+				urls.add("https://www.md.betmgm.com/en/sports/tennis-5/betting/grand-slam-tournaments-5/australian-open-0:3/women-14");
+				break;
+			default:
+				break;
+		
+		}
+		return urls;
+	}
+
+	private List<Odds> getMatchups(Sport sport, String url) throws IOException, OddsException {
 
 		if(useDriver) {
 			
-			refresh(sport);
+			refresh(sport, url);
 			int lastPersisted = 100;
 			
 			try {
@@ -95,6 +131,7 @@ public class BetMGM extends Book {
 				Actions actions = new Actions(driver);
 
 				// Pull up context menu
+				javascriptExecutor.executeScript("arguments[0].scrollIntoView(true);", scroll);
 				actions.contextClick(scroll).build().perform();
 
 				Robot robot = new Robot();
@@ -256,7 +293,8 @@ public class BetMGM extends Book {
 				case SOCCER_EPL:
 					break;
 				case TENNIS:
-					list = parseTennis(filename, sport);
+					list = parseTeamEvent(filename, sport);
+//					list = parseTennis(filename, sport);
 					break;
 				default:
 					break;
@@ -311,11 +349,13 @@ public class BetMGM extends Book {
 		
 		List<String> periods = new ArrayList<>();
 		Element headers = doc.select("ms-grid-header").first();
-		Elements header = headers.select("ms-group-selector");
-		if(header.size() > 0) {
-			for(Element h : header) {
-				Element sel = h.select("span.ng-star-inserted").first();
-				periods.add(sel.text());
+		if(headers != null) {
+			Elements header = headers.select("ms-group-selector");
+			if(header.size() > 0) {
+				for(Element h : header) {
+					Element sel = h.select("span.ng-star-inserted").first();
+					periods.add(sel.text());
+				}
 			}
 		}
 		
@@ -325,7 +365,12 @@ public class BetMGM extends Book {
 		int numGames = 0;
 		for(Element eventGroup : eventGroups) {
 			for(Element child : eventGroup.children()) {
-				if (child.tag().getName().contentEquals("ms-six-pack-event")) {
+				if(
+						(child.tag().getName().contentEquals("ms-six-pack-event"))
+							||
+						(child.tag().getName().contentEquals("ms-event"))
+						) {
+
 					numGames++;
 					processEventTeam(child, list, currTournament, sport, periods);
 				}
@@ -336,253 +381,6 @@ public class BetMGM extends Book {
 		System.out.println("Number of games persisted: " + list.size());
 
 		return list;
-	}
-
-	private List<Odds> parseTennis(String file, Sport sport) {
-
-		StringBuilder sb = new StringBuilder();
-		List<Odds> list = new ArrayList<>();
-
-		try {
-			BufferedReader reader = new BufferedReader(new FileReader(file));
-			String line;
-			while ((line = reader.readLine()) != null) {
-			    sb.append(line);
-			}
-			reader.close();
-
-		} catch (IOException e) {
-			e.printStackTrace();
-			return list;
-		}
-		
-		Document doc = null;
-		try {
-			doc = Jsoup.parse(sb.toString());
-		} catch(Exception e) {
-			System.out.println("Exception parsing file: " + e);
-			e.printStackTrace();
-			return list;
-		}
-		
-		Elements eventGroups = doc.select("ms-event-group");
-		String currTournament = null;
-		for(Element eventGroup : eventGroups) {
-			for(Element child : eventGroup.children()) {
-				if(child.tag().getName().contentEquals("div") && child.hasClass("header-wrapper")) {
-					Elements divs = child.select("div");
-					for(Element divChildren : divs) {
-						if(divChildren.hasClass("title")) {
-							Elements spans = divChildren.select("span");
-							for(Element span : spans) {
-								currTournament = span.ownText();
-							}
-						}
-					}
-				}
-				else if (child.tag().getName().contentEquals("ms-event")) {
-					processEventSingle(child, list, currTournament, sport);
-				}
-			}
-		}
-		
-		return list;
-	}
-
-	private void processEventSingle(Element e, List<Odds> list, String tournament, Sport sport) {
-		Calendar c = Calendar.getInstance();
-
-		c.setTime(new Date());
-		Odds odds = new Odds();
-		odds.setTimeStamp(new Date());
-		odds.setBook(this.sportsbook);
-		odds.setSport(sport);
-
-		Element link = e.select("a.grid-info-wrapper").first();
-		String url = link.attr("href");
-		String urlParts[] = url.split("-");
-		odds.setUrl(url);
-		odds.setGameNumber(urlParts[urlParts.length - 1]);
-		
-		
-		// Get event status
-		Elements timer = e.select("ms-event-timer");
-		Elements liveTimer = timer.select("ms-live-timer");
-		if(liveTimer.size() <= 0) {
-			Elements preMatchTimer = timer.select("ms-prematch-timer");
-			if(preMatchTimer.size() > 0) {
-				odds.setPeriod(Period.GAME); 
-				odds.setStatus(Status.SCHEDULED);
-				String dateString = preMatchTimer.text();
-				String[] parts = dateString.split(" ");
-				int month, day, year;
-				int hour, minute;
-				if(parts[0].contentEquals("Today")) {
-					month = c.get(Calendar.MONTH) + 1;
-					day = c.get(Calendar.DAY_OF_MONTH);
-					year = c.get(Calendar.YEAR);
-					String[] hm = parts[2].split(":");
-					hour = Integer.parseInt(hm[0]);
-					minute = Integer.parseInt(hm[1]);
-					if(parts[3].contentEquals("PM")) {
-						if(hour != 12) {
-							hour +=12;
-						}
-					} else {
-						if(hour == 12) {
-							hour = 0;
-						}
-					}
-				} else if(parts[0].contentEquals("Tomorrow")) {
-					c.add(Calendar.DATE, 1);
-					month = c.get(Calendar.MONTH) + 1;
-					day = c.get(Calendar.DAY_OF_MONTH);
-					year = c.get(Calendar.YEAR);
-					String[] hm = parts[2].split(":");
-					hour = Integer.parseInt(hm[0]);
-					minute = Integer.parseInt(hm[1]);
-					if(parts[3].contentEquals("PM")) {
-						if(hour != 12) {
-							hour +=12;
-						}
-					} else {
-						if(hour == 12) {
-							hour = 0;
-						}
-					}
-				} else if(parts[0].contentEquals("Starting")) {
-					if(parts[1].contentEquals("now") == false) {
-						c.add(Calendar.MINUTE, Integer.parseInt(parts[2]));
-					}
-					month = c.get(Calendar.MONTH) + 1;
-					day = c.get(Calendar.DAY_OF_MONTH);
-					year = c.get(Calendar.YEAR);
-					hour = c.get(Calendar.HOUR_OF_DAY);
-					minute = c.get(Calendar.MINUTE);
-				} else {
-					String[] dmy = parts[0].split("/");
-					month = Integer.parseInt(dmy[0]);
-					day   = Integer.parseInt(dmy[1]);
-					year  = Integer.parseInt(dmy[2]) + 2000;
-					String[] hm = parts[2].split(":");
-					hour = Integer.parseInt(hm[0]);
-					minute = Integer.parseInt(hm[1]);
-					if(parts[3].contentEquals("PM")) {
-						if(hour != 12) {
-							hour +=12;
-						}
-					} else {
-						if(hour == 12) {
-							hour = 0;
-						}
-					}
-				}
-				// set the starting time
-				try {
-					odds.setGameDateTime(
-							new SimpleDateFormat("yyyy-MM-dd HH:mm")
-								.parse(String.format("%04d-%02d-%02d %02d:%02d", year, month, day, hour, minute)));
-				} catch (ParseException e1) {
-					e1.printStackTrace();
-				}
-			} 
-				
-			
-		} else {
-			System.out.println("Match in progress, will not process: " + url);
-			return; // don't want matches in progress
-		}
-		
-		// Get participants
-		Elements participants = e.select("div.participant");
-		Elements doubles = participants.select("div.second-participant");
-		if(doubles.size() > 0) {
-			odds.setDoubles(true);
-			return;
-		} else {
-			odds.setDoubles(false);
-		}
-		if(participants.size() == 2) {
-			String p1 = participants.get(0).text().toUpperCase().trim();
-			String p2 = participants.get(1).text().toUpperCase().trim();
-			Team p1Team = null;
-			Team p2Team = null;
-			try {
-				p1Team = getTeam(this.sportsbook, sport, "Tennis", true);
-				p2Team = getTeam(this.sportsbook, sport, "Tennis", true);
-				
-			} catch(Exception e3) {
-				return;
-			}
-			Player player1 = null;
-			Player player2 = null;
-        	try {
-        		player1 = getPlayer(p1Team, p1);
-        		player2 = getPlayer(p2Team, p2);
-        		odds.setPlayer1(player1);
-        		odds.setPlayer2(player2);
-        	} catch(Exception e2) {
-        		return;
-        	}
-
-		} else if(participants.size() != 0) {
-			System.out.println("Dont have two particpants: " + e);
-			//continue;
-		}
-		
-		// Find the current odds
-		Elements oddsList = e.select("div.grid-group-container");
-		if(oddsList.size() > 0) {
-			Elements optionGroups = oddsList.select("ms-option-group");
-			if(optionGroups.size() > 0) {
-				for(int i = 0; i < optionGroups.size(); ++i) {
-					Elements options = optionGroups.get(i).select("ms-option");
-					if(options.size() == 2) {
-						Elements optName = options.get(0).select("div.option-name");
-						Elements optValue = options.get(0).select("div.option-value");
-						Spread spread = new Spread();
-						spread.setAwayPoints(0.0);
-						spread.setHomePoints(0.0);
-						spread.setPeriod(getPeriod(optName.text().trim()));
-						try {
-							spread.setAwayPrice(Integer.parseInt(optValue.text()));
-							optValue = options.get(1).select("div.option-value");
-							spread.setHomePrice(Integer.parseInt(optValue.text()));
-						} catch(Exception e3) {
-							// do nothing
-						}
-						odds.setMl(spread);
-					} else if(options.size() != 0) {
-						System.out.println("Did not get two options: " + e);
-						continue;
-					} else {
-						continue; // no options, so dont add
-					}
-				} // for
-			} else {
-				//System.out.println("No odds for the match");
-			}
-		} else {
-			System.out.println("No posted odds");
-		}
-		if((odds.getPlayer1() != null) && (odds.getPlayer2() != null) && (odds.getDoubles() == false)) {
-			list.add(odds);
-		} else {
-			System.out.println("Not persisting: " + odds);
-		}
-		
-		
-	}
-
-	private Period getPeriod(String text) {
-		switch(text) {
-			case "Set 1": return Period.SET1; 
-			case "Set 2": return Period.SET2; 
-			case "Set 3": return Period.SET3; 
-			case "Set 4": return Period.SET4; 
-			case "Set 5": return Period.SET5;
-		}
-		return Period.MATCH;
 	}
 
 	private void processEventTeam(Element e, List<Odds> list, String tournament, Sport sport, List<String> periods) {
@@ -734,10 +532,21 @@ public class BetMGM extends Book {
 			//continue;
 		}
 		
-		Elements oddsWrapper = e.select("div.grid-six-pack-wrapper");
+		Elements oddsWrapper = null;
+		if(sport == Sport.TENNIS) {
+			oddsWrapper = e.select("div.grid-group-container");
+		} else {
+			oddsWrapper = e.select("div.grid-six-pack-wrapper");
+		}
 		if(oddsWrapper.size() > 0) {
-			Elements blocks = oddsWrapper.get(0).select("ms-option-group");
-			if(blocks.size() == headers.size()) { // should be three (ml, spread, o/u)
+			Elements blocks = null;
+			if(sport == Sport.TENNIS) {
+				blocks = oddsWrapper.get(0).select("ms-option-group");
+				blocks.remove(1);
+			} else {
+				blocks = oddsWrapper.get(0).select("ms-option-group");
+			}
+			if(blocks.size() == headers.size()) { // should be three (ml, spread, o/u) -- or just ML for tennis
 				int col = 0;
 				for(Element grp : blocks) {
 					Elements options = grp.select("ms-option.grid-option");
@@ -853,34 +662,8 @@ public class BetMGM extends Book {
 	     return null;
 	}
 
-	private void refresh(Sport sport) {
+	private void refresh(Sport sport, String url) {
 
-		String url = null;
-		switch(sport) {
-			case MLB:
-				break;
-			case NBA:
-				url = "https://www.md.betmgm.com/en/sports/basketball-7/betting/usa-9/nba-6004";
-				break;
-			case NCAAM:
-				url = "https://www.md.betmgm.com/en/sports/basketball-7/betting/usa-9/ncaa-264";
-				break;
-			case NCAAF:
-				url = "https://www.md.betmgm.com/en/sports/football-11/betting/usa-9/college-football-211";
-				break;
-			case NFL:
-				url = "https://www.md.betmgm.com/en/sports/football-11/betting/usa-9/nfl-35";
-				break;
-			case NHL:
-				url = "https://www.md.betmgm.com/en/sports/hockey-12/betting/usa-9/nhl-34";
-				break;
-			case TENNIS:
-				url = "https://www.md.betmgm.com/en/sports/tennis-5";
-				break;
-			default:
-				break;
-		
-		}
 		try {
 			getWindowHandle(sport, url);
 		} catch (OddsException e) {

@@ -25,11 +25,11 @@ public class Play {
 	@Override
 	public String toString() {
 		return String.format(
-				"%-24s at %-24s: %-10s: %-14s at %5.1f/%-6d for $%-7.2f vs %-10s: %-14s at %5.1f/%-6d for $%-7.2f to win %-7.2f",  
+				"%-25s at %-25s: %-10s: %-14s at %5.1f/%-6d for $%-7.2f vs %-10s: %-14s at %5.1f/%-6d for $%-7.2f to win %-7.2f %.2f",  
 				src.getAway().getCommonName(), src.getHome().getCommonName(),
 				srcBook, srcPlayType, srcPts, srcML, srcBetAmt, 
 				tgtBook, tgtPlayType, tgtPts, tgtML, tgtBetAmt,
-				performance);
+				performance, 100.0*performance/srcBetAmt);
 	}
 
 	public Odds getSrc() {
