@@ -1,0 +1,9 @@
+Notes for 2026 collection of bets
+
+All 8 sites will give the time of the contest. 
+All but BetMGM give the time the bet was made, 365, betrivvers and DK dont give the conclusion time
+So using the event start time as the ref is the only choice
+
+Unfortunately it looks like I'll have to scrape DK from html. I can't see how the data gets back to the client.
+Bet365 also has the goofy format for data, so that might have to be scraped also.
+
