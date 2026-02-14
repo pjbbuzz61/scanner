@@ -1,5 +1,6 @@
 package scanner.scanner.repo;
 
+import java.util.Date;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,5 +46,16 @@ public class WagerRepo {
 
 	public void setMongoTemplate(MongoTemplate mt) {
 		mongoTemplate = mt;
+	}
+
+	public List<Wager> find(Date start, Date stop) {
+		
+		Criteria criteria = Criteria.where("betTimestamp") 
+                .gte(start)  
+                .lte(stop);  
+
+		Query query = new Query(criteria);
+
+		return mongoTemplate.find(query,Wager.class);
 	}
 }

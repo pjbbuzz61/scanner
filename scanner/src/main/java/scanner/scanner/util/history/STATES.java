@@ -4,5 +4,6 @@ public enum STATES {
 	MD,
 	VA,
 	DC,
-	KS
+	KS,
+	FL
 }

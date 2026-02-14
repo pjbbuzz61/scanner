@@ -1,5 +1,6 @@
 package scanner.scanner.service;
 
+import java.util.Date;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,10 @@ public class WagerService {
 	
 	public List<Wager> getWagers() {
 		return repo.findAll();
+	}
+
+	public List<Wager> getWagers(Date start, Date stop) {
+		return repo.find(start, stop);
 	}
 
 	public void insert(List<Wager> wagers) {

@@ -1,4 +1,4 @@
-package scanner.scanner.model.history;
+package scanner.scanner.model.history.betrivers;
 
 import java.util.List;
 

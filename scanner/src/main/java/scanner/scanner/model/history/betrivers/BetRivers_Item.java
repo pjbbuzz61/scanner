@@ -1,4 +1,4 @@
-package scanner.scanner.model.history;
+package scanner.scanner.model.history.betrivers;
 
 import java.util.Date;
 import java.util.List;
@@ -8,9 +8,11 @@ public class BetRivers_Item {
 	private String couponExternalRef;
 	private Long couponRef;
 	private Date placedDate;
+	private String couponType;
+	private String rewardType;
 	private List<BetRivers_Bet> bets;
 	private BetRivers_text title;
-	private BetRivers_text description;
+	private List<BetRivers_text> description;
 	
 	
 	public String getCouponExternalRef() {
@@ -43,11 +45,23 @@ public class BetRivers_Item {
 	public void setTitle(BetRivers_text title) {
 		this.title = title;
 	}
-	public BetRivers_text getDescription() {
+	public List<BetRivers_text> getDescription() {
 		return description;
 	}
-	public void setDescription(BetRivers_text description) {
+	public void setDescription(List<BetRivers_text> description) {
 		this.description = description;
+	}
+	public String getRewardType() {
+		return rewardType;
+	}
+	public void setRewardType(String rewardType) {
+		this.rewardType = rewardType;
+	}
+	public String getCouponType() {
+		return couponType;
+	}
+	public void setCouponType(String couponType) {
+		this.couponType = couponType;
 	}
 	
 }

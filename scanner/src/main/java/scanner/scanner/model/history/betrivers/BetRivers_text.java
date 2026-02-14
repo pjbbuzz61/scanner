@@ -1,4 +1,4 @@
-package scanner.scanner.model.history;
+package scanner.scanner.model.history.betrivers;
 
 public class BetRivers_text {
 	private String text;
