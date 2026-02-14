@@ -28,17 +28,16 @@ public class WagerService {
 	}
 
 	public void insert(Wager wager) {
+		insert(wager, "wagers");
+	}
+
+	public void insert(Wager wager, String collection) {
 		List<Wager> wagers = repo.find(wager.getBetNumber());
 		if((wagers != null) && (wagers.size() > 0)) {
-			System.out.println("Looks like this bet id already exists:");
-			System.out.println("Bet trying to add: \n" + wager);
-			System.out.println("Wager(s) already in the database: ");
-			for(Wager w : wagers) {
-				System.out.println(w);
-			}
+			System.out.println("Looks like this bet id already exists: BetNumber: " + wager.getBetNumber());
 			return;
 		} else {
-			repo.insert(wager);
+			repo.insert(wager, collection);
 		}
 	}
 

@@ -7,3 +7,17 @@ So using the event start time as the ref is the only choice
 Unfortunately it looks like I'll have to scrape DK from html. I can't see how the data gets back to the client.
 Bet365 also has the goofy format for data, so that might have to be scraped also.
 
+
+directoy structure to use
+~/wagers/2026/<book>/files - for new files to process
+~/wagers/2026/<book>/processed for files that have been processed
+
+for now write to the wagers_2026 collection in scanner db
+
+Acquiring data
+BetMGM:
+ log in, go to MyBets on top far right, go to Settled, select the data range. The json comes back as json in 
+ betslips calls, each return needs to go into its own file
+Caesars
+ login, select Settled from the right hand side slip, as you scroll down it'll make calls to get data. Doesn't look 
+ to be a way to set a date range, but youc an see what dates are used from the url. Urls start with history

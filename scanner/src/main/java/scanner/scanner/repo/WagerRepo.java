@@ -18,7 +18,12 @@ public class WagerRepo {
     protected MongoTemplate mongoTemplate;
 
     public Wager insert(Wager wager) {
-    	mongoTemplate.save(wager);
+    	insert(wager, "wagers");
+    	return wager;
+    }
+
+    public Wager insert(Wager wager, String collection) {
+    	mongoTemplate.save(wager, collection);
     	return wager;
     }
 
