@@ -10,7 +10,6 @@ import java.nio.file.Paths;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -31,7 +30,9 @@ import scanner.scanner.model.history.betmgm.BetMGM_InfoItem;
 import scanner.scanner.model.history.betmgm.BetMGM_PromoToken;
 import scanner.scanner.model.history.caesars.Caesars_Bet;
 import scanner.scanner.model.history.caesars.Caesars_Events;
-import scanner.scanner.model.history.caesars.Caesars_Leg;
+import scanner.scanner.model.history.fanduel.FanDuel_Bet;
+import scanner.scanner.model.history.fanduel.FanDuel_Part;
+import scanner.scanner.model.history.fanduel.FanDuel_Wagers;
 import scanner.scanner.repo.WagerRepo;
 import scanner.scanner.service.WagerService;
 import scanner.scanner.util.Sportsbook;
@@ -66,11 +67,10 @@ public class Collector {
 		// Go through each book, look for new files to process
 		collector.processBetMGM(dataHome + "betmgm/");
 		collector.processCaesars(dataHome + "caesars/");
+		collector.processFanduel(dataHome + "fanduel/");
 		
 
 	}
-
-
 
 
 	private List<File> getFiles(String dir) {
@@ -92,7 +92,10 @@ public class Collector {
         return rtn;
 	}
 	
-	private void processCaesars(String baseDir) {
+
+	private void processFanduel(String baseDir) {
+		
+		System.out.println("Processing files for Fanduel ...");
 		
 		// Get list of files to process
 		List<File> filesToProcess = getFiles(baseDir + "files");
@@ -101,14 +104,6 @@ public class Collector {
 
 			String file = f.getAbsolutePath();
 
-			STATES state = STATES.MD;
-			if(file.contains("all_bets_va")) {
-				state = STATES.VA;
-			}
-			if(file.contains("all_bets_ks")) {
-				state = STATES.KS;
-			}
-			
 	        Gson gson = (new GsonBuilder()).setStrictness(Strictness.LENIENT).create();
 
 	        List<String> lines = new ArrayList<>();
@@ -125,7 +120,129 @@ public class Collector {
 			}
 
 			for(String line : lines) {
-		        Caesars_Events rtn = gson.fromJson(line, Caesars_Events.class);
+		        FanDuel_Wagers rtn = null;
+		        try {
+			        rtn = gson.fromJson(line, FanDuel_Wagers.class);
+		        } catch(Exception e) {
+		        	System.out.println(line);
+		        }
+
+		        List<Wager> wagers = new ArrayList<>();
+		        
+		        if((rtn != null) && (rtn.getBets() != null)) {
+		        	
+	        		for(FanDuel_Bet fnb : rtn.getBets()) {
+	        			
+	        			Wager w = new Wager();
+
+	        			if(file.contains("_va")) {
+	        				w.setState(STATES.VA);
+	        			} else if(file.contains("_ks")) {
+	        				w.setState(STATES.KS);
+	        			} else if(file.contains("_md")) {
+	        				w.setState(STATES.MD);
+	        			} else {
+	        				System.out.println("Can not determine the state, exiting");
+	        				System.exit(0);
+	        			}
+	        			w.setBook(Sportsbook.FANDUEL);
+
+	        			w.setBetNumber(fnb.getBetId());
+
+	        			FanDuel_Part firstPart = fnb.getLegs().get(0).getParts().get(0);
+	        			
+	        			w.setBetTimestamp(fnb.getPlacedDate());
+	        			w.setEventTimestamp(firstPart.getStartTime());
+	        			w.setPayoutTimestamp(fnb.getSettledDate());
+	        			
+	        			w.setEventDesc(firstPart.getEventDescription() + "|" 
+	        					+ firstPart.getEventMarketDescription() + "|"
+	        					+ firstPart.getSelectionName());
+
+	        			w.setSport(firstPart.getCompetitionName());
+	        			w.setLeague(firstPart.getCompetitionName());
+
+	        			w.setBetType(fnb.getBetType());  // Single or Parlay
+
+	        			switch(fnb.getResult()) {
+	        				case "LOST":       w.setResult(WAGER_RESULT.LOSS);       break;
+	        				case "WON":        w.setResult(WAGER_RESULT.WIN);        break;
+	        				case "CASHED_OUT": w.setResult(WAGER_RESULT.CASHED_OUT); break;
+	        				default: 
+	        					System.out.println("New state: " + fnb.getResult());
+	        			}
+
+	        			if(fnb.getAmericanBetPrice() != null) {
+		        			w.setOriginal_odds(fnb.getAmericanBetPrice());
+							w.setBoosted_odds(fnb.getAmericanBetPrice()); 
+	        			} else {
+		        			w.setOriginal_odds(firstPart.getAmericanPrice());
+							w.setBoosted_odds(firstPart.getAmericanPrice()); 
+	        			}
+						
+	        			if(fnb.getRewardUsed() != null) {
+		        			if(fnb.getRewardUsed().getType().contentEquals("BONUS_BET")) {
+			        			w.setBonus(true);
+		        			} else if(fnb.getRewardUsed().getType().contentEquals("NO_SWEAT")) {
+		        				w.setRiskFree(true);
+		        			}
+	        			}
+	        			
+	        			w.setStake(fnb.getCurrentSize());
+	        			w.setTotalReturn(fnb.getPandl());
+	        			
+	        			wagers.add(w);
+	        		}
+		        }
+
+		        for(Wager w : wagers) {
+		        	wagerService.insert(w, collectionName);
+//		        	System.out.println(w);
+		        }
+
+			} // for line in file
+
+			moveFile(f, baseDir + "processed/" + f.getName());
+
+		} // for file
+		
+		System.out.println(filesToProcess.size() + " files were processed for FanDuel");
+	}
+
+
+	private void processCaesars(String baseDir) {
+		
+		System.out.println("Processing files for Caesars ...");
+		
+		// Get list of files to process
+		List<File> filesToProcess = getFiles(baseDir + "files");
+
+		for(File f : filesToProcess ) {
+
+			String file = f.getAbsolutePath();
+
+	        Gson gson = (new GsonBuilder()).setStrictness(Strictness.LENIENT).create();
+
+	        List<String> lines = new ArrayList<>();
+	        
+			try {
+				BufferedReader reader = new BufferedReader(new FileReader(file));
+				String line;
+				while ((line = reader.readLine()) != null) {
+					lines.add(line);
+				}
+				reader.close();
+			} catch(Exception e) {
+				System.out.println("Exception reading json file: " + e.getMessage());
+			}
+
+			for(String line : lines) {
+		        Caesars_Events rtn = null;
+		        try {
+			        rtn = gson.fromJson(line, Caesars_Events.class);
+		        } catch(Exception e) {
+		        	System.out.println(line);
+		        }
 
 		        List<Wager> wagers = new ArrayList<>();
 		        
@@ -133,123 +250,81 @@ public class Collector {
 		        	if(rtn.getBets() != null) {
 		        		for(Caesars_Bet cb : rtn.getBets()) {
 		        			Wager w = new Wager();
-		        			w.setState(state);
+		        			
+		        			switch(cb.getUniverse()) {
+			        			case "wh-md": w.setState(STATES.MD); break;
+			        			case "wh-va": w.setState(STATES.VA); break;
+			        			case "wh-ks": w.setState(STATES.KS); break;
+			        			case "wh-dc": w.setState(STATES.DC); break;
+			        			default:
+			        				System.out.println("Unknown label for state: " + cb.getUniverse());
+		        			}
 		        			w.setBook(Sportsbook.CAESARS);
 
 		        			w.setBetNumber(cb.getId());
+		        			
+		        			// Set all the times
 		        			w.setBetTimestamp(cb.getPlacedAt());
-		        			w.setPayoutTimestamp(cb.getSettledAt());
+		        			w.setPayoutTimestamp(cb.getSettledBetData().getSettledAt());
+
+		        			// It appears the event data is not populated for parlays
+		        			if(cb.getEventMetadata() != null) {
+			        			w.setEventTimestamp(cb.getEventMetadata().getStartTime());
+			        			w.setSport(cb.getEventMetadata().getSportId());
+		        				w.setLeague(cb.getEventMetadata().getCompetitionName());
+		        			} else { // if this field doesnt exist it was a parlay, so just use settled time
+			        			w.setEventTimestamp(cb.getSettledBetData().getSettledAt());
+		        			}
+
+		        			if(cb.getSelectionMetadata() != null) {
+			        			w.setEventDesc(cb.getBetSubtitle() + "|" + cb.getSelectionMetadata().getSelectionName());
+		        			} else { // parlay
+			        			w.setEventDesc(cb.getBetSubtitle());
+		        			}
+		        			w.setBetType(cb.getBetType());  // Single or Parlay
+
+		        			switch(cb.getSettledBetData().getResult()) {
+		        				case "lost":        w.setResult(WAGER_RESULT.LOSS);       break;
+		        				case "won":         w.setResult(WAGER_RESULT.WIN);        break;
+		        				case "void":        w.setResult(WAGER_RESULT.CANCELLED);  break;
+		        				case "push":        w.setResult(WAGER_RESULT.CANCELLED);  break;
+		        				case "cashed out":  w.setResult(WAGER_RESULT.CASHED_OUT); break;
+		        				default: 
+		        					System.out.println("New settled.result: " + cb.getSettledBetData().getResult());
+		        			}
+
+		        			w.setOriginal_odds(Integer.parseInt(cb.getPrice().getAmerican()));
+		        			w.setBoosted_odds(Integer.parseInt(cb.getPrice().getAmerican()));
 		        			
-		        			Calendar c = Calendar.getInstance();
-		        			c.setTime(cb.getPlacedAt());
-		        			if(c.get(Calendar.YEAR) != 2025) {
-		        				//System.out.println("Play is not within 2025");
-		        				continue;
-		        			}
-		        			
-		        			// get all event timestamp for the bets (multiple if a parley)
-		        			//  use the earliest for the event start
-		        			Date first = cb.getLegs().get(0).getEventStartTime();
-		        			StringBuilder desc = new StringBuilder();
-		        			int betNum = 0;
-		        			for(Caesars_Leg leg : cb.getLegs()) {
-
-		            			// Event Desc will be of the form:
-		            			//  Somebody @ Somebody, play (ex: o141), odds (ex: +123)
-		        				if(betNum > 0) {
-		        					desc.append("\t");
-		        				}
-		        				desc.append(
-		        						leg.getEvent().getName().replace("|", "") + "|" + 
-		        						leg.getSelection().getName().replace("|", "") + "|" + 
-		        						leg.getPrice().getA() + "|" + 
-		        						leg.getResult().getType());
-		        				if(betNum < (cb.getLegs().size()-1)) {
-		        					desc.append("\n");
-		        				}
-		        				w.setSport(leg.getSport().getName());
-		        				w.setLeague(leg.getCompetition().getName());
-		        				
-		        				if(leg.getEventStartTime().before(first)) {
-		        					first = leg.getEventStartTime();
-		        				}
-		        				betNum++;
-		        			}
-		        			w.setEventDesc(desc.toString());
-
-		        			w.setEventTimestamp(first);
-
-		        			w.setBetType(cb.getTypeName());  // Single or Parlay
-		        			if((cb.getCashOut() != null) && cb.getCashOut()) {
-		        				w.setResult(WAGER_RESULT.CASHED_OUT);
-		        			} else {
-			        			switch(cb.getResultIndicator()) {
-			        				case "LOST":      w.setResult(WAGER_RESULT.LOSS);       break;
-			        				case "WON":       w.setResult(WAGER_RESULT.WIN);        break;
-			        				case "VOID":      w.setResult(WAGER_RESULT.CANCELLED);  break;
-			        				case "PUSH":      w.setResult(WAGER_RESULT.CANCELLED);  break;
-			        				default: 
-			        					System.out.println("New state: " + cb.getResultIndicator());
-			        			}
-		        			}
-
-		        			if(cb.getLegs().size() > 1) {
-			        			w.setOriginal_odds(Integer.parseInt(cb.getEstimatedOdds().getA()));
-								w.setBoosted_odds(Integer.parseInt(cb.getEstimatedOdds().getA())); // default boosted to original until we find an update
-		        			} else {
-			        			w.setOriginal_odds(Integer.parseInt(cb.getLegs().get(0).getPrice().getA()));
-								w.setBoosted_odds(Integer.parseInt(cb.getLegs().get(0).getPrice().getA())); // default boosted to original until we find an update
-		        			}
-							
-	/*
-		        			if((bs.getPromoTokens() != null) && (bs.getPromoTokens().size() > 0)) {
-		        				for(BetMGM_PromoToken pt : bs.getPromoTokens()) {
-		        					switch(pt.getTokenType()) {
-		        						case "OddsBoost": 
-		        							for(BetMGM_InfoItem ii : pt.getAdditionalInformation().getInformationItems()) {
-		        								if(ii.getKey().contentEquals("BoostedOdds.American")) {
-		        									w.setBoosted_odds(Integer.parseInt(ii.getValue()));
-		        									break;
-		        								}
-		        							}
-		        							break;
-		        						case "RiskFree":
-		        							w.setRiskFree(true);
-		        							break;
-		        						default:
-		        							System.out.println("New promo token type: " + pt.getTokenType());
-		        					}
-		        				}
-		        			}
-	*/	        			
-		        			if(cb.getFreebetStake() != null) {
+		        			if(cb.getWagerType().contentEquals("Bonus Bet")) {
 			        			w.setBonus(true);
 		        			}
+	        				
 		        			w.setStake((double)(cb.getTotalStake())/100.0);
-		        			w.setTotalReturn((double)(cb.getPayout())/100.0);
+		        			w.setTotalReturn((double)(cb.getSettledBetData().getPayout())/100.0);
 		        			
 		        			wagers.add(w);
 		        		}
 		        	}
 		        }
 			
-		        System.out.println("Number of wagers: " + wagers.size());
 		        for(Wager w : wagers) {
-//		        	wagerService.insert(w);
+		        	wagerService.insert(w, collectionName);
 //		        	System.out.println(w);
 		        }
-
 			
-			}
 
+			} // for line in file
+
+			moveFile(f, baseDir + "processed/" + f.getName());
+		} // for file
 		
-		
-		}
-		
+		System.out.println(filesToProcess.size() + " files were processed for Caesars");
 	}
 
 	private void processBetMGM(String baseDir) {
 
+		System.out.println("Processing BetMGM files ...");
 		
 		// Get list of files to process
 		List<File> filesToProcess = getFiles(baseDir + "files");
@@ -372,7 +447,8 @@ public class Collector {
 	        moveFile(f, baseDir + "processed/" + f.getName());
 	        
 		} // for all files
-
+		
+		System.out.println(filesToProcess.size() + " files were processed for BetMGM");
 	}
 
 

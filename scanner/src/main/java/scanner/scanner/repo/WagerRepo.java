@@ -34,6 +34,13 @@ public class WagerRepo {
 				Wager.class);
 	}
 
+	public List<Wager> find(String betNumber, String collection) {
+		return mongoTemplate.find(
+				new Query().addCriteria(
+						Criteria.where("betNumber").is(betNumber)), 
+				Wager.class, collection);
+	}
+
 	public void remove(String betNumber) {
 		mongoTemplate.remove(
 				new Query().addCriteria(
@@ -41,19 +48,15 @@ public class WagerRepo {
 				Wager.class);
 	}
 	
-	public List<Wager> findAll() {
-		return mongoTemplate.findAll(Wager.class);
-	}
-
-	public void insert(List<Wager> wagers) {
-		mongoTemplate.insertAll(wagers);
+	public List<Wager> findAll(String collection) {
+		return mongoTemplate.findAll(Wager.class, collection);
 	}
 
 	public void setMongoTemplate(MongoTemplate mt) {
 		mongoTemplate = mt;
 	}
 
-	public List<Wager> find(Date start, Date stop) {
+	public List<Wager> find(Date start, Date stop, String collection) {
 		
 		Criteria criteria = Criteria.where("betTimestamp") 
                 .gte(start)  
@@ -61,6 +64,6 @@ public class WagerRepo {
 
 		Query query = new Query(criteria);
 
-		return mongoTemplate.find(query,Wager.class);
+		return mongoTemplate.find(query,Wager.class, collection);
 	}
 }

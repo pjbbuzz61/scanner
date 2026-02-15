@@ -15,16 +15,20 @@ public class WagerService {
 	@Autowired
 	protected WagerRepo repo;
 	
+	public List<Wager> getWagers(String collection) {
+		return repo.findAll(collection);
+	}
+
 	public List<Wager> getWagers() {
-		return repo.findAll();
+		return getWagers("wagers");
+	}
+
+	public List<Wager> getWagers(Date start, Date stop, String collection) {
+		return repo.find(start, stop, collection);
 	}
 
 	public List<Wager> getWagers(Date start, Date stop) {
-		return repo.find(start, stop);
-	}
-
-	public void insert(List<Wager> wagers) {
-		repo.insert(wagers);
+		return getWagers(start, stop, "wagers");
 	}
 
 	public void insert(Wager wager) {
@@ -32,7 +36,7 @@ public class WagerService {
 	}
 
 	public void insert(Wager wager, String collection) {
-		List<Wager> wagers = repo.find(wager.getBetNumber());
+		List<Wager> wagers = repo.find(wager.getBetNumber(), collection);
 		if((wagers != null) && (wagers.size() > 0)) {
 			System.out.println("Looks like this bet id already exists: BetNumber: " + wager.getBetNumber());
 			return;

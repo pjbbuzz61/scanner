@@ -17,7 +17,16 @@ for now write to the wagers_2026 collection in scanner db
 Acquiring data
 BetMGM:
  log in, go to MyBets on top far right, go to Settled, select the data range. The json comes back as json in 
- betslips calls, each return needs to go into its own file
+ betslips calls, each return needs to go into its own file. Urls start with 'betslips'
 Caesars
  login, select Settled from the right hand side slip, as you scroll down it'll make calls to get data. Doesn't look 
- to be a way to set a date range, but youc an see what dates are used from the url. Urls start with history
+ to be a way to set a date range, but youc an see what dates are used from the url. Urls start with 'history'
+FanDuel
+ login, go to My Bets, go to Settled Bets. json comes back with 'fetch-my-bets' urls. Each state will have to be
+ pulled separately, so add the state in lower case to the file name (with an underscore at the start)
+ESPN:
+ login, go to MyBets on the left, go to Settled and selecct all. The urls seem to start with something random
+ each time so it has to be figured out
+ 
+ 
+ 
