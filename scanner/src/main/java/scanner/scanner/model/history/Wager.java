@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import scanner.scanner.util.Sportsbook;
 import scanner.scanner.util.history.WAGER_RESULT;
+import scanner.scanner.util.history.WAGER_TYPE;
 import scanner.scanner.util.history.STATES;
 
 @Document(collection = "wagers")
@@ -22,7 +23,7 @@ public class Wager {
 
     private String        eventDesc;       // example: New York Knicks at Los Angeles Lakers, o140, -115
     private String        betNumber;       // book specific
-    private String        betType;         // Single or Parley
+    private WAGER_TYPE    betType;         // Single or Parley
 
     private WAGER_RESULT  result;          // WIN, LOSS, NO_DEC
 
@@ -98,10 +99,10 @@ public class Wager {
 	public void setPayoutTimestamp(Date payoutTimestamp) {
 		this.payoutTimestamp = payoutTimestamp;
 	}
-	public String getBetType() {
+	public WAGER_TYPE getBetType() {
 		return betType;
 	}
-	public void setBetType(String betType) {
+	public void setBetType(WAGER_TYPE betType) {
 		this.betType = betType;
 	}
 	public boolean isBonus() {

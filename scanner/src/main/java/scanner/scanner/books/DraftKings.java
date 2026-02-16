@@ -15,10 +15,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
@@ -38,10 +35,8 @@ import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClients;
 
-import scanner.scanner.model.Team;
 import scanner.scanner.model.OU;
 import scanner.scanner.model.Odds;
-import scanner.scanner.model.Player;
 import scanner.scanner.model.Spread;
 import scanner.scanner.exceptions.OddsException;
 import scanner.scanner.repo.OddsRepo;
@@ -55,7 +50,6 @@ import scanner.scanner.service.UpdateService;
 import scanner.scanner.util.Period;
 import scanner.scanner.util.Sport;
 import scanner.scanner.util.Sportsbook;
-import scanner.scanner.util.Status;
 
 @Component
 public class DraftKings extends Book {

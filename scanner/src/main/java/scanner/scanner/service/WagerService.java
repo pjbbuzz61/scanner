@@ -35,13 +35,14 @@ public class WagerService {
 		insert(wager, "wagers");
 	}
 
-	public void insert(Wager wager, String collection) {
+	public boolean insert(Wager wager, String collection) {
 		List<Wager> wagers = repo.find(wager.getBetNumber(), collection);
 		if((wagers != null) && (wagers.size() > 0)) {
 			System.out.println("Looks like this bet id already exists: BetNumber: " + wager.getBetNumber());
-			return;
+			return false;
 		} else {
 			repo.insert(wager, collection);
+			return true;
 		}
 	}
 

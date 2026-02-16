@@ -45,7 +45,7 @@ public class Bet365 {
         
         System.out.println("Number of wagers: " + wagers.size());
         for(Wager w : wagers) {
-        	wagerService.insert(w);
+        	wagerService.insert(w, "wagers_2026");
 //        	System.out.println(w);
         }
 
@@ -72,6 +72,7 @@ public class Bet365 {
 		
 		List<String> files = List.of(
 //				"/home/pat/2025/bet365/all_from_2025_by_hand.json"
+				"/home/pat/wagers/2026/hardrock/files/jan_2026_by_hand.json"
 		);
 
 		

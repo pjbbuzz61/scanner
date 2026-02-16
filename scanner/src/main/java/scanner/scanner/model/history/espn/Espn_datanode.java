@@ -1,6 +1,7 @@
 package scanner.scanner.model.history.espn;
 
 import java.util.Date;
+import java.util.List;
 //u
 public class Espn_datanode {
 
@@ -13,7 +14,74 @@ public class Espn_datanode {
 	private String   awardType;
 	private String   awardDescription;
 	
+	private String rawId;
+	private String outcome;
+	private Date placedAt;
+	private Date closedAt;
+	private String amountSourceType;
+	private Espn_Amt betAmount;
+	private Espn_Amt payoutAmount;
+	private Espn_Odds totalOdds;
+	private List<Espn_EventGrouping> legEventGroupings;
 	
+	
+	
+	
+	
+	public String getRawId() {
+		return rawId;
+	}
+	public void setRawId(String rawId) {
+		this.rawId = rawId;
+	}
+	public String getOutcome() {
+		return outcome;
+	}
+	public void setOutcome(String outcome) {
+		this.outcome = outcome;
+	}
+	public Date getPlacedAt() {
+		return placedAt;
+	}
+	public void setPlacedAt(Date placedAt) {
+		this.placedAt = placedAt;
+	}
+	public Date getClosedAt() {
+		return closedAt;
+	}
+	public void setClosedAt(Date closedAt) {
+		this.closedAt = closedAt;
+	}
+	public String getAmountSourceType() {
+		return amountSourceType;
+	}
+	public void setAmountSourceType(String amountSourceType) {
+		this.amountSourceType = amountSourceType;
+	}
+	public Espn_Amt getBetAmount() {
+		return betAmount;
+	}
+	public void setBetAmount(Espn_Amt betAmount) {
+		this.betAmount = betAmount;
+	}
+	public Espn_Amt getPayoutAmount() {
+		return payoutAmount;
+	}
+	public void setPayoutAmount(Espn_Amt payoutAmount) {
+		this.payoutAmount = payoutAmount;
+	}
+	public Espn_Odds getTotalOdds() {
+		return totalOdds;
+	}
+	public void setTotalOdds(Espn_Odds totalOdds) {
+		this.totalOdds = totalOdds;
+	}
+	public List<Espn_EventGrouping> getLegEventGroupings() {
+		return legEventGroupings;
+	}
+	public void setLegEventGroupings(List<Espn_EventGrouping> legEventGroupings) {
+		this.legEventGroupings = legEventGroupings;
+	}
 	public String getTransactionId() {
 		return transactionId;
 	}

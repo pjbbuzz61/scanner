@@ -26,7 +26,17 @@ FanDuel
  pulled separately, so add the state in lower case to the file name (with an underscore at the start)
 ESPN:
  login, go to MyBets on the left, go to Settled and selecct all. The urls seem to start with something random
- each time so it has to be figured out
+ each time so it has to be figured out. I ended up using Chrome to capture back from 2/14 to jan 1 because all 
+ the responses after about 30 days were getting truncated in FF. Worked in chrome, but I used the RemoveRtns class 
+ to take out all the spaces since it had it in the expanded format (not on one line)
+DraftKings:
+ Unfortunately have to go with html. Go to My Bets, select Settled. The tag to look for is sb-lazy-render. Looks
+ like 25 are displayed by default. When you scroll down you'll see the lazy-render lose its data and a new one will show up
+ NOTE!!!! - you have to expand out the parlays before you capture the hthml, otherwise you don't get the starting times
+ for the games!!
+BetRivers
+ login, mybets, settled. Comes back with url starting with coupons
+ 
  
  
  

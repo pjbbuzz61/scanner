@@ -58,7 +58,7 @@ public class WagerRepo {
 
 	public List<Wager> find(Date start, Date stop, String collection) {
 		
-		Criteria criteria = Criteria.where("betTimestamp") 
+		Criteria criteria = Criteria.where("eventTimestamp") 
                 .gte(start)  
                 .lte(stop);  
 

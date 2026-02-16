@@ -25,6 +25,7 @@ import scanner.scanner.service.WagerService;
 import scanner.scanner.util.Sportsbook;
 import scanner.scanner.util.history.STATES;
 import scanner.scanner.util.history.WAGER_RESULT;
+import scanner.scanner.util.history.WAGER_TYPE;
 
 public class BetMGM {
 
@@ -102,7 +103,17 @@ public class BetMGM {
 
         			w.setEventTimestamp(first);
 
-        			w.setBetType(bs.getType());  // Single or Parlay
+        			switch(bs.getType()) {
+		        		case "Parlay":
+			        		w.setBetType(WAGER_TYPE.PARLAY);
+		        			break;
+		        		case "Straight":
+		        			w.setBetType(WAGER_TYPE.SINGLE);
+		        			break;
+		       			default:
+		       				System.out.println("Unknown wager type for BetMGM: " + bs.getType());
+	    			}
+
         			switch(bs.getState()) {
         				case "Lost":      w.setResult(WAGER_RESULT.LOSS);       break;
         				case "Won":       w.setResult(WAGER_RESULT.WIN);        break;

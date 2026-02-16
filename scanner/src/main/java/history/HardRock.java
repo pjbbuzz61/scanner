@@ -120,7 +120,7 @@ public class HardRock {
 
     			w.setBonus(bet.getFreeBet());
     			
-    			w.setBetType(bet.getType());
+    			//w.setBetType(bet.getType());
 
     			switch(bet.getDisplayStatus()) {
 					case "LOSE":        w.setResult(WAGER_RESULT.LOSS);        break;

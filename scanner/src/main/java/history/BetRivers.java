@@ -26,6 +26,7 @@ import scanner.scanner.service.WagerService;
 import scanner.scanner.util.Sportsbook;
 import scanner.scanner.util.history.STATES;
 import scanner.scanner.util.history.WAGER_RESULT;
+import scanner.scanner.util.history.WAGER_TYPE;
 
 public class BetRivers {
 
@@ -135,7 +136,17 @@ public class BetRivers {
         			}
     			}
     			
-    			w.setBetType(bri.getCouponType());
+        		switch(bri.getCouponType()) {
+        		case "PARLAY":
+        		case "SAME_GAME_PARLAY":
+	        		w.setBetType(WAGER_TYPE.PARLAY);
+        			break;
+        		case "SINGLE":
+        			w.setBetType(WAGER_TYPE.SINGLE);
+        			break;
+       			default:
+       				System.out.println("Unknown wager type for Betrivers: " + bri.getCouponType());
+    		}
 
     			switch(bri.getBets().get(0).getBetStatus()) {
     				case "LOST":        w.setResult(WAGER_RESULT.LOSS);        break;

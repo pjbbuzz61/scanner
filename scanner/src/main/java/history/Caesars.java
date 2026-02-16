@@ -25,6 +25,7 @@ import scanner.scanner.service.WagerService;
 import scanner.scanner.util.Sportsbook;
 import scanner.scanner.util.history.STATES;
 import scanner.scanner.util.history.WAGER_RESULT;
+import scanner.scanner.util.history.WAGER_TYPE;
 
 public class Caesars {
 
@@ -112,7 +113,17 @@ public class Caesars {
 
 	        			w.setEventTimestamp(first);
 
-	        			w.setBetType(cb.getTypeName());  // Single or Parlay
+	        			switch(cb.getBetType()) {
+		        		case "parlay":
+			        		w.setBetType(WAGER_TYPE.PARLAY);
+		        			break;
+		        		case "straight":
+		        			w.setBetType(WAGER_TYPE.SINGLE);
+		        			break;
+		       			default:
+		       				System.out.println("Unknown wager type for Caesars: " + cb.getBetType());
+        			}
+
 	        			if((cb.getCashOut() != null) && cb.getCashOut()) {
 	        				w.setResult(WAGER_RESULT.CASHED_OUT);
 	        			} else {
