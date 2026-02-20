@@ -13,6 +13,7 @@ import java.text.SimpleDateFormat;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -61,6 +62,7 @@ public class Collector {
 	WagerService wagerService;
 	String collectionName = "wagers_2026";
 	static String dataHome = "/home/pat/wagers/2026/";
+	static int year = 2026;
 	
 	
 	public static void main(String[] args) {
@@ -189,6 +191,10 @@ public class Collector {
 		        		}
     			
 		        		w.setEventTimestamp(first);
+		        		
+		        		if(notTargetYear(first)) {
+		        			continue;
+		        		}
 		        		w.setEventDesc(desc.toString());
 
 		        		if(bri.getRewardType() != null) {
@@ -258,6 +264,16 @@ public class Collector {
 	}
 
 
+
+	private boolean notTargetYear(Date date) {
+		Calendar c = Calendar.getInstance();
+		c.setTime(date);
+		if(c.get(Calendar.YEAR) != Collector.year) {
+			return true;
+		}
+
+		return false;
+	}
 
 	private void processDraftKings(String baseDir) {
 		
@@ -407,6 +423,10 @@ public class Collector {
 						System.exit(0);
 					}
 
+					if(notTargetYear(w.getEventTimestamp())) {
+	        			continue;
+	        		}
+
 					
 					if(displayOdds != null) { // no boost
 						w.setOriginal_odds(Integer.parseInt(displayOdds.text().replace("\u2212", "-")));
@@ -531,7 +551,10 @@ public class Collector {
 
 		        List<Wager> wagers = new ArrayList<>();
 		        
-		        if((rtn != null) && (rtn.getData().getNode().getItems().getEdges() != null)) {
+		        if((rtn != null) && 
+		           (rtn.getData().getNode() != null) &&
+		           (rtn.getData().getNode().getItems() != null) &&
+		           (rtn.getData().getNode().getItems().getEdges() != null)) {
 		        	
 	        		for(Espn_Container e : rtn.getData().getNode().getItems().getEdges()) {
 	        			
@@ -574,6 +597,9 @@ public class Collector {
 	        			w.setEventDesc(desc.toString());
 
 	        			w.setEventTimestamp(first);
+	        			if(notTargetYear(first)) {
+		        			continue;
+		        		}
 
 		        		switch(node.getType()) {
 		        			case "PARLAY":
@@ -690,6 +716,10 @@ public class Collector {
 	        			
 	        			w.setBetTimestamp(fnb.getPlacedDate());
 	        			w.setEventTimestamp(firstPart.getStartTime());
+
+	        			if(notTargetYear(firstPart.getStartTime())) {
+		        			continue;
+		        		}
 	        			w.setPayoutTimestamp(fnb.getSettledDate());
 	        			
 	        			w.setEventDesc(firstPart.getEventDescription() + "|" 
@@ -826,11 +856,14 @@ public class Collector {
 			        			w.setEventTimestamp(cb.getSettledBetData().getSettledAt());
 		        			}
 
-		        			// if no event time, put out a message and continue on
 		        			if(w.getEventTimestamp() == null) {
 		        				System.out.println("Failed to find an event time for event " + cb.getId());
 		        				continue;
 		        			}
+			        		if(notTargetYear(w.getEventTimestamp())) {
+			        			continue;
+			        		}
+
 		        			if(cb.getSelectionMetadata() != null) {
 			        			w.setEventDesc(cb.getBetSubtitle() + "|" + cb.getSelectionMetadata().getSelectionName());
 		        			} else { // parlay
@@ -907,10 +940,10 @@ public class Collector {
 			String file = f.getAbsolutePath();
 			
 			STATES state = STATES.MD;
-			if(file.contains("settled_va")) {
+			if(file.contains("_va")) {
 				state = STATES.VA;
 			}
-			if(file.contains("settled_ks")) {
+			if(file.contains("_ks")) {
 				state = STATES.KS;
 			}
 
@@ -971,6 +1004,9 @@ public class Collector {
 	        			w.setEventDesc(desc.toString());
 
 	        			w.setEventTimestamp(first);
+		        		if(notTargetYear(first)) {
+		        			continue;
+		        		}
 
 	        			switch(bs.getType()) {
 			        		case "Parlay":

@@ -162,7 +162,6 @@ public class BetMGM {
 
 	public static void main(String[] args) {
 
-		
 		BetMGM bm = new BetMGM();
 		
 		ConnectionString connectionString = new ConnectionString("mongodb://localhost:27017/scanner");

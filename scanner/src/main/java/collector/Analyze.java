@@ -17,12 +17,11 @@ import com.mongodb.client.MongoClients;
 import scanner.scanner.model.history.Wager;
 import scanner.scanner.repo.WagerRepo;
 import scanner.scanner.service.WagerService;
-import scanner.scanner.util.Sportsbook;
-import scanner.scanner.util.history.STATES;
-import scanner.scanner.util.history.WAGER_RESULT;
+import scanner.scanner.util.history.WAGER_TYPE;
 
 public class Analyze {
 
+	boolean noParlays = false;
 	WagerService wagerService;
 	static String collection = "wagers_2026";
 	
@@ -49,9 +48,19 @@ public class Analyze {
 		
 		
 		Calendar cal = Calendar.getInstance();
-        String dateString = "2026-01-01T08:00:00Z";
+        String dateString = "2026-01-01T05:00:00Z";
 		SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'"); 
 		formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
+		
+		Date startOfYear = null;
+		Date endOfYear = null;
+		try {
+			startOfYear = formatter.parse("2026-01-01T00:00:00Z");
+			endOfYear  = formatter.parse("2027-01-01T00:00:00Z");
+		} catch(Exception e) {
+			System.out.println("Failed to parse the year ends");
+			System.exit(0);
+		}
 /*
 		try {
 			Date begin = formatter.parse("2025-09-28T04:00:00Z");
@@ -84,12 +93,29 @@ public class Analyze {
 		
 		do {
 
+			// Adjust dates for limits
+			Date actStart = start;
+			Date actEnd   = stop;
+			
+			if(start.before(startOfYear)) {
+				actStart = startOfYear;
+			}
+			if(stop.after(endOfYear)) {
+				actEnd = endOfYear;
+			}
+
 			// Get the wagers for the day, sum up values
-			List<Wager> wagers = ws.getWagers(start, stop, collection);
+			List<Wager> wagers = ws.getWagers(actStart, actEnd, collection);
 			double wagered = 0.0;
 			double won = 0.0;
 			
 			for(Wager w : wagers) {
+				if(anal.noParlays) {
+					if(w.getBetType() == WAGER_TYPE.PARLAY) {
+						continue;
+					}
+				}
+
 				//System.out.println(w);
 				if(w.isBonus() == false) {
 					wagered += w.getStake();
@@ -139,6 +165,12 @@ public class Analyze {
 					+ "Bonus,NST,Sport,League,PayoutDate,State,BetNumber\n");
 
 			for(Wager w : wagers) {
+
+				if(noParlays) {
+					if(w.getBetType() == WAGER_TYPE.PARLAY) {
+						continue;
+					}
+				}
 
 				String desc = 
 						(w.getEventDesc().length() > 120) 

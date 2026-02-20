@@ -15,12 +15,6 @@ import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClients;
 
 import scanner.scanner.model.history.Wager;
-import scanner.scanner.model.history.betrivers.BetRivers_Bet;
-import scanner.scanner.model.history.betrivers.BetRivers_CouponRow;
-import scanner.scanner.model.history.betrivers.BetRivers_EventGroup;
-import scanner.scanner.model.history.betrivers.BetRivers_Events;
-import scanner.scanner.model.history.betrivers.BetRivers_Item;
-import scanner.scanner.model.history.betrivers.BetRivers_Outcome;
 import scanner.scanner.model.history.hardrock.HardRock_Bet;
 import scanner.scanner.model.history.hardrock.HardRock_BetPart;
 import scanner.scanner.model.history.hardrock.HardRock_Events;
