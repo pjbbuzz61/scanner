@@ -48,6 +48,11 @@ BetRivers
        And the Collector will filter out the ones not on our year.
        
 Hard Rock:
+ Comes out as betHistory. Have to use PB -> History -> Bet History, then select the range for the pull.
+ 
+Bet365:
+ Comes out as summary. Comes out as the goofy text format. Will probably be better to just scrape the html, but I need a
+ few recent bets to be able to do that.
  
  
  

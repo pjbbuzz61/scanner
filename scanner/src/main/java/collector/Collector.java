@@ -50,6 +50,9 @@ import scanner.scanner.model.history.espn.Espn_datanode;
 import scanner.scanner.model.history.fanduel.FanDuel_Bet;
 import scanner.scanner.model.history.fanduel.FanDuel_Part;
 import scanner.scanner.model.history.fanduel.FanDuel_Wagers;
+import scanner.scanner.model.history.hardrock.HardRock_Bet;
+import scanner.scanner.model.history.hardrock.HardRock_BetPart;
+import scanner.scanner.model.history.hardrock.HardRock_Events;
 import scanner.scanner.repo.WagerRepo;
 import scanner.scanner.service.WagerService;
 import scanner.scanner.util.Sportsbook;
@@ -90,21 +93,149 @@ public class Collector {
 		collector.processEspn(dataHome + "espn/");
 		collector.processDraftKings(dataHome + "draftkings/");
 		collector.processBetRivers(dataHome + "betrivers/");
+		collector.processHardRock(dataHome + "hardrock/");
 		
 
 	}
 
-    private int convertDecimalToAmerican(int decimalOdds) {
 
-    	double trueOdds = (double)(decimalOdds) / 1000.0;
-        if (trueOdds >= 2.0) {
-        	return (int)Math.round((trueOdds - 1) * 100);
-        } else {
-            return (int)Math.round(-100 / (trueOdds - 1));
-        }
-    }
+	
+	private void processHardRock(String baseDir) {
+		
+		System.out.println("Processing files for HardRock ...");
+		int wagersInserted = 0;
+		int wagerRepeats = 0;
 
+		// Get list of files to process
+		List<File> filesToProcess = getFiles(baseDir + "files");
 
+		for(File f : filesToProcess ) {
+
+			String file = f.getAbsolutePath();
+
+	        Gson gson = (new GsonBuilder()).setStrictness(Strictness.LENIENT).create();
+
+	        List<String> lines = new ArrayList<>();
+	        
+			try {
+				BufferedReader reader = new BufferedReader(new FileReader(file));
+				String line;
+				while ((line = reader.readLine()) != null) {
+					lines.add(line);
+				}
+				reader.close();
+			} catch(Exception e) {
+				System.out.println("Exception reading json file: " + e.getMessage());
+			}
+
+			
+			for(String line : lines) {
+
+				HardRock_Events rtn = gson.fromJson(line, HardRock_Events.class);
+
+		        List<Wager> wagers = new ArrayList<>();
+		        
+		        if((rtn != null) && (rtn.getBets() != null) && (rtn.getBets().getBet() != null)) {
+
+		        	for(HardRock_Bet bet : rtn.getBets().getBet()) {
+
+		        		// The state is not known from the data, so I'll just say Florida
+		        		// Could be VA as well
+		        		STATES state = STATES.FL;
+		        		
+		        		Wager w = new Wager();
+		    			w.setState(state);
+		    			w.setBook(Sportsbook.HARDROCK);
+		    			
+		    			w.setBetNumber(bet.getId());
+		    			w.setBetTimestamp(new Date(bet.getBetTime()));
+		    			w.setPayoutTimestamp(new Date(bet.getSettlementTime()));
+		    			w.setEventTimestamp(new Date(bet.getParts().getBetPart().get(0).getEventTime()));
+
+		    			Date first = null;
+		    			StringBuilder desc = new StringBuilder();
+		    			int betNum = 0;
+		    			for(HardRock_BetPart part : bet.getParts().getBetPart()) {
+		    				
+							if((first == null) || (new Date(part.getEventTime()).before(first))) {
+								first = new Date(part.getEventTime());
+							}
+
+		    				if(betNum > 0) {
+		    					desc.append("\t");
+		    				}
+							
+		    				String score = null;
+		    				String sport = null;
+		    				if(part.getEventResult() != null) {
+		    					sport = part.getEventResult().getSport();
+		    					score = part.getEventResult().getScore();
+		    				}
+		    				
+							desc.append(
+									part.getEvent().getName() + "|" + 
+		    						part.getSelection().getName() + " " + part.getMarket().getName() + "|" + 
+		    						part.getOdds().getMoneyline() + "|" + 
+		    						part.getResultType() + "|" + "Outcome: " + score);
+
+							if(betNum < (bet.getParts().getBetPart().size()-1)) {
+		    					desc.append("\n");
+		    				}
+
+		    				w.setSport(sport);
+		    				w.setLeague(part.getCompetition().getName());
+
+		    				betNum++;	
+		    			}
+		    			
+		    			w.setEventTimestamp(first);
+		    			w.setEventDesc(desc.toString());
+
+		    			w.setBonus(bet.getFreeBet());
+		    			
+		    			//w.setBetType(bet.getType());
+
+		    			switch(bet.getDisplayStatus()) {
+							case "LOSE":        w.setResult(WAGER_RESULT.LOSS);        break;
+							case "WIN":         w.setResult(WAGER_RESULT.WIN);         break;
+							case "CASHED":      w.setResult(WAGER_RESULT.CASHED_OUT);  break;
+							default: 
+								System.out.println("New state: " + bet.getDisplayStatus());
+		    			}
+
+		    			w.setOriginal_odds(convertDecimalToAmerican(bet.getTotalPrice()));
+						w.setBoosted_odds(convertDecimalToAmerican(bet.getTotalPrice())); // default boosted to original until we find an update
+
+		    			w.setStake(bet.getStake().getAmount());
+		    			w.setTotalReturn(bet.getTotalPayout());
+		    			
+		    			wagers.add(w);
+		        	}
+		        }
+			        
+		        for(Wager w : wagers) {
+		        	
+
+		        	if(wagerService.insert(w, collectionName)) {
+		        		wagersInserted++;
+		        	} else {
+		        		wagerRepeats++;
+		        	}
+
+//		        	System.out.println(w);
+
+		        }
+			}
+
+			moveFile(f, baseDir + "processed/" + f.getName());
+
+		} // for file
+			
+		System.out.println(filesToProcess.size() + " files were processed for HardRock. Inserted: " 
+				+ wagersInserted + " Repeats: " + wagerRepeats);
+	}
+
+	
 	private void processBetRivers(String baseDir) {
 		
 		System.out.println("Processing files for BetRivers ...");
@@ -265,16 +396,6 @@ public class Collector {
 
 
 
-	private boolean notTargetYear(Date date) {
-		Calendar c = Calendar.getInstance();
-		c.setTime(date);
-		if(c.get(Calendar.YEAR) != Collector.year) {
-			return true;
-		}
-
-		return false;
-	}
-
 	private void processDraftKings(String baseDir) {
 		
 		System.out.println("Processing files for DraftKings ...");
@@ -318,28 +439,31 @@ public class Collector {
 
 				for(Element play : plays) {
 
-					Element teamOfPlay      = play.select("span[data-test-id^=bet-details-title]").first();
-					Element displayOdds     = play.select("span[data-test-id^=bet-details-displayOdds]").first();
-					Element origDispOdds    = play.select("span[data-test-id^=bet-details-original-displayOdds]").first();
-					Element boostDispOdds   = play.select("span[data-test-id^=bet-details-boosted-displayOdds]").first();
-					Element playMade        = play.select("span[data-test-id^=bet-details-subtitle]").first();
-					Element status          = play.select("div[data-test-id^=bet-details-status]").first();
+					Element teamOfPlay         = play.select("span[data-test-id^=bet-details-title]").first();
+					Element displayOdds        = play.select("span[data-test-id^=bet-details-displayOdds]").first();
+					Element origDispOdds       = play.select("span[data-test-id^=bet-details-original-displayOdds]").first();
+					Element boostDispOdds      = play.select("span[data-test-id^=bet-details-boosted-displayOdds]").first();
+					Element playMade           = play.select("span[data-test-id^=bet-details-subtitle]").first();
+					Element status             = play.select("div[data-test-id^=bet-details-status]").first();
 					
-					Element stake           = play.select("span[data-test-id^=bet-stake]").first();
-					Element returns         = play.select("span[data-test-id^=bet-returns]").first();
+					Element stake              = play.select("span[data-test-id^=bet-stake]").first();
+					Element returns            = play.select("span[data-test-id^=bet-returns]").first();
 					
-					Element bonus           = play.select("button[data-test-id^=playerBonus]").first();
+					Element bonus              = play.select("button[data-test-id^=playerBonus]").first();
 
-					List<Element> team1           = play.select("span[data-test-id^=event-team-name-1]");
-					List<Element> team2           = play.select("span[data-test-id^=event-team-name-2]");
-					List<Element> event           = play.select("div[data-test-id^=event-displayName]");
+					List<Element> team1        = play.select("span[data-test-id^=event-team-name-1]");
+					List<Element> team2        = play.select("span[data-test-id^=event-team-name-2]");
+					List<Element> event        = play.select("div[data-test-id^=event-displayName]");
 
-					List<Element> eventRefs = play.select("span[data-test-id^=event-reference]");
-					List<Element> betRefs   = play.select("span[data-test-id^=bet-reference]");
+					List<Element> eventRefs    = play.select("span[data-test-id^=event-reference]");
+					List<Element> betRefs      = play.select("span[data-test-id^=bet-reference]");
 					
-					List<Element> selTitles = play.select("div[data-test-id^=bet-selection-title]");
-					List<Element> selOdds   = play.select("div[data-test-id^=bet-selection-displayOdds]");
-					List<Element> selSubTitles   = play.select("div[data-test-id^=bet-selection-subtitle]");
+					@SuppressWarnings("unused")
+					List<Element> selTitles    = play.select("div[data-test-id^=bet-selection-title]");
+					@SuppressWarnings("unused")
+					List<Element> selOdds      = play.select("div[data-test-id^=bet-selection-displayOdds]");
+					@SuppressWarnings("unused")
+					List<Element> selSubTitles = play.select("div[data-test-id^=bet-selection-subtitle]");
 
 /*					
 					String s = teamOfPlay != null ? teamOfPlay.text() : "";
@@ -1115,6 +1239,36 @@ public class Collector {
         return rtn;
 	}
 	
+	private boolean notTargetYear(Date date) {
+		Calendar c = Calendar.getInstance();
+		c.setTime(date);
+		if(c.get(Calendar.YEAR) != Collector.year) {
+			return true;
+		}
+
+		return false;
+	}
+
+    private int convertDecimalToAmerican(int decimalOdds) {
+
+    	double trueOdds = (double)(decimalOdds) / 1000.0;
+        if (trueOdds >= 2.0) {
+        	return (int)Math.round((trueOdds - 1) * 100);
+        } else {
+            return (int)Math.round(-100 / (trueOdds - 1));
+        }
+    }
+
+    private int convertDecimalToAmerican(double decimalOdds) {
+
+    	double trueOdds = (double)(decimalOdds);
+        if (trueOdds >= 2.0) {
+        	return (int)Math.round((trueOdds - 1) * 100);
+        } else {
+            return (int)Math.round(-100 / (trueOdds - 1));
+        }
+    }
+
 
 
 }
