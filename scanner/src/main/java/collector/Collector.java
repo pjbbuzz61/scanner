@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -30,6 +31,7 @@ import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClients;
 
 import scanner.scanner.model.history.Wager;
+import scanner.scanner.model.history.bet365.Bet365_Events;
 import scanner.scanner.model.history.betmgm.BetMGM_Bet;
 import scanner.scanner.model.history.betmgm.BetMGM_BetSlip;
 import scanner.scanner.model.history.betmgm.BetMGM_Events;
@@ -94,12 +96,203 @@ public class Collector {
 		collector.processDraftKings(dataHome + "draftkings/");
 		collector.processBetRivers(dataHome + "betrivers/");
 		collector.processHardRock(dataHome + "hardrock/");
+		collector.processBet365(dataHome + "bet365/");
 		
 
 	}
 
 
+	private void processBet365(String baseDir) {
+		
+		System.out.println("Processing files for Bet365 ...");
+		int wagersInserted = 0;
+		int wagerRepeats = 0;
+
+		// Get list of files to process
+		List<File> filesToProcess = getFiles(baseDir + "files");
+
+        List<Wager> wagers = new ArrayList<>();
+
+		for(File f : filesToProcess ) {
+			
+			// To types of files ... json, which is just the wager objects, and html
+			String extension = getFileExtension(f);
+			switch(extension) {
+				case "txt":
+					wagers.addAll(processBet365Txt(f));
+					break;
+				case "json":
+					wagers.addAll(processBet365JsonFile(f));
+					break;
+				default:
+					System.out.println("Bet365: Unknown file extension: " + extension);
+			}
+
+			moveFile(f, baseDir + "processed/" + f.getName());
+		}
+
+		for(Wager w : wagers) {
+        	if(wagerService.insert(w, collectionName)) {
+        		wagersInserted++;
+        	} else {
+        		wagerRepeats++;
+        	}
+//       	System.out.println(w);
+        }
+
+		System.out.println(filesToProcess.size() + " files were processed for Bet365. Inserted: " 
+				+ wagersInserted + " Repeats: " + wagerRepeats);
+	}
+
 	
+	private List<Wager> processBet365JsonFile(File f) {
+		
+        Gson gson = (new GsonBuilder()).create();
+        StringBuilder sb = new StringBuilder();
+        
+		try {
+			BufferedReader reader = new BufferedReader(new FileReader(f));
+			String line;
+			while ((line = reader.readLine()) != null) {
+			    sb.append(line);
+			}
+			reader.close();
+		} catch(Exception e) {
+			System.out.println("Exception reading json file: " + e.getMessage());
+		}
+
+        Bet365_Events rtn = gson.fromJson(sb.toString(), Bet365_Events.class);
+        
+        return rtn.getRecords();
+	}
+
+
+	private List<Wager> processBet365Txt(File f) {
+		
+		List<Wager> wagers = new ArrayList<>();
+		
+		String file = f.getAbsolutePath();
+
+        List<String> lines = new ArrayList<>();
+        
+		try {
+			BufferedReader reader = new BufferedReader(new FileReader(file));
+			String line;
+			while ((line = reader.readLine()) != null) {
+				lines.add(line);
+			}
+			reader.close();
+		} catch(Exception e) {
+			System.out.println("Exception reading text file: " + e.getMessage());
+		}
+
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddhhmmss");
+		sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+		for(String line : lines) {
+			Wager w = new Wager();
+			
+			try {
+				w.setBetTimestamp(sdf.parse(getField("DA", line)));
+			} catch (Exception e) {
+				System.out.println("Failed to parse the bet timestamp of " + getField("DA", line));
+				continue;
+			}
+			
+			try {
+				w.setEventTimestamp(sdf.parse(getField("TP", line)));
+			} catch (ParseException e) {
+				System.out.println("Failed to parse the event timestamp of " + getField("TP", line));
+				continue;
+			}
+
+			int odds = 0;
+			try {
+				odds = getOdds("OD", line);
+			} catch (Exception e) {
+				System.out.println("failed to parse the odds fraction: " + e.getMessage());
+				continue;
+			}
+			w.setOriginal_odds(odds);
+			w.setBoosted_odds(odds);
+			
+			w.setEventDesc(
+					getField("FN", line) + "|" + 
+							getField("02;NA", line) + "|" + 
+							getField("MN", line) + "|" + 
+							String.format("%d", odds) 
+					);
+
+			w.setBetNumber(getField("BR", line));
+
+			// TODO update when I have a parlay to look at
+			w.setBetType(WAGER_TYPE.SINGLE);
+			
+			if(getField("FS", line) != null) {
+				w.setBonus(true);
+			}
+
+			w.setStake(Double.parseDouble(getField("ST", line)));
+			w.setTotalReturn(Double.parseDouble(getField("RT", line)));
+
+			if(w.getTotalReturn() > 0.0) {
+				w.setResult(WAGER_RESULT.WIN);
+			} else {
+				w.setResult(WAGER_RESULT.LOSS);
+			}
+
+			w.setSport(getField("L3", line));
+			w.setLeague(getField("L3", line));
+			
+			w.setState(STATES.VA);
+			w.setBook(Sportsbook.BET365);
+
+			wagers.add(w);
+			
+		} // for each line of file
+		
+		return wagers;
+	}
+
+	private int fractionalToAmerican(double numerator, double denominator) {
+        double decimal = numerator / denominator;
+        double american;
+
+        if (decimal >= 1.0) {
+            // Positive odds (Underdog)
+            american = decimal * 100;
+        } else {
+            // Negative odds (Favorite)
+            american = -100 / decimal;
+        }
+
+        // Round to nearest whole number for typical American odds
+        return (int) Math.round(american);
+    }
+
+	private int getOdds(String s, String line) throws Exception {
+		String oddsField = getField(s, line);
+		String[] parts = oddsField.split("/");
+		if(parts.length != 2) {
+			throw new Exception("Failed to split the fraction");
+		}
+		return fractionalToAmerican(Double.parseDouble(parts[0]), Double.parseDouble(parts[1]));
+	}
+
+
+	private String getField(String s, String line) {
+		
+		int index = line.indexOf(s+"=");
+		if(index != -1) {
+			String ss = line.substring(index + s.length() + 1);
+			int i = ss.indexOf(';');
+			if(i != -1) {
+				return ss.substring(0, i);
+			}
+		}
+		return null;
+	}
+
+
 	private void processHardRock(String baseDir) {
 		
 		System.out.println("Processing files for HardRock ...");
@@ -1201,6 +1394,15 @@ public class Collector {
 
 	}
 
+
+	private String getFileExtension(File file) {
+	    String fileName = file.getName();
+	    int dotIndex = fileName.lastIndexOf('.');
+	    if (dotIndex == -1 || dotIndex == fileName.length() - 1) {
+	        return ""; 
+	    }
+	    return fileName.substring(dotIndex + 1);
+	}
 
 	private void moveFile(File f, String trgt) {
 		

@@ -47,12 +47,12 @@ BetRivers
  NOTE: Change the range size to 1000 and you'll get everything!! 
        And the Collector will filter out the ones not on our year.
        
+Bet365:
+ Go to pic on top right, select history. Select Settled Bets, and the date range you want. You have to hit 
+ the bet details for each entry, which will generate a text blob with a url starting in confirmation.
+ 
 Hard Rock:
  Comes out as betHistory. Have to use PB -> History -> Bet History, then select the range for the pull.
- 
-Bet365:
- Comes out as summary. Comes out as the goofy text format. Will probably be better to just scrape the html, but I need a
- few recent bets to be able to do that.
  
  
  

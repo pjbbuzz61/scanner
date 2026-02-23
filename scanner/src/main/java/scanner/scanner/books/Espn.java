@@ -908,6 +908,8 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		popup.click();
 		try {Thread.sleep(500L);} catch (InterruptedException e) {}
 		
+		// give an extra 5 seconds to populate
+		try {Thread.sleep(5000L);} catch (InterruptedException e) {}
 		return;
 		
 	}

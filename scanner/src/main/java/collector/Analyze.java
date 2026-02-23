@@ -148,6 +148,7 @@ public class Analyze {
 		
 		
 		System.out.println("," + String.format("%.2f", totalWinnings) + "," + String.format("%.2f", totalLosses));
+		System.out.println("Totals: " + String.format("%.2f", (totalWinnings-totalLosses)));
 		
 	}
 
