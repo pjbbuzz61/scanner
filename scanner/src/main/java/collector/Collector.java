@@ -137,7 +137,7 @@ public class Collector {
         	} else {
         		wagerRepeats++;
         	}
-//       	System.out.println(w);
+ //      	System.out.println(w);
         }
 
 		System.out.println(filesToProcess.size() + " files were processed for Bet365. Inserted: " 
@@ -189,8 +189,15 @@ public class Collector {
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddhhmmss");
 		sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
 		for(String line : lines) {
+			
 			Wager w = new Wager();
 			
+			String parlay = getField("SY", line);
+			boolean isParlay = false;
+			if(parlay.contentEquals("f")) {
+				isParlay = true;
+			}
+
 			try {
 				w.setBetTimestamp(sdf.parse(getField("DA", line)));
 			} catch (Exception e) {
@@ -198,11 +205,15 @@ public class Collector {
 				continue;
 			}
 			
-			try {
-				w.setEventTimestamp(sdf.parse(getField("TP", line)));
-			} catch (ParseException e) {
-				System.out.println("Failed to parse the event timestamp of " + getField("TP", line));
-				continue;
+			if(isParlay) { // the actual game time(s) isn't given, so use the time of the bet
+				w.setEventTimestamp(w.getBetTimestamp());
+			} else {
+				try {
+					w.setEventTimestamp(sdf.parse(getField("TP", line)));
+				} catch (ParseException e) {
+					System.out.println("Failed to parse the event timestamp of " + getField("TP", line));
+					continue;
+				}
 			}
 
 			int odds = 0;
@@ -215,17 +226,51 @@ public class Collector {
 			w.setOriginal_odds(odds);
 			w.setBoosted_odds(odds);
 			
-			w.setEventDesc(
-					getField("FN", line) + "|" + 
-							getField("02;NA", line) + "|" + 
-							getField("MN", line) + "|" + 
-							String.format("%d", odds) 
-					);
+			String fn  = getField("FN", line);
+			String na2 = getField("02;NA", line);
+			String mn  = getField("MN", line);
+			int index  = -1;
+			List<String> na3List = new ArrayList<>();
+			
+			do {
+				index = line.indexOf("03;NA", index);
+				if(index != -1) {
+					na3List.add(getField("03;NA", line, index));
+					index++;
+				}
+				
+			} while(index != -1);
+			
+			StringBuilder sb = new StringBuilder();
+			if(fn.length() > 0) {
+				sb.append(fn + "|");
+			}
+			sb.append(getField("02;NA", line) + "|");
+			if(na3List.size() > 0) {
+				int i = 0;
+				for(String s : na3List) {
+					sb.append(s);
+					if(i < (na3List.size()-1)) {
+						sb.append(";");
+					}
+					i++;
+				}
+				sb.append("|");
+			}
+			if(mn.length() > 0) {
+				sb.append(mn + "|");
+			}
+			sb.append(String.format("%d", odds));
+			
+			w.setEventDesc(sb.toString());
 
 			w.setBetNumber(getField("BR", line));
 
-			// TODO update when I have a parlay to look at
-			w.setBetType(WAGER_TYPE.SINGLE);
+			if(isParlay) {
+				w.setBetType(WAGER_TYPE.PARLAY);
+			} else {
+				w.setBetType(WAGER_TYPE.SINGLE);
+			}
 			
 			if(getField("FS", line) != null) {
 				w.setBonus(true);
@@ -280,8 +325,12 @@ public class Collector {
 
 
 	private String getField(String s, String line) {
+		return getField(s, line, 0);
+	}
+	
+	private String getField(String s, String line, int startingPos) {
 		
-		int index = line.indexOf(s+"=");
+		int index = line.indexOf(s+"=", startingPos);
 		if(index != -1) {
 			String ss = line.substring(index + s.length() + 1);
 			int i = ss.indexOf(';');

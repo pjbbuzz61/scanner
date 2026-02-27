@@ -116,9 +116,18 @@ public abstract class Book {
 				.setAcceptInsecureCerts(true)
 				;
 		
-
+		int attempts = 0;
+		do {
+			try {
+				driver = new FirefoxDriver(options);
+				break;
+			} catch(Exception e) {
+				System.out.println("\nFailed to bring up FF driver, waiting and trying again: attempt: " + attempts + "\n");
+				try{Thread.sleep(1000);} catch(Exception ee) {}
+				attempts++;
+			}
+		} while(attempts < 3);
 		
-		driver = new FirefoxDriver(options);
 		driver.manage().timeouts().pageLoadTimeout(20, TimeUnit.SECONDS);
 		javascriptExecutor = (JavascriptExecutor) driver;
 /*
