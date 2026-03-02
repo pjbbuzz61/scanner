@@ -137,7 +137,7 @@ public class Collector {
         	} else {
         		wagerRepeats++;
         	}
- //      	System.out.println(w);
+//       	System.out.println(w);
         }
 
 		System.out.println(filesToProcess.size() + " files were processed for Bet365. Inserted: " 
@@ -190,11 +190,15 @@ public class Collector {
 		sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
 		for(String line : lines) {
 			
+			if(line.length() < 5) {
+				continue;
+			}
+
 			Wager w = new Wager();
 			
 			String parlay = getField("SY", line);
 			boolean isParlay = false;
-			if(parlay.contentEquals("f")) {
+			if(parlay.contentEquals("f") || parlay.contentEquals("g")) {
 				isParlay = true;
 			}
 
@@ -218,7 +222,8 @@ public class Collector {
 
 			int odds = 0;
 			try {
-				odds = getOdds("OD", line);
+				int lastIndex = line.lastIndexOf("OD");
+				odds = getOdds("OD", line, lastIndex);
 			} catch (Exception e) {
 				System.out.println("failed to parse the odds fraction: " + e.getMessage());
 				continue;
@@ -226,9 +231,9 @@ public class Collector {
 			w.setOriginal_odds(odds);
 			w.setBoosted_odds(odds);
 			
-			String fn  = getField("FN", line);
-			String na2 = getField("02;NA", line);
-			String mn  = getField("MN", line);
+			List<String> fn  = getAllFields("FN", line);
+			List<String> na2 = getAllFields("02;NA", line);
+			List<String> mn  = getAllFields("MN", line);
 			int index  = -1;
 			List<String> na3List = new ArrayList<>();
 			
@@ -242,10 +247,8 @@ public class Collector {
 			} while(index != -1);
 			
 			StringBuilder sb = new StringBuilder();
-			if(fn.length() > 0) {
-				sb.append(fn + "|");
-			}
-			sb.append(getField("02;NA", line) + "|");
+			sb.append(fn + "|");
+			sb.append(na2 + "|");
 			if(na3List.size() > 0) {
 				int i = 0;
 				for(String s : na3List) {
@@ -257,12 +260,10 @@ public class Collector {
 				}
 				sb.append("|");
 			}
-			if(mn.length() > 0) {
-				sb.append(mn + "|");
-			}
+			sb.append(mn + "|");
 			sb.append(String.format("%d", odds));
 			
-			w.setEventDesc(sb.toString());
+			w.setEventDesc(sb.toString().replace(",", " "));
 
 			w.setBetNumber(getField("BR", line));
 
@@ -285,8 +286,8 @@ public class Collector {
 				w.setResult(WAGER_RESULT.LOSS);
 			}
 
-			w.setSport(getField("L3", line));
-			w.setLeague(getField("L3", line));
+			w.setSport(getField("L3", line).replace(",", " "));
+			w.setLeague(getField("L3", line).replace(",", " "));
 			
 			w.setState(STATES.VA);
 			w.setBook(Sportsbook.BET365);
@@ -297,6 +298,23 @@ public class Collector {
 		
 		return wagers;
 	}
+
+	private List<String> getAllFields(String s, String line) {
+
+		List<String> rtn = new ArrayList<>();
+		int index = -1;
+		do {
+			index = line.indexOf(s, index);
+			if(index != -1) {
+				rtn.add(getField(s, line, index));
+				index++;
+			}
+			
+		} while(index != -1);
+
+		return rtn;
+	}
+
 
 	private int fractionalToAmerican(double numerator, double denominator) {
         double decimal = numerator / denominator;
@@ -314,8 +332,8 @@ public class Collector {
         return (int) Math.round(american);
     }
 
-	private int getOdds(String s, String line) throws Exception {
-		String oddsField = getField(s, line);
+	private int getOdds(String s, String line, int index) throws Exception {
+		String oddsField = getField(s, line,index);
 		String[] parts = oddsField.split("/");
 		if(parts.length != 2) {
 			throw new Exception("Failed to split the fraction");
@@ -435,8 +453,14 @@ public class Collector {
 
 		    			w.setBonus(bet.getFreeBet());
 		    			
-		    			//w.setBetType(bet.getType());
-
+		    			switch(bet.getType()) {
+		    				case "SINGLE":
+		    					w.setBetType(WAGER_TYPE.SINGLE);
+		    					break;
+		    				default:
+		    					System.out.println("UNKNOWN BET TYPE at HARDROCK: " + bet.getType());
+		    			}
+		    			
 		    			switch(bet.getDisplayStatus()) {
 							case "LOSE":        w.setResult(WAGER_RESULT.LOSS);        break;
 							case "WIN":         w.setResult(WAGER_RESULT.WIN);         break;
@@ -457,7 +481,6 @@ public class Collector {
 			        
 		        for(Wager w : wagers) {
 		        	
-
 		        	if(wagerService.insert(w, collectionName)) {
 		        		wagersInserted++;
 		        	} else {
@@ -1360,7 +1383,7 @@ public class Collector {
 	        					desc.append("||");
 	        				}
 	        				w.setSport(bet.getSport().getName());
-	        				w.setLeague(bet.getCompetition().getName());
+	        				w.setLeague(bet.getCompetition().getName().replace(",", " "));
 	        				
 	        				if(bet.getFixture().getDate().before(first)) {
 	        					first = bet.getFixture().getDate();
@@ -1397,6 +1420,10 @@ public class Collector {
 	        			w.setOriginal_odds(bs.getTotalOdds().getAmerican());
 						w.setBoosted_odds(bs.getTotalOdds().getAmerican()); // default boosted to original until we find an update
 						
+	        			w.setBonus(bs.getIsFreeBet());
+	        			w.setStake(bs.getStake().getValue());
+	        			w.setTotalReturn(bs.getPayout().getValue());
+	        			
 	        			if((bs.getPromoTokens() != null) && (bs.getPromoTokens().size() > 0)) {
 	        				for(BetMGM_PromoToken pt : bs.getPromoTokens()) {
 	        					switch(pt.getTokenType()) {
@@ -1404,7 +1431,9 @@ public class Collector {
 	        							for(BetMGM_InfoItem ii : pt.getAdditionalInformation().getInformationItems()) {
 	        								if(ii.getKey().contentEquals("BoostedOdds.American")) {
 	        									w.setBoosted_odds(Integer.parseInt(ii.getValue()));
-	        									break;
+	        								}
+	        								if(ii.getKey().contentEquals("BoostedWinnings")) {
+	        									w.setTotalReturn(Double.parseDouble(ii.getValue()));
 	        								}
 	        							}
 	        							break;
@@ -1416,11 +1445,6 @@ public class Collector {
 	        					}
 	        				}
 	        			}
-	        			
-	        			w.setBonus(bs.getIsFreeBet());
-	        			w.setStake(bs.getStake().getValue());
-	        			w.setTotalReturn(bs.getPayout().getValue());
-	        			
 	        			wagers.add(w);
 	        		}
 	        	}
@@ -1432,6 +1456,7 @@ public class Collector {
 	        	} else {
 	        		wagerRepeats++;
 	        	}
+//	        	System.out.println(w);
 	        }
 
 	        moveFile(f, baseDir + "processed/" + f.getName());

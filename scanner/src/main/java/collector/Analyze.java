@@ -179,13 +179,21 @@ public class Analyze {
 									w.getEventDesc().replace(",", "|").substring(0,120)
 									:
 									w.getEventDesc().replace(",", "|");
+				String sport = w.getSport();
+				if(sport != null) {
+					sport = sport.replace(",", " ");
+				}
+				String league = w.getLeague();
+				if(league != null) {
+					league = league.replace(",", " ");
+				}
 				writer.write(
 
 //						System.out.println(
 						format(w.getEventTimestamp()) + "," +
 						format(w.getBetTimestamp()) + "," +
 						w.getBook() + "," +
-						desc	+ "," +
+						desc.replace(",", " ")	+ "," +
 						w.getBetType() + "," +
 						w.getResult() + "," +
 						w.getOriginal_odds() + "," +
@@ -194,8 +202,8 @@ public class Analyze {
 						w.getTotalReturn() + "," +
 						w.isBonus() + "," +
 						w.isRiskFree() + "," +
-						w.getSport() + "," +
-						w.getLeague() + "," +
+						sport + "," +
+						league + "," +
 						format(w.getPayoutTimestamp()) + "," +
 						w.getState() + "," +
 						w.getBetNumber() + "\n"
