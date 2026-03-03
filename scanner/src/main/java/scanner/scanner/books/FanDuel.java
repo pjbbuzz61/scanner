@@ -103,7 +103,7 @@ public class FanDuel extends Book {
 								||
 							((sport == Sport.NCAAM) && link.getText().contains("College Basketball"))
 								||
-							((sport == Sport.TENNIS) && link.getText().contains("Australian Open Matches"))
+							((sport == Sport.TENNIS) && link.getText().contains("Matches"))
 							
 							) {
 						System.out.println(link.getText());

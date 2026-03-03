@@ -41,7 +41,6 @@ import com.mongodb.client.MongoClients;
 import scanner.scanner.model.Team;
 import scanner.scanner.model.OU;
 import scanner.scanner.model.Odds;
-import scanner.scanner.model.Player;
 import scanner.scanner.model.Spread;
 import scanner.scanner.exceptions.OddsException;
 import scanner.scanner.repo.OddsRepo;
@@ -108,8 +107,8 @@ public class BetMGM extends Book {
 				urls.add("https://www.md.betmgm.com/en/sports/hockey-12/betting/usa-9/nhl-34");
 				break;
 			case TENNIS:
-				urls.add("https://www.md.betmgm.com/en/sports/tennis-5/betting/grand-slam-tournaments-5/australian-open-0:3/men-13");
-				urls.add("https://www.md.betmgm.com/en/sports/tennis-5/betting/grand-slam-tournaments-5/australian-open-0:3/women-14");
+				urls.add("https://www.md.betmgm.com/en/sports/tennis-5/betting/atp-6");
+				urls.add("https://www.md.betmgm.com/en/sports/tennis-5/betting/wta-7");
 				break;
 			default:
 				break;
@@ -353,8 +352,13 @@ public class BetMGM extends Book {
 			Elements header = headers.select("ms-group-selector");
 			if(header.size() > 0) {
 				for(Element h : header) {
-					Element sel = h.select("span.ng-star-inserted").first();
-					periods.add(sel.text());
+//					Element sel = h.select("span.ng-star-inserted").first();
+					Element sel = h.select("span.group-title").first();
+					if(sel != null) {
+						periods.add(sel.text());
+					} else {
+						System.out.println("No sel");
+					}
 				}
 			}
 		}

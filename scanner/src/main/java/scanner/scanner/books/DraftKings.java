@@ -102,8 +102,10 @@ public class DraftKings extends Book {
 				urls.add("https://sportsbook.draftkings.com/leagues/hockey/nhl");
 				break;
 			case TENNIS:
-				urls.add("https://sportsbook.draftkings.com/leagues/tennis/australian-open-men");
-				urls.add("https://sportsbook.draftkings.com/leagues/tennis/australian-open-women");
+				urls.add("https://sportsbook.draftkings.com/leagues/tennis/atp-indian-wells");
+				urls.add("https://sportsbook.draftkings.com/leagues/tennis/atp-indian-wells-qualifiers");
+				urls.add("https://sportsbook.draftkings.com/leagues/tennis/wta-indian-wells");
+				urls.add("https://sportsbook.draftkings.com/leagues/tennis/wta-indian-wells-qualifiers");
 				break;
 			default:
 				break;

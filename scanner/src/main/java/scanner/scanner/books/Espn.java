@@ -106,8 +106,8 @@ public class Espn extends Book {
 				urls.add("https://sportsbook.thescore.bet/sport/hockey/organization/united-states/competition/nhl#lines");
 				break;
 			case TENNIS:
-				urls.add("https://sportsbook.thescore.bet/sport/tennis/organization/grand-slam/competition/australian-open-men#lines");
-				urls.add("https://sportsbook.thescore.bet/sport/tennis/organization/grand-slam/competition/australian-open-women#lines");
+				urls.add("https://sportsbook.thescore.bet/sport/tennis/organization/atp/competition/atp-indian-wells#lines");
+				urls.add("https://sportsbook.thescore.bet/sport/tennis/organization/wta/competition/wta-indian-wells#lines");
 				break;
 			default:
 				break;

@@ -4,8 +4,12 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TimeZone;
 
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -24,6 +28,7 @@ public class Analyze {
 	boolean noParlays = false;
 	WagerService wagerService;
 	static String collection = "wagers_2026";
+	static int SESSION_DEAD_TIME = 2; // number of hours of no activity to end a session
 	
 
 	public static void main(String[] args) {
@@ -75,7 +80,7 @@ public class Analyze {
 */
 		
 		// Write out headers
-		System.out.println("Date, Session Winnings, Session Losses");
+//		System.out.println("Date, Session Winnings, Session Losses");
 		Date start = null;
 		Date stop = null;
 		int analysisYear = 2026;
@@ -125,10 +130,10 @@ public class Analyze {
 			}
 			double netForDay = won - wagered;
 			if(netForDay > 0 ) {
-				System.out.println(start + "," + String.format("%.2f",  netForDay) + ",,");
+//				System.out.println(start + "," + String.format("%.2f",  netForDay) + ",,");
 				totalWinnings += netForDay;
 			} else {
-				System.out.println(start + ",," + String.format("%.2f",  netForDay));
+//				System.out.println(start + ",," + String.format("%.2f",  netForDay));
 				totalLosses += -netForDay;
 			}
 
@@ -154,18 +159,55 @@ public class Analyze {
 
 	private void sendWagersToCsvFile() {
 
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'"); 
+		sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+		Date startOfYear = null;
+		try {
+			startOfYear = sdf.parse("2026-01-01T05:00:00Z");
+		} catch(Exception e) {
+			
+		}
+			
+		Map<Integer, Double> sessMap = new HashMap<>();
+		
 		List<Wager> wagers = wagerService.getWagers(collection);
 		
-		
+		Collections.sort(wagers, new Comparator<Wager>() {
+		    @Override
+			public int compare(Wager o1, Wager o2) {
+		        if(o1.getBetTimestamp().before(o2.getBetTimestamp())) {
+		        	return -1;
+		        } else if(o1.getBetTimestamp().after(o2.getBetTimestamp())) {
+		        	return 1;
+		        } else {
+		        	return 0;
+		        }
+		    }
+		});
+
 		try {
 			BufferedWriter writer = 
 				new BufferedWriter(new FileWriter(System.getProperty("user.home") + "/wagers_2026.csv"));
 
 			// Write the header
 			writer.write("EventDate,BetDate,Book,Description,BetType,Result,Odds,Boost,Stake,Return,"
-					+ "Bonus,NST,Sport,League,PayoutDate,State,BetNumber\n");
+					+ "Bonus,NST,Sport,League,PayoutDate,State,BetNumber,Session\n");
 
+			int session = 1;
+			Wager prev = null;
+			
 			for(Wager w : wagers) {
+
+				if(w.getBetTimestamp().before(startOfYear)) {
+					continue;
+				}
+
+				if(prev != null) {
+					if(w.getBetTimestamp().getTime() > 
+					  (prev.getBetTimestamp().getTime() + 1000L * 60L * 60L * SESSION_DEAD_TIME)) {
+						session++;
+					}
+				}
 
 				if(noParlays) {
 					if(w.getBetType() == WAGER_TYPE.PARLAY) {
@@ -206,12 +248,52 @@ public class Analyze {
 						league + "," +
 						format(w.getPayoutTimestamp()) + "," +
 						w.getState() + "," +
-						w.getBetNumber() + "\n"
+						w.getBetNumber() + "," +
+						session + "\n"
 						);
 				
+				// Add to session map
+				if(sessMap.get(session) == null) {
+					sessMap.put(session, 0.0);
+				}
+				if(w.isBonus() == false) {
+					sessMap.put(session, sessMap.get(session) - w.getStake());
+				}
+				sessMap.put(session, sessMap.get(session) + w.getTotalReturn());
+				
+				prev = w;
 			}
 
 			writer.close();
+			
+			
+			// make csv for the session data
+			writer = 
+					new BufferedWriter(new FileWriter(System.getProperty("user.home") + "/sessions_2026.csv"));
+
+			// Write the header
+			writer.write("Session,Totals\n");
+			
+			double tots = 0.0;
+			double ls = 0.0;
+			double ws = 0.0;
+			for (Map.Entry<Integer, Double> m : sessMap.entrySet()) {
+			    System.out.println(m.getKey() + " = " + String.format("%7.2f", m.getValue()));
+			    writer.write(m.getKey() + "," + String.format("%7.2f", m.getValue()) + "\n");
+			    tots += m.getValue();
+			    if(m.getValue() < 0.0) {
+			    	ls += m.getValue();
+			    } else {
+			    	ws += m.getValue();
+			    }
+			}
+			System.out.println("Tots: " + String.format("%7.2f", tots));
+			System.out.println("ws: " + String.format("%7.2f", ws));
+			System.out.println("ls: " + String.format("%7.2f", ls));
+			
+			writer.close();
+
+			
 		} catch(Exception e) {
 			System.out.println("Error writing out downtime: " + e.getMessage());
 		}

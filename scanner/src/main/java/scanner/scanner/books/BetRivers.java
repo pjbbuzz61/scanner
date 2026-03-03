@@ -107,8 +107,7 @@ public class BetRivers extends Book {
 				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093657&type=prematch");
 				break;
 			case TENNIS:
-				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000096469&type=matches");
-				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000096472&type=matches");
+				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093193&type=prematch");
 				break;
 			default:
 				break;
@@ -224,11 +223,33 @@ public class BetRivers extends Book {
 					
 					// See if we have more events
 					try {
+						
 						WebElement moreEventsLabel = driver
 								.findElement(By.cssSelector("button[data-testid=show-more-events-button]"));
-						//System.out.println("Clicking for more events ...");
-						javascriptExecutor.executeScript("arguments[0].scrollIntoView();", moreEventsLabel);
-						moreEventsLabel.click();
+
+						int cnt = 0;
+						do {
+							javascriptExecutor.executeScript("javascript:window.scrollBy(0,200)"); 
+							try {
+								moreEventsLabel.click();
+								break;
+							} catch(Exception eee) {
+								System.out.println("Not view, try again, Count is " + cnt);
+								try {Thread.sleep(50);} catch(Exception ee) {}
+								cnt++;
+							}
+								
+						} while(cnt < 100);
+							
+						
+						
+//						WebElement moreEventsLabel = driver
+//								.findElement(By.cssSelector("button[data-testid=show-more-events-button]"));
+//						System.out.println(moreEventsLabel.getLocation());
+//						
+//						//System.out.println("Clicking for more events ...");
+//						javascriptExecutor.executeScript("arguments[0].scrollIntoView();", moreEventsLabel);
+//						moreEventsLabel.click();
 						try {Thread.sleep(1000);} catch(Exception ee) {}
 					} catch(Exception e) {
 						//System.out.println("Exception: Didn't find more events: " + e.getMessage());
