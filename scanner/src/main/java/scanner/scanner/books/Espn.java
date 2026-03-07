@@ -89,6 +89,8 @@ public class Espn extends Book {
 		List<String> urls = new ArrayList<>();
 		switch(sport) {
 			case MLB:
+				urls.add("https://sportsbook.thescore.bet/sport/baseball/organization/united-states/competition/mlb-spring-training#lines");
+//				urls.add("https://sportsbook.thescore.bet/sport/baseball/organization/united-states/competition/mlb#lines");
 				break;
 			case NBA:
 				urls.add("https://sportsbook.thescore.bet/sport/basketball/organization/united-states/competition/nba#lines");
@@ -106,13 +108,73 @@ public class Espn extends Book {
 				urls.add("https://sportsbook.thescore.bet/sport/hockey/organization/united-states/competition/nhl#lines");
 				break;
 			case TENNIS:
-				urls.add("https://sportsbook.thescore.bet/sport/tennis/organization/atp/competition/atp-indian-wells#lines");
-				urls.add("https://sportsbook.thescore.bet/sport/tennis/organization/wta/competition/wta-indian-wells#lines");
+				urls = getAllTennisUrls();
 				break;
 			default:
 				break;
 		}
 		return urls;
+	}
+
+	private List<String> getAllTennisUrls() {
+
+		refresh(Sport.TENNIS, "https://sportsbook.thescore.bet/");
+		
+		List<String> rtn = new ArrayList<>();
+		
+		try {
+		
+			WebElement tennis = driver.findElement(By.xpath("//span[starts-with(@id, 'Tennis')]"));
+			
+			if(tennis != null) {
+
+				// Traverse up to the containing li
+				WebElement parent = tennis.findElement(By.xpath("..")).findElement(By.xpath(".."));
+				if(parent != null) {
+					System.out.println("Parent tag: " + parent.getTagName());
+				}
+				if((parent == null) || (parent.getTagName().contentEquals("li") == false)) {
+					System.out.println("Failed to find the containing list item for Tennis");
+					return rtn;
+				}
+				
+				//System.out.println(parent.getText());
+
+				@SuppressWarnings("deprecation")
+				String theDom = parent.getAttribute("outerHTML");
+				
+				Document doc = null;
+				try {
+					doc = Jsoup.parse(theDom);
+				} catch(Exception e) {
+					System.out.println("Error reading the dom: " + e.getMessage());
+					return rtn;
+				}
+				
+				Elements links = doc.select("a[href]");
+				for(Element link : links) {
+					//System.out.println(link.attr("href"));
+					
+					String l = link.attr("href");
+					if(l.contains("/atp-") || l.contains("/wta-")) {
+						if(!l.contains("doubles") && (!l.contains("specials")) && (!l.contains("challenger"))) {
+							rtn.add("https://sportsbook.thescore.bet" + l);
+						}
+					}
+				}
+
+
+			} else {
+				System.out.println("Failed to find the Tennis list element");
+				return rtn;
+			}
+
+		} catch(Exception e) {
+			System.out.println("Did not find tennis: " + e.getLocalizedMessage());
+			
+		}
+
+		return rtn;
 	}
 
 	private List<Odds> getMatchups(Sport sport, String url) throws IOException, OddsException {
@@ -226,6 +288,7 @@ public class Espn extends Book {
 		try {
 			switch(sport) {
 				case MLB:
+					list = parseTeamEvent(filename, sport);
 					break;
 				case NBA:
 					list = parseTeamEvent(filename, sport);
@@ -262,8 +325,10 @@ public class Espn extends Book {
 			System.out.println("Failed to delete the file: " + filename);
 		}
 
-		for(Odds odds : list) {
-			persistOdds(odds, "odds" + "_" + sport);
+		if(list != null) {
+			for(Odds odds : list) {
+				persistOdds(odds, "odds" + "_" + sport);
+			}
 		}
 
 		return list;
@@ -879,12 +944,14 @@ private List<Odds> parseTennis(String file, Sport sport) {
 
 	private void refresh(Sport sport, String url) {
 
+	//	System.out.println("Start of refresh: " + new Date());
 		try {
 			getWindowHandle(sport, url);
 		} catch (OddsException e) {
 			return;
 		}
 
+		//System.out.println("After window handle: " + new Date());
 		
 		WebElement popup = null;
 		int cntr = 0;
@@ -895,7 +962,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 				
 			}
 			try {Thread.sleep(100L);} catch (InterruptedException e) {}
-			if(cntr++ >= 100) {
+			if(cntr++ >= 10) {
 				break;
 			}
 		}
@@ -909,7 +976,11 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		try {Thread.sleep(500L);} catch (InterruptedException e) {}
 		
 		// give an extra 5 seconds to populate
-		try {Thread.sleep(5000L);} catch (InterruptedException e) {}
+		if(sport == Sport.NCAAM) {
+			try {Thread.sleep(5000L);} catch (InterruptedException e) {}
+		}
+
+	//	System.out.println("end of refresh: " + new Date());
 		return;
 		
 	}

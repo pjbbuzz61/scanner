@@ -102,16 +102,45 @@ public class DraftKings extends Book {
 				urls.add("https://sportsbook.draftkings.com/leagues/hockey/nhl");
 				break;
 			case TENNIS:
-				urls.add("https://sportsbook.draftkings.com/leagues/tennis/atp-indian-wells");
-				urls.add("https://sportsbook.draftkings.com/leagues/tennis/atp-indian-wells-qualifiers");
-				urls.add("https://sportsbook.draftkings.com/leagues/tennis/wta-indian-wells");
-				urls.add("https://sportsbook.draftkings.com/leagues/tennis/wta-indian-wells-qualifiers");
+				urls = getAllTennisUrls();
 				break;
 			default:
 				break;
 		
 		}
 		return urls;
+	}
+
+	private List<String> getAllTennisUrls() {
+
+		refresh(Sport.TENNIS, "https://sportsbook.draftkings.com/sports/tennis");
+		
+		List<String> rtn = new ArrayList<>();
+
+		WebElement tennis = driver.findElement(By.cssSelector("div.sportsbook-a-to-z-sport__content-all"));
+
+		@SuppressWarnings("deprecation")
+		String theDom = tennis.getAttribute("outerHTML");
+		
+		Document doc = null;
+		try {
+			doc = Jsoup.parse(theDom);
+		} catch(Exception e) {
+			System.out.println("Error reading the dom: " + e.getMessage());
+			return rtn;
+		}
+		
+		Elements links = doc.select("a[href]");
+		for(Element link : links) {
+			String l = link.attr("href");
+			if(l.contains("/atp-") || l.contains("/wta-")) { // || l.contains("/itf-") || l.contains("/challenger-")) {
+				if(!l.contains("doubles")) {
+					rtn.add("https://sportsbook.draftkings.com" + l);
+				}
+			}
+		}
+		
+		return rtn;
 	}
 
 	private List<Odds> getMatchups(Sport sport, String url) throws IOException, OddsException {
@@ -572,7 +601,16 @@ public class DraftKings extends Book {
 		boolean found = false;
 		for(int i = 0; i < 100; ++i) {
 			try {
-				driver.findElement(By.cssSelector("section[data-testid='league-page-widget-container']"));
+				try {
+					driver.findElement(By.cssSelector("section[data-testid='league-page-widget-container']"));
+					found = true;
+					break;
+				} catch(Exception e1) {
+					// do nothing, continue to next test (for tennis window)
+				}
+				
+				// this looks for the tennis set up
+				driver.findElement(By.className("sportsbook-a-to-z-sport__content"));
 				found = true;
 				break;
 			} catch(Exception e) {

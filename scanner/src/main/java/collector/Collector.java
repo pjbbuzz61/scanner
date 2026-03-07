@@ -421,10 +421,6 @@ public class Collector {
 								first = new Date(part.getEventTime());
 							}
 
-		    				if(betNum > 0) {
-		    					desc.append("\t");
-		    				}
-							
 		    				String score = null;
 		    				String sport = null;
 		    				if(part.getEventResult() != null) {
@@ -436,10 +432,10 @@ public class Collector {
 									part.getEvent().getName() + "|" + 
 		    						part.getSelection().getName() + " " + part.getMarket().getName() + "|" + 
 		    						part.getOdds().getMoneyline() + "|" + 
-		    						part.getResultType() + "|" + "Outcome: " + score);
+		    						part.getResultType() + "|" + "Outcome " + score);
 
 							if(betNum < (bet.getParts().getBetPart().size()-1)) {
-		    					desc.append("\n");
+		    					desc.append("||");
 		    				}
 
 		    				w.setSport(sport);
@@ -456,6 +452,9 @@ public class Collector {
 		    			switch(bet.getType()) {
 		    				case "SINGLE":
 		    					w.setBetType(WAGER_TYPE.SINGLE);
+		    					break;
+		    				case "MULTIPLE":
+		    					w.setBetType(WAGER_TYPE.PARLAY);
 		    					break;
 		    				default:
 		    					System.out.println("UNKNOWN BET TYPE at HARDROCK: " + bet.getType());

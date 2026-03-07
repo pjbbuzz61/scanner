@@ -90,6 +90,7 @@ public class BetMGM extends Book {
 		List<String> urls = new ArrayList<>();
 		switch(sport) {
 			case MLB:
+				urls.add("https://www.md.betmgm.com/en/sports/baseball-23/betting/usa-9/mlb-75");
 				break;
 			case NBA:
 				urls.add("https://www.md.betmgm.com/en/sports/basketball-7/betting/usa-9/nba-6004");
@@ -273,6 +274,7 @@ public class BetMGM extends Book {
 		try {
 			switch(sport) {
 				case MLB:
+					list = parseTeamEvent(filename, sport);
 					break;
 				case NBA:
 					list = parseTeamEvent(filename, sport);
@@ -511,6 +513,13 @@ public class BetMGM extends Book {
 		// Get participants
 		Elements participants = e.select("div.participant");
 		if(participants.size() == 2) {
+			
+			if(sport == Sport.TENNIS) {
+				Elements es = participants.get(0).select("div.second-participant");
+				if((es != null) && (es.size() > 0)) {
+					return;
+				}
+			}
 			String p1 = participants.get(0).text().toUpperCase().trim();
 			String p2 = participants.get(1).text().toUpperCase().trim();
 			Team p1Team = null;

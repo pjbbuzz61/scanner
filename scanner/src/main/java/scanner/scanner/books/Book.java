@@ -126,7 +126,7 @@ public abstract class Book {
 				try{Thread.sleep(1000);} catch(Exception ee) {}
 				attempts++;
 			}
-		} while(attempts < 3);
+		} while(attempts < 10);
 		
 		driver.manage().timeouts().pageLoadTimeout(20, TimeUnit.SECONDS);
 		javascriptExecutor = (JavascriptExecutor) driver;

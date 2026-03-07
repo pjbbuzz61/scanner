@@ -19,7 +19,9 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 
@@ -64,7 +66,6 @@ public class BetRivers extends Book {
 	public BetRivers(boolean useTheDriver) {
 		super(Sportsbook.BETRIVERS, useTheDriver);
 	}
-
 	public BetRivers() {
 		super(Sportsbook.BETRIVERS, true);
 	}
@@ -124,8 +125,68 @@ public class BetRivers extends Book {
 			
 			try {
 
-				int cntr = 0;
+				// expand all expandable headers
 				boolean moreEvents = true;
+				int cntr = 0;
+				
+				WebElement mainPage = null;
+				Map<String, Boolean> triedMap = new HashMap<>();
+				
+				while(moreEvents) {
+					
+					try {
+						mainPage = driver.findElement(
+								By.cssSelector("div.main-page-view-sportsbook"));
+						
+						List<WebElement> expandables = mainPage.findElements(
+								By.xpath("//button[@aria-expanded='false' and starts-with(@id, 'accordion')]"));
+
+						WebElement expandable = null;
+						for(WebElement expand : expandables) {
+							String title = expand.getText();
+							if(triedMap.get(title) != null) {
+								continue;
+							} else {
+								triedMap.put(title, true);
+								expandable = expand;
+								break;
+							}
+						}
+
+						if(expandable == null) {
+							moreEvents = false;
+							System.out.println("No more expandable areas on the list");
+							continue;
+						}
+
+						javascriptExecutor.executeScript("arguments[0].scrollIntoView();", expandable);
+						String title = expandable.getText();
+						if((title == null) || (!title.toUpperCase().contains("DOUBLES"))) {
+							if(sport == Sport.TENNIS) {
+								if(title.toUpperCase().contains("ATP") || title.toUpperCase().contains("WTA")) {
+									expandable.click();
+								} else {
+									triedMap.put(title, true);
+								}
+							} else {
+								expandable.click();
+							}
+						} else {
+							triedMap.put(title, true);
+						}
+						Thread.sleep(100);
+						
+					} catch(Exception er) {
+						System.out.println("No more expandable areas");
+						moreEvents = false;
+//						javascriptExecutor.executeScript("javascript:window.scrollBy(0,-5000)"); 
+						javascriptExecutor.executeScript("arguments[0].scrollIntoView();", mainPage);
+					}
+
+				}
+
+				moreEvents = true;
+				cntr = 0;
 				while(moreEvents) {
 					WebElement scroll = driver.findElement(
 							By.cssSelector("div.main-page-view-sportsbook"));
@@ -151,10 +212,10 @@ public class BetRivers extends Book {
 //					Thread.sleep(100);
 
 					// Page up enough times to get to the top
-					for(int i = 0; i < 25; ++i) {
-						Thread.sleep(100);
+					for(int i = 0; i < 50; ++i) {
+						Thread.sleep(25);
 						robot.keyPress(KeyEvent.VK_PAGE_UP);
-						Thread.sleep(100);
+						Thread.sleep(25);
 						robot.keyRelease(KeyEvent.VK_PAGE_UP);
 					}
 						
@@ -374,8 +435,8 @@ public class BetRivers extends Book {
 
 			Elements container = doc.select("div.main-page-view-sportsbook");
 			if((container == null) || (container.size() == 0)) {
-				System.out.println("Failed to find the main page, outta here");
-				return list;
+				System.out.println("Failed to find the main page");
+				continue;
 			}
 			Elements games = container.get(0).select("article");
 			for(Element game : games) {
@@ -417,6 +478,22 @@ public class BetRivers extends Book {
 		}
 		if(homeTeamContainer.text().contains(")")) {
 			homeTeam = homeTeamContainer.text().substring(homeTeamContainer.text().indexOf(")")+1).trim();
+		}
+		if(homeTeam != null)  {
+			if(sport == Sport.TENNIS) {
+				if(homeTeam.contains("/")) {
+					System.out.println("Bypassing contest - looks like doubles in tennis: Home: " + homeTeam);
+					return false;
+				}
+			}
+		}
+		if(awayTeam != null)  {
+			if(sport == Sport.TENNIS) {
+				if(awayTeam.contains("/")) {
+					System.out.println("Bypassing contest - looks like doubles in tennis: Away: " + awayTeam);
+					return false;
+				}
+			}
 		}
 		boolean failed = false;
 		try {
