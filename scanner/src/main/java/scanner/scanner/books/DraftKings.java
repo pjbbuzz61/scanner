@@ -85,12 +85,17 @@ public class DraftKings extends Book {
 		switch(sport) {
 			case MLB:
 				urls.add("https://sportsbook.draftkings.com/leagues/baseball/mlb");
+//				urls.add("https://sportsbook.draftkings.com/leagues/baseball/mlb-preseason");
+//				urls.add("https://sportsbook.draftkings.com/leagues/baseball/world-baseball-classic");
 				break;
 			case NBA:
 				urls.add("https://sportsbook.draftkings.com/leagues/basketball/nba");
 				break;
 			case NCAAM:
 				urls.add("https://sportsbook.draftkings.com/leagues/basketball/ncaab");
+				break;
+			case NCAAW:
+				urls.add("https://sportsbook.draftkings.com/leagues/basketball/wncaab");
 				break;
 			case NCAAF:
 				urls.add("https://sportsbook.draftkings.com/leagues/football/ncaaf");
@@ -270,6 +275,7 @@ public class DraftKings extends Book {
 					list = parseTeamEvent(filename, sport);
 					break;
 				case NCAAM:
+				case NCAAW:
 					list = parseTeamEvent(filename, sport);
 					break;
 				case NCAAF:
@@ -365,15 +371,18 @@ public class DraftKings extends Book {
 		odds.setPeriod(Period.GAME); 
 
 		Elements teams = match.select("div.cb-market__label-team-wrapper--col");
+		Elements spans_away = teams.get(0).select("span");
+		Elements spans_home = teams.get(1).select("span");
+		
 		
 		boolean failed = false;
 		try {
-			odds.setAway(getTeam(this.sportsbook, sport, teams.get(0).text(), true));
+			odds.setAway(getTeam(this.sportsbook, sport, spans_away.get(0).text(), true));
 		} catch(Exception e3) {
 			failed = true;
 		}
 		try {
-			odds.setHome(getTeam(this.sportsbook, sport, teams.get(1).text(), true));
+			odds.setHome(getTeam(this.sportsbook, sport, spans_home.get(0).text(), true));
 		} catch(Exception e3) {
 			failed = true;
 		}
@@ -647,6 +656,7 @@ public class DraftKings extends Book {
 			case "NFL":    sport = Sport.NFL;    break;
 			case "NCAAF":  sport = Sport.NCAAF;  break;
 			case "NCAAM":  sport = Sport.NCAAM;  break;
+			case "NCAAW":  sport = Sport.NCAAW;  break;
 			case "MLB":    sport = Sport.MLB;    break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}

@@ -103,6 +103,8 @@ public class FanDuel extends Book {
 								||
 							((sport == Sport.NCAAM) && link.getText().contains("College Basketball"))
 								||
+							((sport == Sport.NCAAW) && link.getText().contains("College Basketball"))
+								||
 							((sport == Sport.TENNIS) && link.getText().contains("Matches"))
 							
 							) {
@@ -230,6 +232,9 @@ public class FanDuel extends Book {
 					list = parseTeamEvent(filename, sport);
 					break;
 				case NCAAM:
+					list = parseTeamEvent(filename, sport);
+					break;
+				case NCAAW:
 					list = parseTeamEvent(filename, sport);
 					break;
 				case NCAAF:
@@ -635,6 +640,8 @@ public class FanDuel extends Book {
 			String label = "Spread";
 			if(sport == Sport.NHL) {
 				label = "Puck Line";
+			} else if(sport == Sport.MLB) {
+				label = "Run Line";
 			}
 			spreadPts = e.select("div[aria-label^=" + label + "] > span:nth-child(1)");
 			spreadML  = e.select("div[aria-label^=" + label + "] > span:nth-child(2)");
@@ -878,6 +885,9 @@ public class FanDuel extends Book {
 			case NCAAF:
 				url.add("https://sportsbook.fanduel.com/navigation/ncaaf");
 				break;
+			case NCAAW:
+				url.add("https://sportsbook.fanduel.com/navigation/ncaaw");
+				break;
 			case NFL:
 				url.add("https://sportsbook.fanduel.com/navigation/nfl");
 				break;
@@ -983,6 +993,7 @@ public class FanDuel extends Book {
 			case "NFL":    sport = Sport.NFL;    break;
 			case "NCAAF":  sport = Sport.NCAAF;  break;
 			case "NCAAM":  sport = Sport.NCAAM;  break;
+			case "NCAAW":  sport = Sport.NCAAW;  break;
 			case "MLB":    sport = Sport.MLB;    break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}

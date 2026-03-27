@@ -560,8 +560,10 @@ public class Collector {
 		        					}
     						
 		        					StringBuilder cor = new StringBuilder();
-		        					for(String s : outcome.getSettledInfo().getResult().getCorrect()) {
-		        						cor.append(s + " ");
+		        					if(outcome.getSettledInfo() != null) {
+			        					for(String s : outcome.getSettledInfo().getResult().getCorrect()) {
+			        						cor.append(s + " ");
+			        					}
 		        					}
 		        					desc.append(
 		        							outcome.getEventInfo().getEventName() + "|" + 
@@ -598,6 +600,7 @@ public class Collector {
 		        					w.setRiskFree(true);
 		        					break;
 		        				case "PROFIT_BOOST":
+		        				case "ODDS_BOOST":
 		        					break;
 		        				case "FREE_BET":
 		        					w.setBonus(true);
@@ -714,6 +717,7 @@ public class Collector {
 					Element returns            = play.select("span[data-test-id^=bet-returns]").first();
 					
 					Element bonus              = play.select("button[data-test-id^=playerBonus]").first();
+					Element bonus2             = play.select("span[data-test-id^=playerBonus]").first();
 
 					List<Element> team1        = play.select("span[data-test-id^=event-team-name-1]");
 					List<Element> team2        = play.select("span[data-test-id^=event-team-name-2]");
@@ -729,63 +733,6 @@ public class Collector {
 					@SuppressWarnings("unused")
 					List<Element> selSubTitles = play.select("div[data-test-id^=bet-selection-subtitle]");
 
-/*					
-					String s = teamOfPlay != null ? teamOfPlay.text() : "";
-					System.out.println("teamOfPlay: " + s);
-
-					s = displayOdds != null ? displayOdds.text() : "";
-					System.out.println("displayOdds: " + s);
-					
-					s = origDispOdds != null ? origDispOdds.text() : "";
-					System.out.println("origDispOdds: " + s);
-					
-					s = boostDispOdds != null ? boostDispOdds.text() : "";
-					System.out.println("boostDispOdds: " + s);
-
-					s = playMade != null ? playMade.text() : "";
-					System.out.println("playMade: " + s);
-					
-					s = status != null ? status.text() : "";
-					System.out.println("status: " + s);
-
-					s = stake != null ? stake.text() : "";
-					System.out.println("stake: " + s);
-					
-					s = returns != null ? returns.text() : "";
-					System.out.println("returns: " + s);
-
-					s = bonus != null ? bonus.text() : "";
-					System.out.println("bonus: " + s);
-
-					
-
-					if(team1 != null) {
-						for(Element e : team1) {System.out.println("team1: " + e.text()); }
-					}
-					if(team2 != null) {
-						for(Element e : team2) {System.out.println("team2: " + e.text()); }
-					}
-					if(event != null) {
-						for(Element e : event) {System.out.println("event: " + e.text()); }
-					}
-					if(eventRefs != null) {
-						for(Element e : eventRefs) {System.out.println("eventRefs: " + e.text()); }
-					}
-					if(betRefs != null) {
-						for(Element e : betRefs) {System.out.println("betRefs: " + e.text()); }
-					}
-					if(selTitles != null) {
-						for(Element e : selTitles) {System.out.println("selTitles: " + e.text()); }
-					}
-					if(selOdds != null) {
-						for(Element e : selOdds) {System.out.println("selOdds: " + e.text()); }
-					}
-					if(selSubTitles != null) {
-						for(Element e : selSubTitles) {System.out.println("selSubTitles: " + e.text()); }
-					}	
-					
-					System.out.println();
-*/					
 					Wager w = new Wager();
 					
 					w.setState(STATES.MD); // don't seem to give you way to determine the state
@@ -847,6 +794,14 @@ public class Collector {
         				if(bonus.text().contains("NO SWEAT")) {
         					w.setRiskFree(true);
         				} else if(bonus.text().contains("Bonus Bet")) {
+        					w.setBonus(true);
+        				}
+        			}
+
+        			if(bonus2 != null) {
+        				if(bonus2.text().contains("NO SWEAT")) {
+        					w.setRiskFree(true);
+        				} else if(bonus2.text().contains("Bonus Bet")) {
         					w.setBonus(true);
         				}
         			}
@@ -1005,6 +960,7 @@ public class Collector {
 	        				case "LOSS":       w.setResult(WAGER_RESULT.LOSS);       break;
 	        				case "WIN":        w.setResult(WAGER_RESULT.WIN);        break;
 	        				case "CASHED_OUT": w.setResult(WAGER_RESULT.CASHED_OUT); break;
+	        				case "CASH_OUT":   w.setResult(WAGER_RESULT.CASHED_OUT); break;
 	        				default: 
 	        					System.out.println("New state: " + node.getOutcome());
 	        			}
@@ -1129,6 +1085,7 @@ public class Collector {
 	        				case "LOST":       w.setResult(WAGER_RESULT.LOSS);       break;
 	        				case "WON":        w.setResult(WAGER_RESULT.WIN);        break;
 	        				case "CASHED_OUT": w.setResult(WAGER_RESULT.CASHED_OUT); break;
+	        				case "VOID":       w.setResult(WAGER_RESULT.CANCELLED);  break;
 	        				default: 
 	        					System.out.println("New state: " + fnb.getResult());
 	        			}

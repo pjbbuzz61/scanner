@@ -89,14 +89,18 @@ public class Espn extends Book {
 		List<String> urls = new ArrayList<>();
 		switch(sport) {
 			case MLB:
-				urls.add("https://sportsbook.thescore.bet/sport/baseball/organization/united-states/competition/mlb-spring-training#lines");
-//				urls.add("https://sportsbook.thescore.bet/sport/baseball/organization/united-states/competition/mlb#lines");
+//				urls.add("https://sportsbook.thescore.bet/sport/baseball/organization/global/competition/world-baseball-classic#lines");
+//				urls.add("https://sportsbook.thescore.bet/sport/baseball/organization/united-states/competition/mlb-spring-training#lines");
+				urls.add("https://sportsbook.thescore.bet/sport/baseball/organization/united-states/competition/mlb#lines");
 				break;
 			case NBA:
 				urls.add("https://sportsbook.thescore.bet/sport/basketball/organization/united-states/competition/nba#lines");
 				break;
 			case NCAAM:
 				urls.add("https://sportsbook.thescore.bet/sport/basketball/organization/united-states/competition/ncaab#lines");
+				break;
+			case NCAAW:
+				urls.add("https://sportsbook.thescore.bet/sport/basketball/organization/united-states/competition/wncaab#lines");
 				break;
 			case NCAAF:
 				urls.add("https://sportsbook.thescore.bet/sport/football/organization/united-states/competition/ncaaf#lines");
@@ -294,6 +298,7 @@ public class Espn extends Book {
 					list = parseTeamEvent(filename, sport);
 					break;
 				case NCAAM:
+				case NCAAW:
 					list = parseTeamEvent(filename, sport);
 					break;
 				case NCAAF:
@@ -621,7 +626,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		odds.setPeriod(Period.GAME); 
 
 		Elements containers = e.select("article > div > div > div");
-		if(sport == Sport.TENNIS) {
+		if((sport == Sport.TENNIS)) {
 			if(containers.size() != 3) {
 				System.out.println("Failed to get the expected containers for data");
 				return;
@@ -641,18 +646,19 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		if(away == null) {
 			return;
 		}
-		String awayTeam = away.text().toUpperCase();
-		if(awayTeam.contains(")")) {
-			awayTeam = awayTeam.substring(awayTeam.indexOf(")")+1).trim();
-		}
+		String awayTeam = removeParens(away.text().toUpperCase());
+		
+//		if(awayTeam.contains(")")) {
+//			awayTeam = awayTeam.substring(awayTeam.indexOf(")")+1).trim();
+//		}
 		Element home = containers.get(homeBlock).select("div.text-primary").first();
 		if(home == null) {
 			return;
 		}
-		String homeTeam = home.text().toUpperCase();
-		if(homeTeam.contains(")")) {
-			homeTeam = homeTeam.substring(homeTeam.indexOf(")")+1).trim();
-		}
+		String homeTeam = removeParens(home.text().toUpperCase());
+//		if(homeTeam.contains(")")) {
+//			homeTeam = homeTeam.substring(homeTeam.indexOf(")")+1).trim();
+//		}
 		boolean failed = false;
 		try {
 			odds.setAway(getTeam(this.sportsbook, sport, awayTeam, true));
@@ -726,31 +732,30 @@ private List<Odds> parseTennis(String file, Sport sport) {
 			homeMl = scans.get(2).text().replace("Even", "+100");
 		
 		} else {
-			Elements line = containers.get(awayBlock).select("button");
-			// should be 2 buttons --
-			// #1 is the away team
-			// #2 is ml away
-
-			Elements scans = line.get(1).select("span");
-			awayMl = scans.get(2).text().replace("Even", "+100");
-
-			line = containers.get(homeBlock).select("button");
-			// should be 2 buttons --
-			// #1 is the home team
-			// #2 is ml home
-
-			scans = line.get(1).select("span");
-			homeMl = scans.get(2).text().replace("Even", "+100");
+			
+			Elements allButtons = containers.select("button");
+			// Button list
+			// #0 is away team name and seed
+			// #1 is home team name and seed
+			// #2 is away team ML
+			// #3 is home team ML
+			
+			Elements spans = allButtons.get(2).select("span");
+			awayMl = spans.get(2).text().replace("Even", "+100");
+			spans = allButtons.get(3).select("span");
+			homeMl = spans.get(2).text().replace("Even", "+100");
 		}
 
 		if(sport != Sport.TENNIS) {
 			Spread spread = new Spread();
 			spread.setPeriod(Period.GAME);
 			try {
-				spread.setAwayPoints(Double.parseDouble(awaySpreadPts));
-				spread.setHomePoints(Double.parseDouble(homeSpreadPts));
-				spread.setAwayPrice(Integer.parseInt(awaySpreadLine));
-				spread.setHomePrice(Integer.parseInt(homeSpreadLine));
+				if(!awaySpreadPts.contentEquals("--") && !homeSpreadPts.contentEquals("--")) {
+					spread.setAwayPoints(Double.parseDouble(awaySpreadPts));
+					spread.setHomePoints(Double.parseDouble(homeSpreadPts));
+					spread.setAwayPrice(Integer.parseInt(awaySpreadLine));
+					spread.setHomePrice(Integer.parseInt(homeSpreadLine));
+				}
 			} catch(Exception e3) {
 				System.out.println("Failed to parse Spread odds: " 
 						+ awaySpreadPts + " " + awaySpreadLine + " " + homeSpreadPts + " " + homeSpreadLine);
@@ -761,9 +766,11 @@ private List<Odds> parseTennis(String file, Sport sport) {
 			OU ou = new OU();
 			ou.setPeriod(Period.GAME);
 			try {
-				ou.setPoints(Double.parseDouble(overUnderPts.trim()));
-				ou.setOver(Integer.parseInt(overLine));
-				ou.setUnder(Integer.parseInt(underLine));
+				if(!overUnderPts.contentEquals("--")) {
+					ou.setPoints(Double.parseDouble(overUnderPts.trim()));
+					ou.setOver(Integer.parseInt(overLine));
+					ou.setUnder(Integer.parseInt(underLine));
+				}
 			} catch(Exception e3) {
 				System.out.println("Failed to parse OU odds: " 
 						+ overUnderPts + " " + overLine + " " + underLine);
@@ -792,6 +799,19 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		} else {
 			System.out.println("Not persisting: " + odds);
 		}
+	}
+
+	private String removeParens(String team) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(team.trim());
+		if(sb.toString().startsWith("(")) {
+			int opening = sb.toString().indexOf("(");
+			int closing = sb.toString().indexOf(")");
+			for(int index = opening; index <= closing; ++index) {
+				sb.setCharAt(index, ' ');
+			}
+		}
+		return sb.toString().trim();
 	}
 
 	private Date getStartingDate(String dateString) {
@@ -1063,6 +1083,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 			case "NFL":    sport = Sport.NFL;    break;
 			case "NCAAF":  sport = Sport.NCAAF;  break;
 			case "NCAAM":  sport = Sport.NCAAM;  break;
+			case "NCAAW":  sport = Sport.NCAAW;  break;
 			case "MLB":    sport = Sport.MLB;    break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}

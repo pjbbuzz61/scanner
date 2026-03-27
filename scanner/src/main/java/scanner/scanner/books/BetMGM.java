@@ -91,12 +91,16 @@ public class BetMGM extends Book {
 		switch(sport) {
 			case MLB:
 				urls.add("https://www.md.betmgm.com/en/sports/baseball-23/betting/usa-9/mlb-75");
+//				urls.add("https://www.md.betmgm.com/en/sports/baseball-23/betting/world-6/world-baseball-classic-7405");
 				break;
 			case NBA:
 				urls.add("https://www.md.betmgm.com/en/sports/basketball-7/betting/usa-9/nba-6004");
 				break;
 			case NCAAM:
 				urls.add("https://www.md.betmgm.com/en/sports/basketball-7/betting/usa-9/ncaa-264");
+				break;
+			case NCAAW:
+				urls.add("https://www.md.betmgm.com/en/sports/basketball-7/betting/usa-9/ncaaw-5241");
 				break;
 			case NCAAF:
 				urls.add("https://www.md.betmgm.com/en/sports/football-11/betting/usa-9/college-football-211");
@@ -280,6 +284,7 @@ public class BetMGM extends Book {
 					list = parseTeamEvent(filename, sport);
 					break;
 				case NCAAM:
+				case NCAAW:
 					list = parseTeamEvent(filename, sport);
 					break;
 				case NCAAF:
@@ -841,6 +846,7 @@ public class BetMGM extends Book {
 			case "NFL":    sport = Sport.NFL;    break;
 			case "NCAAF":  sport = Sport.NCAAF;  break;
 			case "NCAAM":  sport = Sport.NCAAM;  break;
+			case "NCAAW":  sport = Sport.NCAAW;  break;
 			case "MLB":    sport = Sport.MLB;    break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}

@@ -152,8 +152,8 @@ public class Analyze {
 		} while(analysisYear == 2026);
 		
 		
-		System.out.println("," + String.format("%.2f", totalWinnings) + "," + String.format("%.2f", totalLosses));
-		System.out.println("Totals: " + String.format("%.2f", (totalWinnings-totalLosses)));
+		//System.out.println("," + String.format("%.2f", totalWinnings) + "," + String.format("%.2f", totalLosses));
+		//System.out.println("Totals: " + String.format("%.2f", (totalWinnings-totalLosses)));
 		
 	}
 
@@ -278,6 +278,7 @@ public class Analyze {
 			double ls = 0.0;
 			double ws = 0.0;
 			for (Map.Entry<Integer, Double> m : sessMap.entrySet()) {
+				//if(m.getKey() > 161) continue;
 			    System.out.println(m.getKey() + " = " + String.format("%7.2f", m.getValue()));
 			    writer.write(m.getKey() + "," + String.format("%7.2f", m.getValue()) + "\n");
 			    tots += m.getValue();

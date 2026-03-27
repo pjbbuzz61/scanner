@@ -239,6 +239,9 @@ public class Caesars extends Book {
 				case NCAAM:
 					list = parseTeamEvent(files, sport);
 					break;
+				case NCAAW:
+					list = parseTeamEvent(files, sport);
+					break;
 				case NCAAF:
 					list = parseTeamEvent(files, sport);
 					break;
@@ -699,6 +702,9 @@ public class Caesars extends Book {
 			case NCAAM:
 				url.add("https://sportsbook.caesars.com/us/md/bet/");
 				break;
+			case NCAAW:
+				url.add("https://sportsbook.caesars.com/us/md/bet/");
+				break;
 			case NCAAF:
 				url.add("https://sportsbook.caesars.com/us/md/bet/");
 				break;
@@ -797,6 +803,7 @@ public class Caesars extends Book {
 			case "NFL":    sport = Sport.NFL;    break;
 			case "NCAAF":  sport = Sport.NCAAF;  break;
 			case "NCAAM":  sport = Sport.NCAAM;  break;
+			case "NCAAW":  sport = Sport.NCAAW;  break;
 			case "MLB":    sport = Sport.MLB;    break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}

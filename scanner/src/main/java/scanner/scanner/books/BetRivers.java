@@ -91,12 +91,17 @@ public class BetRivers extends Book {
 		switch(sport) {
 			case MLB:
 				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093616&type=prematch");
+//				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093918&type=matches");
+//				urls.add("https://md.betrivers.com/?page=sportsbook&group=2000069864&type=matches");
 				break;
 			case NBA:
 				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093652&type=prematch");
 				break;
 			case NCAAM:
 				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093654&type=prematch");
+				break;
+			case NCAAW:
+				urls.add("https://md.betrivers.com/?page=sportsbook&group=2000054461&type=matches");
 				break;
 			case NCAAF:
 				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093655&type=prematch");
@@ -364,6 +369,9 @@ public class BetRivers extends Book {
 				case NCAAM:
 					list = parseTeamEvent(files, sport);
 					break;
+				case NCAAW:
+					list = parseTeamEvent(files, sport);
+					break;
 				case NCAAF:
 					list = parseTeamEvent(files, sport);
 					break;
@@ -534,7 +542,10 @@ public class BetRivers extends Book {
 		int indx = 0;
 		for(String offer : offers) {
 
-			if(offer.contentEquals("SPREAD") || offer.contentEquals("PUCK LINE")) {
+			if(
+					offer.contentEquals("SPREAD")   || 
+					offer.contentEquals("RUN LINE") || 
+					offer.contentEquals("PUCK LINE")) {
 				Spread spread = new Spread();
 				spread.setPeriod(Period.GAME);
 				try {
@@ -574,7 +585,11 @@ public class BetRivers extends Book {
 				odds.setMl(ml);
 			}
 
-			else if(offer.contentEquals("TOTAL POINTS") || offer.contentEquals("TOTAL GOALS") || offer.contentEquals("TOTAL")) {
+			else if(
+					offer.contentEquals("TOTAL POINTS") || 
+					offer.contentEquals("TOTAL RUNS")   || 
+					offer.contentEquals("TOTAL GOALS")  || 
+					offer.contentEquals("TOTAL")) {
 				OU ou = new OU();
 				ou.setPeriod(Period.GAME);
 				try {
@@ -722,6 +737,7 @@ public class BetRivers extends Book {
 			case "NFL":    sport = Sport.NFL;    break;
 			case "NCAAF":  sport = Sport.NCAAF;  break;
 			case "NCAAM":  sport = Sport.NCAAM;  break;
+			case "NCAAW":  sport = Sport.NCAAW;  break;
 			case "MLB":    sport = Sport.MLB;    break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}

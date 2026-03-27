@@ -20,15 +20,11 @@ BetMGM:
  betslips calls, each return needs to go into its own file. Urls start with 'betslips'
  NOTE: setting maxItems limits you to 50 on a return, but you can one up the index to get the next batch of 50!
  
- For the script: two args are the from date to To date in the form 2026-01-01
- 
  
 Caesars
  login, select Settled from the right hand side slip, as you scroll down it'll make calls to get data. Doesn't look 
  to be a way to set a date range, but you can see what dates are used from the url. Urls start with 'history'
  Note: Site not happy at all when the page size is messed with!!!
- 
- For the script pass in one args (date from - 2026-01-01) which will pull 10 records back from that date
  
  
 FanDuel
@@ -37,16 +33,11 @@ FanDuel
  NOTE: you can set the to and from record fields with an up to 100 diff. So set first time to 1 to 100, 
        the next 101 to 200, etc
 
- For the script it doesn't take a date, it just pulls back the 50 latest
- 
- 
 ESPN:
  login, go to MyBets on the left, go to Settled and select all. The urls seem to start with something random
  each time so it has to be figured out. I ended up using Chrome to capture back from 2/14 to jan 1 because all 
  the responses after about 30 days were getting truncated in FF. Worked in chrome, but I used the RemoveRtns class 
  to take out all the spaces since it had it in the expanded format (not on one line)
- 
- Script is set to last 30 days, but only returns the last 25 records
  
  
 DraftKings:
@@ -60,7 +51,6 @@ BetRivers
  NOTE: Change the range size to 1000 and you'll get everything!! 
        And the Collector will filter out the ones not on our year.
        
-       script pulls back the last 50
        
 Bet365:
  Go to pic on top right, select history. Select Settled Bets, and the date range you want. You have to hit 

@@ -29,7 +29,7 @@ public class Play {
 				src.getAway().getCommonName(), src.getHome().getCommonName(),
 				srcBook, srcPlayType, srcPts, srcML, srcBetAmt, 
 				tgtBook, tgtPlayType, tgtPts, tgtML, tgtBetAmt,
-				performance, 100.0*performance/srcBetAmt);
+				performance, 100.0*performance/(srcBetAmt+tgtBetAmt));
 	}
 
 	public Odds getSrc() {
