@@ -11,6 +11,7 @@ import scanner.scanner.model.Odds;
 import scanner.scanner.repo.OddsRepo;
 import scanner.scanner.util.Period;
 import scanner.scanner.util.Sport;
+import scanner.scanner.util.Sportsbook;
 
 
 @Component
@@ -24,7 +25,11 @@ public class OddsService {
 		return repo.getOdds(sport, period, "odds" + "_" + sport);
 	}
 
-	public void persistOdds(Odds odds) {
+    public List<Odds> getOdds(Sport sport, Sportsbook book) {
+		return repo.getOdds(sport, book, "odds" + "_" + sport);
+	}
+
+    public void persistOdds(Odds odds) {
 
 		odds.setId(String.format("%d", odds.hashCode()));
 		try {

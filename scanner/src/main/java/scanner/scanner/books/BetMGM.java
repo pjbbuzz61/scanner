@@ -17,9 +17,12 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 
@@ -41,6 +44,8 @@ import com.mongodb.client.MongoClients;
 import scanner.scanner.model.Team;
 import scanner.scanner.model.OU;
 import scanner.scanner.model.Odds;
+import scanner.scanner.model.TeamTotal;
+import scanner.scanner.model.Player;
 import scanner.scanner.model.Spread;
 import scanner.scanner.exceptions.OddsException;
 import scanner.scanner.repo.OddsRepo;
@@ -51,6 +56,7 @@ import scanner.scanner.service.OddsService;
 import scanner.scanner.service.PlayerService;
 import scanner.scanner.service.TeamService;
 import scanner.scanner.service.UpdateService;
+import scanner.scanner.util.MLB_STAT;
 import scanner.scanner.util.Period;
 import scanner.scanner.util.Sport;
 import scanner.scanner.util.Sportsbook;
@@ -93,6 +99,9 @@ public class BetMGM extends Book {
 				urls.add("https://www.md.betmgm.com/en/sports/baseball-23/betting/usa-9/mlb-75");
 //				urls.add("https://www.md.betmgm.com/en/sports/baseball-23/betting/world-6/world-baseball-classic-7405");
 				break;
+			case MLB_STATS:
+				urls.addAll(getMlbUrls());
+				break;
 			case NBA:
 				urls.add("https://www.md.betmgm.com/en/sports/basketball-7/betting/usa-9/nba-6004");
 				break;
@@ -122,15 +131,47 @@ public class BetMGM extends Book {
 		return urls;
 	}
 
+	private List<String> getMlbUrls() {
+		
+		List<String> rtn = new ArrayList<>();
+		
+		// Get MLB urls sitting on the odds_MLB collections
+		List<Odds> oddsList = oddsService.getOdds(Sport.MLB, Sportsbook.BETMGM);
+		if(oddsList != null) {
+			for(Odds ods : oddsList) {
+				if(ods.getUrl() != null) {
+					rtn.add("https://www.md.betmgm.com" + ods.getUrl());
+				}
+			}
+		}
+		
+		return rtn;
+	}
+
 	private List<Odds> getMatchups(Sport sport, String url) throws IOException, OddsException {
 
 		if(useDriver) {
 			
 			refresh(sport, url);
+			if(sport == Sport.MLB_STATS) {
+				List<Odds> list = parseMlbStats();
+				if(list != null) {
+					for(Odds odds : list) {
+						persistOdds(odds, "odds" + "_" + sport);
+					}
+				}
+				return list;
+			}
+
 			int lastPersisted = 100;
 			
 			try {
-				WebElement scroll = driver.findElement(By.tagName("ms-grid"));
+				
+				String containerTag = "ms-main-column";
+				if(sport == Sport.MLB_STATS) {
+					containerTag = "ms-event-details-main";
+				}
+				WebElement scroll = driver.findElement(By.tagName(containerTag));
 				
 				Actions actions = new Actions(driver);
 
@@ -155,7 +196,7 @@ public class BetMGM extends Book {
 				Thread.sleep(100);
 
 				// Page up enough times to get to the top
-				for(int i = 0; i < 25; ++i) {
+				for(int i = 0; i < 30; ++i) {
 					Thread.sleep(100);
 					robot.keyPress(KeyEvent.VK_PAGE_UP);
 					Thread.sleep(100);
@@ -187,7 +228,10 @@ public class BetMGM extends Book {
 					numCycles = lastPersisted * 60 / 100;
 					if(numCycles < 35) numCycles = 35;
 				}
-//				/System.out.println("Number of scroll cycles up: " + numCycles);
+				if(sport == Sport.MLB_STATS) {
+					numCycles = 35;
+				}
+				//System.out.println("Number of scroll cycles up: " + numCycles);
 				for(int i = 0; i < numCycles; ++i) {
 					Thread.sleep(150);
 					robot3.mouseWheel(-3);
@@ -326,6 +370,659 @@ public class BetMGM extends Book {
 
 	}
 	
+	private List<Odds> parseMlbStats() {
+
+		String homeTeam = null;
+		String awayTeam = null;
+		
+		List<Odds> oddsList = new ArrayList<>();
+		
+		// Get the names for the home and away teams
+		WebElement scoreboard = driver.findElement(By.cssSelector("div.main-score-container"));
+		if(scoreboard == null) {
+			System.out.println("Failed to look up the team names, outta here");
+			return oddsList;
+		}
+			
+		List<WebElement> participants = scoreboard.findElements(By.cssSelector("div.participant"));
+		if((participants == null) || (participants.size() != 2)) {
+			System.out.println("Failed to find the participants");
+			return oddsList;
+		}
+
+		for(int i = 0; i < 2; ++i) {
+			
+			WebElement partName = participants.get(i).findElement(By.cssSelector("div.participant-name-value"));
+			if(partName == null) {
+				System.out.println("Failed to find one of the participants");
+				return oddsList;
+			}
+			if(i == 0) awayTeam = partName.getText().trim();
+			if(i == 1) homeTeam = partName.getText().trim();
+		}
+
+		// Select All first
+		try {
+			WebElement sitemap = driver.findElement(By.tagName("ms-event-details-sitemap"));
+			if(sitemap != null) {
+				List<WebElement> lis = sitemap.findElements(By.tagName("li"));
+				if(lis != null) {
+					boolean found = false;
+					for(WebElement li : lis) {
+						if(li.getText().contentEquals("All")) {
+							li.click();
+							found = true;
+							break;
+						}
+					}
+					if(found == false) {
+						System.out.println("Did not find the All button on the sitemap");
+					}
+				} else {
+					System.out.println("Failed to pull any list items from the sitemap");
+				}
+			}
+		} catch(Exception e) {
+			System.out.println("Failed to find the sitemap");
+			return oddsList;
+		}
+		
+		
+		WebElement scroll = driver.findElement(By.tagName("ms-event-details-main"));
+		List<WebElement> buttons = scroll.findElements(By.cssSelector("button[aria-label='Open Accordion']"));
+		if(buttons != null) {
+			for(WebElement e : buttons) {
+				
+				// Filter here - we want Batter O/Us, Team Totals, and alternate spread and total
+				if(isTargetRow(e.getText(), homeTeam, awayTeam) == false) {
+					continue;
+				}
+
+				int cnt = 0;
+				int expandSize = 10;
+				do {
+					try {
+						String cmd = "javascript:window.scrollBy(0," + expandSize + ")";
+						javascriptExecutor.executeScript(cmd); 
+						e.click();
+						try {Thread.sleep(100);} catch(Exception ee) {}
+						break;
+					} catch(Exception eee) {
+						System.out.println("Not view for expand, try again, Count is " + cnt + ", expand size is " + expandSize);
+						try {Thread.sleep(100);} catch(Exception ee) {}
+						cnt++;
+						expandSize *= -1;
+						if(expandSize < 0) expandSize -= 10;
+						else expandSize += 10;
+					}
+						
+				} while(cnt < 100);
+			}
+		}
+		
+		// Now click on all the show more buttons
+		scroll = driver.findElement(By.tagName("ms-event-details-main"));
+		List<WebElement> showMores = scroll.findElements(By.cssSelector("div.show-more-less-button"));
+		if(showMores != null) {
+			for(WebElement e : showMores) {
+				if(e.getText().contains("Show More")) {
+						
+					int cnt = 0;
+					javascriptExecutor.executeScript("javascript:window.scrollBy(0,-5000)"); 
+					do {
+						try {
+							javascriptExecutor.executeScript("javascript:window.scrollBy(0,10)"); 
+							e.click();
+							try {Thread.sleep(100);} catch(Exception ee) {}
+							break;
+						} catch(Exception eee) {
+							System.out.println("Not view for more, try again, Count is " + cnt);
+							try {Thread.sleep(100);} catch(Exception ee) {}
+							cnt++;
+						}
+							
+					} while(cnt < 100);
+				}
+			}
+		}
+		
+
+		// Get all the containers
+		List<WebElement> groupingContainers = driver.findElements(By.cssSelector("div.team-grouping-container"));
+
+		// Select team one, then team 2
+		for(int buttonToSelect = 1; buttonToSelect <= 2; ++buttonToSelect) {
+			
+			// Select team buttons
+			for(WebElement groupingContainer : groupingContainers) {
+				List<WebElement> butts = groupingContainer.findElements(By.tagName("button"));
+				butts.get(buttonToSelect).click();
+			}
+			
+			List<WebElement> allPanels = driver.findElements(By.tagName("ms-option-panel"));
+			for(WebElement panel : allPanels) {
+
+				//System.out.println(panel.getText());
+				
+				WebElement name = panel.findElement(By.cssSelector("div[slot='title']"));
+				if((name != null) && isTargetRow(name.getText(), homeTeam, awayTeam)) {
+					boolean nameFound = true;
+					MLB_STAT mlbStat = null;
+					boolean isBatterStat = false;
+					boolean isTeamTotals = false;
+					boolean isSpread     = false;
+					if(name.getText().contains("Total runs")) {
+						mlbStat = MLB_STAT.TT;
+						isTeamTotals = true;
+					} else {
+						switch(name.getText()) {
+							case "Batter RBIs O/U":
+								mlbStat = MLB_STAT.RBI;
+								isBatterStat = true;
+								break;
+							case "Batter hits O/U":
+								mlbStat = MLB_STAT.HITS;
+								isBatterStat = true;
+								break;
+							case "Batter total bases O/U":
+								mlbStat = MLB_STAT.BASES;
+								isBatterStat = true;
+								break;
+							case "Batter home runs O/U":
+								mlbStat = MLB_STAT.HR;
+								isBatterStat = true;
+								break;
+							case "Batter runs O/U":
+								mlbStat = MLB_STAT.RUNS;
+								isBatterStat = true;
+								break;
+							case "Batter H+R+RBIs O/U":
+								mlbStat = MLB_STAT.H_R_RBI;
+								isBatterStat = true;
+								break;
+							case "Batter singles O/U":
+								mlbStat = MLB_STAT.SINGLES;
+								isBatterStat = true;
+								break;
+							case "Batter doubles O/U":
+								mlbStat = MLB_STAT.DOUBLES;
+								isBatterStat = true;
+								break;
+							case "Batter triples O/U":
+								mlbStat = MLB_STAT.TRIPLES;
+								isBatterStat = true;
+								break;
+							case "Batter stolen bases O/U":
+								mlbStat = MLB_STAT.SB;
+								isBatterStat = true;
+								break;
+							case "Spread":
+								mlbStat = MLB_STAT.SPREAD;
+								isSpread = true;
+								break;
+							case "Totals":
+								mlbStat = MLB_STAT.TOTALS;
+								break;
+							default:
+								System.out.println("Unknown MLB stat: " + name.getText());
+								nameFound = false;
+								break;
+						}
+					}
+					if(nameFound == false) {
+						continue;
+					}
+					
+					if(isBatterStat) {
+						processBatterStat(panel, name, oddsList, mlbStat, buttonToSelect, homeTeam, awayTeam);
+					} else if(isTeamTotals) { 
+						processTeamTotals(panel, name, oddsList, mlbStat, homeTeam, awayTeam);
+					} else if(isSpread) {
+						processSpread(panel, name, oddsList, mlbStat, homeTeam, awayTeam);
+					} else { // totals
+						processTotals(panel, name, oddsList, mlbStat, homeTeam, awayTeam);
+					}
+				}
+			}
+		}
+		
+		return oddsList;
+	}
+	
+	private void processTeamTotals(WebElement panel, WebElement name, List<Odds> oddsList, MLB_STAT mlbStat,
+			String homeTeam, String awayTeam) {
+
+		boolean homeTeamData = true;
+		if(name.getText().contains(awayTeam)) {
+			homeTeamData = false;
+		} else if(name.getText().contains(homeTeam)) {
+			homeTeamData = true;
+		} else {
+			System.out.println("Can't determine if this is away or home for team totals: " + name.getText());
+			return;
+		}
+
+		Team aTeam = null;
+		Team hTeam = null;
+		boolean foundBoth = true;
+		try {
+			aTeam = getTeam(this.sportsbook, Sport.MLB_STATS, awayTeam, true);
+		} catch(Exception e3) {
+			foundBoth = false;
+		}
+		try {
+			hTeam = getTeam(this.sportsbook, Sport.MLB_STATS, homeTeam, true);
+		} catch(Exception e3) {
+			foundBoth = false;
+		}
+
+		if(foundBoth == false) {
+			return;
+		}
+
+		Period currentPeriod = Period.GAME;
+
+		WebElement rowContainer = null;
+		try {
+			rowContainer = panel.findElement(By.cssSelector("div.option-group-container"));
+		} catch(Exception e) {
+			System.out.println("No milestone container for panel name " + name.getText());
+			return;
+		}
+
+		String overPoints = null;
+		String overML = null;
+		String underML = null;
+		List<WebElement> options = rowContainer.findElements(By.tagName("ms-option"));
+			
+		for(int index = 0; index < options.size(); index+=2) {
+				
+			WebElement overOption = options.get(index);
+			WebElement underOption = options.get(index+1);
+			WebElement overpts = overOption.findElement(By.cssSelector("div.name"));
+			WebElement overml  = overOption.findElement(By.cssSelector("div.value"));
+			overPoints = overpts.getText();
+			overML     = overml.getText();
+
+			WebElement underml  = underOption.findElement(By.cssSelector("div.value"));
+			underML     = underml.getText();
+
+			try {
+				Double ovPoints = Double.parseDouble(overPoints.replace("O", "").replace("Over", "").trim());
+				Integer ovmoneyline = Integer.parseInt(overML);
+				Integer unmoneyline = Integer.parseInt(underML);
+				TeamTotal tt = new TeamTotal();
+				tt.setHome(homeTeamData);
+				tt.setOver(ovmoneyline);
+				tt.setUnder(unmoneyline);
+				tt.setPoints(ovPoints);
+				
+				Odds odds = new Odds();
+				odds.setTimeStamp(new Date());
+				odds.setBook(this.sportsbook);
+				odds.setSport(Sport.MLB_STATS);
+				odds.setPeriod(currentPeriod); 
+				odds.setStatus(Status.SCHEDULED);
+				odds.setMlbStat(mlbStat);
+				odds.setHome(hTeam);
+				odds.setAway(aTeam);
+				if(homeTeamData) {
+					odds.setTtHome(tt);
+				} else {
+					odds.setTtAway(tt);
+				}
+				oddsList.add(odds);
+			} catch(Exception e3) {
+				// do nothing
+			}
+		}
+	}
+	
+	private void processTotals(WebElement panel, WebElement name, List<Odds> oddsList, MLB_STAT mlbStat,
+			String homeTeam, String awayTeam) {
+
+		Team aTeam = null;
+		Team hTeam = null;
+		boolean foundBoth = true;
+		try {
+			aTeam = getTeam(this.sportsbook, Sport.MLB_STATS, awayTeam, true);
+		} catch(Exception e3) {
+			foundBoth = false;
+		}
+		try {
+			hTeam = getTeam(this.sportsbook, Sport.MLB_STATS, homeTeam, true);
+		} catch(Exception e3) {
+			foundBoth = false;
+		}
+
+		if(foundBoth == false) {
+			return;
+		}
+
+		WebElement hdrItemsContainer = null;
+		boolean noHeader = false;
+		try {
+			hdrItemsContainer = panel.findElement(By.cssSelector("div.ds-tab-header-items"));
+		} catch(Exception e) {
+			// No header with different periods, so I'll fake it to have one. Because I can
+			noHeader = true;
+		}
+
+		// Get list of buttons
+		List<WebElement> buttons = null;
+		if(noHeader) {
+			buttons = new ArrayList<>();
+			buttons.add(panel);  // just adding panel since it's a WebElement - it won't be used
+		} else {
+			buttons = hdrItemsContainer.findElements(By.tagName("button"));
+		}
+		Period currentPeriod = null;
+		for(WebElement button : buttons) {
+			String buttonName = null;
+			if(noHeader) {
+				buttonName = "Full game";
+			} else {
+				buttonName = button.getText();
+			}
+			boolean found = true;
+			switch(buttonName) {
+				case "Full game":
+					currentPeriod = Period.GAME;
+					break;
+				case "First 3 innings":
+					currentPeriod = Period.INNING1_3;
+					break;
+				case "First 5 innings":
+					currentPeriod = Period.INNING1_5;
+					break;
+				case "First 7 innings":
+					currentPeriod = Period.INNING1_7;
+					break;
+				default:
+					System.out.println("Unknown period: " + buttonName);
+					found = false;
+					break;
+			}
+			if(found == false) {
+				continue;
+			}
+
+			WebElement rowContainer = null;
+			try {
+				rowContainer = panel.findElement(By.cssSelector("div.option-group-container"));
+			} catch(Exception e) {
+				System.out.println("No milestone container for panel name " + name.getText());
+				return;
+			}
+
+			String points = null;
+			String ML = null;
+			List<WebElement> options = rowContainer.findElements(By.tagName("ms-option"));
+			Map<Double, OU> ouMap = new HashMap<Double, OU>();
+			
+			for(WebElement option : options) {
+				
+				WebElement pts = option.findElement(By.cssSelector("div.name"));
+				WebElement ml  = option.findElement(By.cssSelector("div.value"));
+				points = pts.getText();
+				ML     = ml.getText();
+
+				try {
+					Double ouPoints = Double.parseDouble(points.replace("Over", "").replace("Under", "").replace("O", "").replace("U", "").trim());
+					Integer moneyline = Integer.parseInt(ML);
+					OU ou = null;
+					if((ou = ouMap.get(ouPoints)) == null) {
+						ou = new OU();
+						ou.setPeriod(currentPeriod);
+						ouMap.put(ouPoints, ou);
+					}
+					ou.setPoints(ouPoints);
+					if(points.contains("O") || points.contains("Over")) {
+						ou.setOver(moneyline);
+					} else {
+						ou.setUnder(moneyline);
+					}
+				} catch(Exception e3) {
+					// do nothing
+				}
+
+			}
+			
+			for (Map.Entry<Double, OU> entry : ouMap.entrySet()) {
+				Odds odds = new Odds();
+				odds.setTimeStamp(new Date());
+				odds.setBook(this.sportsbook);
+				odds.setSport(Sport.MLB_STATS);
+				odds.setPeriod(currentPeriod); 
+				odds.setStatus(Status.SCHEDULED);
+				odds.setMlbStat(mlbStat);
+				odds.setOu(entry.getValue());
+				odds.setHome(hTeam);
+				odds.setAway(aTeam);
+				
+				oddsList.add(odds);
+			}
+			
+		} // for all periods
+
+	}
+
+	private void processSpread(WebElement panel, WebElement name, List<Odds> oddsList, MLB_STAT mlbStat,
+			String homeTeam, String awayTeam) {
+
+		Team aTeam = null;
+		Team hTeam = null;
+		boolean foundBoth = true;
+		try {
+			aTeam = getTeam(this.sportsbook, Sport.MLB_STATS, awayTeam, true);
+		} catch(Exception e3) {
+			foundBoth = false;
+		}
+		try {
+			hTeam = getTeam(this.sportsbook, Sport.MLB_STATS, homeTeam, true);
+		} catch(Exception e3) {
+			foundBoth = false;
+		}
+
+		if(foundBoth == false) {
+			return;
+		}
+
+		Period currentPeriod = Period.GAME;
+
+		WebElement rowContainer = null;
+		try {
+			rowContainer = panel.findElement(By.cssSelector("div.option-group-container"));
+		} catch(Exception e) {
+			System.out.println("No milestone container for panel name " + name.getText());
+			return;
+		}
+
+		String awayPoints = null;
+		String awayML = null;
+		String homePoints = null;
+		String homeML = null;
+		List<WebElement> options = rowContainer.findElements(By.tagName("ms-option"));
+			
+		for(int index = 0; index < options.size(); index+=2) {
+				
+			WebElement awayOption = options.get(index);
+			WebElement homeOption = options.get(index+1);
+			WebElement awaypts = awayOption.findElement(By.cssSelector("div.name"));
+			WebElement awayml  = awayOption.findElement(By.cssSelector("div.value"));
+			awayPoints = awaypts.getText();
+			awayML     = awayml.getText();
+
+			WebElement homepts = homeOption.findElement(By.cssSelector("div.name"));
+			WebElement homeml  = homeOption.findElement(By.cssSelector("div.value"));
+			homePoints = homepts.getText();
+			homeML     = homeml.getText();
+
+			try {
+				Double awaySpreadPoints = Double.parseDouble(awayPoints.trim());
+				Integer awaymoneyline = Integer.parseInt(awayML);
+				Double homeSpreadPoints = Double.parseDouble(homePoints.trim());
+				Integer homemoneyline = Integer.parseInt(homeML);
+				Spread s = new Spread();
+				s.setAwayPoints(awaySpreadPoints);
+				s.setAwayPrice(awaymoneyline);
+				s.setHomePoints(homeSpreadPoints);
+				s.setHomePrice(homemoneyline);
+				s.setPeriod(currentPeriod);
+
+				Odds odds = new Odds();
+				odds.setTimeStamp(new Date());
+				odds.setBook(this.sportsbook);
+				odds.setSport(Sport.MLB_STATS);
+				odds.setPeriod(currentPeriod); 
+				odds.setStatus(Status.SCHEDULED);
+				odds.setMlbStat(mlbStat);
+				odds.setSpread(s);
+				odds.setHome(hTeam);
+				odds.setAway(aTeam);
+					
+				oddsList.add(odds);
+			} catch(Exception e3) {
+				// do nothing
+			}
+
+		}
+			
+	}
+
+	private void processBatterStat(
+			WebElement panel, WebElement name, 
+			List<Odds> oddsList, MLB_STAT mlbStat, 
+			int buttonToSelect, 
+			String homeTeam, String awayTeam) {
+
+		WebElement rowContainer = null;
+		try {
+			rowContainer = panel.findElement(By.cssSelector("div.option-group-container"));
+		} catch(Exception e) {
+			System.out.println("No milestone container for panel name " + name.getText());
+			return;
+		}
+		
+		List<WebElement> descs = rowContainer.findElements(By.xpath("./*"));
+		//System.out.println(name.getText());
+		
+		Map<WebElement, List<WebElement>> list = new HashMap<WebElement, List<WebElement>>();
+		
+		WebElement currentPlayer = null;
+		for(WebElement des : descs) {
+	        @SuppressWarnings("deprecation")
+			String classAttribute = des.getAttribute("class");
+	        if (classAttribute == null || classAttribute.isEmpty()) {
+	        	continue;
+	        }
+
+	        // Split the class attribute string by spaces into a list of individual class names
+	        List<String> classNames = Arrays.asList(classAttribute.split("\\s+"));
+
+	        // Check if the specific class name is in the list
+	        if(classNames.contains("player-statistics")) {
+	        	list.put(des, new ArrayList<WebElement>());
+	        	currentPlayer = des;
+	        } else if(classNames.contains("option")) {
+	        	List<WebElement> curr = list.get(currentPlayer);
+	        	curr.add(des);
+	        	list.put(currentPlayer, curr);
+	        }
+			//System.out.println(des.getText());
+		}
+		
+		for (Map.Entry<WebElement, List<WebElement>> entry : list.entrySet()) {
+
+			WebElement player      = entry.getKey();
+			List<WebElement> options = entry.getValue();
+
+			Odds odds = new Odds();
+			odds.setTimeStamp(new Date());
+			odds.setBook(this.sportsbook);
+			odds.setSport(Sport.MLB_STATS);
+			odds.setPeriod(Period.GAME); 
+			odds.setStatus(Status.SCHEDULED);
+			odds.setMlbStat(mlbStat);
+			OU ou = new OU();
+			ou.setPeriod(Period.GAME);
+			odds.setOu(ou);
+
+			
+			Team team = null;
+			Player pl = null;
+			String playerName = null;
+
+			// get the player name
+			WebElement pName = player.findElement(By.cssSelector("span.title"));
+			if(pName != null) {
+				playerName = pName.getText().trim();
+				if(playerName.length() == 0) {
+					//System.out.println("Player doesn't exist");
+					continue;
+				} else {
+					//System.out.println("Player: " + playerName);
+				}
+			}
+
+			// find the img, which will give me the team
+			try {
+				team = getTeam(this.sportsbook, Sport.MLB_STATS, buttonToSelect==1?awayTeam:homeTeam, true);
+				odds.setAway(team);
+				odds.setHome(team);
+			} catch(Exception e3) {
+				//System.out.println("Failed to get team from image: " + teamImage);
+				continue;
+			}
+				
+			// get the player name
+			try {
+				pl = getPlayer(team, playerName);
+				odds.setPlayer1(pl);
+				odds.setPlayer2(pl);
+			} catch(Exception ee) {
+				System.out.println("Failed to find player: " + playerName);
+				continue;
+			}
+			
+			// Get the over/unders
+			String points = null;
+			String ML = null;
+			for(WebElement op : options) {
+
+				WebElement pts = op.findElement(By.cssSelector("div.name"));
+				WebElement ml  = op.findElement(By.cssSelector("div.value"));
+				points = pts.getText();
+				ML     = ml.getText();
+
+				try {
+					ou.setPoints(Double.parseDouble(points.replace("Over", "").replace("Under", "").replace("O", "").replace("U", "").trim()));
+					if(points.contains("O") || points.contains("Over")) {
+						ou.setOver(Integer.parseInt(ML));
+					} else {
+						ou.setUnder(Integer.parseInt(ML));
+					}
+				} catch(Exception e3) {
+					// do nothing
+				}
+			}
+				
+			oddsList.add(odds);
+
+		} // for each player
+	
+	}
+
+	private boolean isTargetRow(String text, String home, String away) {
+		boolean keepIt = false;
+		if(text.contains("O/U") && text.contains("Batter"))    keepIt = true;
+		if(text.contentEquals("Spread"))                       keepIt = true;
+		if(text.contentEquals("Totals"))                       keepIt = true;
+		if(text.contains("Total runs") && text.contains(home)) keepIt = true;
+		if(text.contains("Total runs") && text.contains(away)) keepIt = true;
+		return keepIt;
+	}
+
 	private List<Odds> parseTeamEvent(String file, Sport sport) {
 
 		StringBuilder sb = new StringBuilder();
@@ -722,7 +1419,7 @@ public class BetMGM extends Book {
 		int cntr = 0;
 		while(menu == null) {
 			try {
-				menu = driver.findElement(By.className("sport-name"));
+				menu = driver.findElement(By.id("main-view"));
 			} catch(Exception e) {
 				
 			}
@@ -779,7 +1476,6 @@ public class BetMGM extends Book {
 			System.out.println("Issue when trying to close Allow window");
 			return;
 		}
-
 
 		return;
 		
@@ -840,14 +1536,15 @@ public class BetMGM extends Book {
 		}
 		Sport sport = null;
 		switch(args[0].toUpperCase()) {
-			case "NHL":    sport = Sport.NHL;    break;
-			case "TENNIS": sport = Sport.TENNIS; break;
-			case "NBA":    sport = Sport.NBA;    break;
-			case "NFL":    sport = Sport.NFL;    break;
-			case "NCAAF":  sport = Sport.NCAAF;  break;
-			case "NCAAM":  sport = Sport.NCAAM;  break;
-			case "NCAAW":  sport = Sport.NCAAW;  break;
-			case "MLB":    sport = Sport.MLB;    break;
+			case "NHL":       sport = Sport.NHL;       break;
+			case "TENNIS":    sport = Sport.TENNIS;    break;
+			case "NBA":       sport = Sport.NBA;       break;
+			case "NFL":       sport = Sport.NFL;       break;
+			case "NCAAF":     sport = Sport.NCAAF;     break;
+			case "NCAAM":     sport = Sport.NCAAM;     break;
+			case "NCAAW":     sport = Sport.NCAAW;     break;
+			case "MLB":       sport = Sport.MLB;       break;
+			case "MLB_STATS": sport = Sport.MLB_STATS; break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}
 		System.out.println("Sport is " + sport);

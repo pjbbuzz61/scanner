@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import scanner.scanner.util.Sportsbook;
 import scanner.scanner.util.Status;
+import scanner.scanner.util.MLB_STAT;
 import scanner.scanner.util.Period;
 import scanner.scanner.util.Sport;
 
@@ -34,6 +35,8 @@ public class Odds {
 	private TeamTotal  ttAway;
 	private TeamTotal  ttHome;
 	private boolean    inGame;
+	private MLB_STAT   mlbStat;
+	
 	
 	private String     url;
 	private Date       timeStamp;
@@ -65,7 +68,8 @@ public class Odds {
 		sb.append("spread: " + spread + "\n");
 		sb.append("ttHome: " + ttHome + "\n");
 		sb.append("ttAway: " + ttAway + "\n");
-		sb.append("underway: " + inGame + "\n\n");
+		sb.append("underway: " + inGame + "\n");
+		sb.append("MlbStat: " + mlbStat + "\n\n");
 		return sb.toString();
 	}
 
@@ -89,6 +93,7 @@ public class Odds {
 		result = prime * result + ((spread == null) ? 0 : spread.hashCode());
 		result = prime * result + ((ttAway == null) ? 0 : ttAway.hashCode());
 		result = prime * result + ((ttHome == null) ? 0 : ttHome.hashCode());
+		result = prime * result + ((mlbStat == null) ? 0 : mlbStat.hashCode());
 		return result;
 	}
     
@@ -264,6 +269,14 @@ public class Odds {
 
 	public void setDoubles(Boolean doubles) {
 		this.doubles = doubles;
+	}
+
+	public MLB_STAT getMlbStat() {
+		return mlbStat;
+	}
+
+	public void setMlbStat(MLB_STAT mlbStat) {
+		this.mlbStat = mlbStat;
 	}
 
 }

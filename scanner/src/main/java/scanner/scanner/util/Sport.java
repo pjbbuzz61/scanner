@@ -10,6 +10,7 @@ public enum Sport {
 	NCAAW,
 	SOCCER_EPL,
 	TENNIS,
-	WNBA
+	WNBA,
+	MLB_STATS
 
 }

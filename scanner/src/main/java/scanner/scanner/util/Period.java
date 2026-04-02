@@ -23,6 +23,7 @@ public enum Period {
 	INNING1_4_5,       // MLB: First 4.5 innings
 	INNING4_5_9,       // MLB: Last 4.5 innings
 	INNING1_5,         // MLB: First 5 innings
+	INNING1_3,         // MLB: First 3 innings
 	INNING5_9,
 	OVERTIME,
 	SHOOTOUT, 

@@ -107,6 +107,12 @@ public class FinderService {
 					swapHomeAndAway(tgt);
 				}
 	
+				// if this record is MLB stats then the stats must match
+				if((src.getMlbStat() != null) && (tgt.getMlbStat() != null)) {
+					if(src.getMlbStat() != tgt.getMlbStat()) {
+						continue;
+					}
+				}
 				
 				// Check same participants
 				if(

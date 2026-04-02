@@ -137,7 +137,7 @@ public class Collector {
         	} else {
         		wagerRepeats++;
         	}
-//       	System.out.println(w);
+//			System.out.println(w);
         }
 
 		System.out.println(filesToProcess.size() + " files were processed for Bet365. Inserted: " 
@@ -1217,6 +1217,7 @@ public class Collector {
 
 		        			switch(cb.getBetType()) {
 				        		case "parlay":
+				        		case "superparlay":
 				        		case "sgp":
 					        		w.setBetType(WAGER_TYPE.PARLAY);
 				        			break;

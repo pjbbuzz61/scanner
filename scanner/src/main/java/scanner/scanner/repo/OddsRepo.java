@@ -53,6 +53,15 @@ public class OddsRepo {
 				collectionName);
 	}
 
+	public List<Odds> getOdds(Sport sport, Sportsbook book, String collectionName) {
+		return mongoTemplate.find(
+				new Query().addCriteria(
+						Criteria.where("sport").is(sport)
+						.and("book").is(book)), 
+				Odds.class,
+				collectionName);
+	}
+
 	public Long getCount(Sportsbook sportsbook) {
 		return mongoTemplate.count(new Query().addCriteria(Criteria.where("book").is(sportsbook)), Odds.class);
 	}

@@ -4,7 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
-
+import java.util.Random;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -15,6 +15,24 @@ public class Tourney {
 
 	public static void main(String[] args) {
 
+		Random r = new Random(System.currentTimeMillis());
+		double wpct = .79;
+		double wagered = 0.0;
+		double rtn = 0.0;
+		int odds = -480;
+		for(int i = 0; i < 100000000; ++i) {
+			wagered+=1.0;
+			if(r.nextFloat() < wpct) {
+				if(odds < 0) {
+					rtn += 1.0/(-(double)odds/100.0) + 1.0;
+				} else {
+					rtn += 1.0 + (double)odds/100.0;
+				}
+			}
+		}
+		
+		System.out.println("Pct: " + rtn/wagered/2.0);
+		System.exit(0);
 		
 		String file = System.getProperty("user.home") + "/teams.html";
 
