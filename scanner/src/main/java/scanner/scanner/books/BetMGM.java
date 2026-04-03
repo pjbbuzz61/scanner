@@ -537,6 +537,7 @@ public class BetMGM extends Book {
 								isBatterStat = true;
 								break;
 							case "Batter H+R+RBIs O/U":
+							case "Batter hits +runs + RBIs O/U":
 								mlbStat = MLB_STAT.H_R_RBI;
 								isBatterStat = true;
 								break;
@@ -573,14 +574,18 @@ public class BetMGM extends Book {
 						continue;
 					}
 					
-					if(isBatterStat) {
-						processBatterStat(panel, name, oddsList, mlbStat, buttonToSelect, homeTeam, awayTeam);
-					} else if(isTeamTotals) { 
-						processTeamTotals(panel, name, oddsList, mlbStat, homeTeam, awayTeam);
-					} else if(isSpread) {
-						processSpread(panel, name, oddsList, mlbStat, homeTeam, awayTeam);
-					} else { // totals
-						processTotals(panel, name, oddsList, mlbStat, homeTeam, awayTeam);
+					try {
+						if(isBatterStat) {
+							processBatterStat(panel, name, oddsList, mlbStat, buttonToSelect, homeTeam, awayTeam);
+						} else if(isTeamTotals) { 
+							processTeamTotals(panel, name, oddsList, mlbStat, homeTeam, awayTeam);
+						} else if(isSpread) {
+							processSpread(panel, name, oddsList, mlbStat, homeTeam, awayTeam);
+						} else { // totals
+							processTotals(panel, name, oddsList, mlbStat, homeTeam, awayTeam);
+						}
+					} catch(Exception e) {
+						System.out.println("Exception processing data: " + e.getMessage());
 					}
 				}
 			}
@@ -590,7 +595,7 @@ public class BetMGM extends Book {
 	}
 	
 	private void processTeamTotals(WebElement panel, WebElement name, List<Odds> oddsList, MLB_STAT mlbStat,
-			String homeTeam, String awayTeam) {
+			String homeTeam, String awayTeam) throws Exception {
 
 		boolean homeTeamData = true;
 		if(name.getText().contains(awayTeam)) {
@@ -679,7 +684,7 @@ public class BetMGM extends Book {
 	}
 	
 	private void processTotals(WebElement panel, WebElement name, List<Odds> oddsList, MLB_STAT mlbStat,
-			String homeTeam, String awayTeam) {
+			String homeTeam, String awayTeam)  throws Exception {
 
 		Team aTeam = null;
 		Team hTeam = null;
@@ -808,7 +813,7 @@ public class BetMGM extends Book {
 	}
 
 	private void processSpread(WebElement panel, WebElement name, List<Odds> oddsList, MLB_STAT mlbStat,
-			String homeTeam, String awayTeam) {
+			String homeTeam, String awayTeam)  throws Exception {
 
 		Team aTeam = null;
 		Team hTeam = null;
@@ -894,7 +899,7 @@ public class BetMGM extends Book {
 			WebElement panel, WebElement name, 
 			List<Odds> oddsList, MLB_STAT mlbStat, 
 			int buttonToSelect, 
-			String homeTeam, String awayTeam) {
+			String homeTeam, String awayTeam)  throws Exception {
 
 		WebElement rowContainer = null;
 		try {
@@ -911,25 +916,16 @@ public class BetMGM extends Book {
 		
 		WebElement currentPlayer = null;
 		for(WebElement des : descs) {
-	        @SuppressWarnings("deprecation")
-			String classAttribute = des.getAttribute("class");
-	        if (classAttribute == null || classAttribute.isEmpty()) {
-	        	continue;
-	        }
-
-	        // Split the class attribute string by spaces into a list of individual class names
-	        List<String> classNames = Arrays.asList(classAttribute.split("\\s+"));
-
-	        // Check if the specific class name is in the list
-	        if(classNames.contains("player-statistics")) {
+			
+			if(elementContains(des, "player-statistics")) {
 	        	list.put(des, new ArrayList<WebElement>());
 	        	currentPlayer = des;
-	        } else if(classNames.contains("option")) {
+	        } else if(elementContains(des, "option")) {
 	        	List<WebElement> curr = list.get(currentPlayer);
 	        	curr.add(des);
 	        	list.put(currentPlayer, curr);
 	        }
-			//System.out.println(des.getText());
+
 		}
 		
 		for (Map.Entry<WebElement, List<WebElement>> entry : list.entrySet()) {
@@ -1011,6 +1007,25 @@ public class BetMGM extends Book {
 
 		} // for each player
 	
+	}
+
+	private boolean elementContains(WebElement element, String string) {
+
+		@SuppressWarnings("deprecation")
+		String classAttribute = element.getAttribute("class");
+        if (classAttribute == null || classAttribute.isEmpty()) {
+        	return false;
+        }
+
+        // Split the class attribute string by spaces into a list of individual class names
+        List<String> classNames = Arrays.asList(classAttribute.split("\\s+"));
+
+        // Check if the specific class name is in the list
+        if(classNames.contains(string)) {
+        	return true;
+        } else {
+        	return false;
+        }
 	}
 
 	private boolean isTargetRow(String text, String home, String away) {

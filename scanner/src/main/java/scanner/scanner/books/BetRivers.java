@@ -14,10 +14,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -39,11 +37,10 @@ import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClients;
 
-import scanner.scanner.model.Team;
 import scanner.scanner.model.OU;
 import scanner.scanner.model.Odds;
-import scanner.scanner.model.Player;
 import scanner.scanner.model.Spread;
+import scanner.scanner.model.Team;
 import scanner.scanner.exceptions.OddsException;
 import scanner.scanner.repo.OddsRepo;
 import scanner.scanner.repo.PlayerRepo;
@@ -53,6 +50,7 @@ import scanner.scanner.service.OddsService;
 import scanner.scanner.service.PlayerService;
 import scanner.scanner.service.TeamService;
 import scanner.scanner.service.UpdateService;
+import scanner.scanner.util.MLB_STAT;
 import scanner.scanner.util.Period;
 import scanner.scanner.util.Sport;
 import scanner.scanner.util.Sportsbook;
@@ -62,6 +60,8 @@ import scanner.scanner.util.Status;
 public class BetRivers extends Book {
 
 	Random random = new Random(System.currentTimeMillis());
+
+	String MLB_GROUP_NUMBER = "1000093616";
 
 	public BetRivers(boolean useTheDriver) {
 		super(Sportsbook.BETRIVERS, useTheDriver);
@@ -90,9 +90,12 @@ public class BetRivers extends Book {
 		List<String> urls = new ArrayList<>();
 		switch(sport) {
 			case MLB:
-				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093616&type=prematch");
+				urls.add("https://md.betrivers.com/?page=sportsbook&group=" + MLB_GROUP_NUMBER + "&type=prematch");
 //				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093918&type=matches");
 //				urls.add("https://md.betrivers.com/?page=sportsbook&group=2000069864&type=matches");
+				break;
+			case MLB_STATS:
+				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093616&type=prematch");
 				break;
 			case NBA:
 				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093652&type=prematch");
@@ -127,6 +130,16 @@ public class BetRivers extends Book {
 		if(useDriver) {
 			
 			refresh(sport, url);
+			if(sport == Sport.MLB_STATS) {
+				List<Odds> list = parseMlbStats();
+				if(list != null) {
+					for(Odds odds : list) {
+						persistOdds(odds, "odds" + "_" + sport);
+					}
+				}
+				return list;
+			}
+
 			
 			try {
 
@@ -411,6 +424,331 @@ public class BetRivers extends Book {
 		return list;
 	}
 	
+	private List<Odds> parseMlbStats() {
+		
+		List<Odds> oddsList = new ArrayList<>();
+		
+		// See if we have more events
+		try {
+			WebElement moreEventsLabel = driver
+					.findElement(By.cssSelector("button[data-testid=show-more-events-button]"));
+			int cnt = 0;
+			do {
+				javascriptExecutor.executeScript("javascript:window.scrollBy(0,200)"); 
+				try {
+					moreEventsLabel.click();
+					break;
+				} catch(Exception eee) {
+					try {Thread.sleep(50);} catch(Exception ee) {}
+					cnt++;
+				}
+			} while(cnt < 100);
+			try {Thread.sleep(1000);} catch(Exception ee) {}
+		} catch(Exception e) {
+			// do nothing, we should be done
+		}
+
+		int numGames = 0;
+		WebElement container = 
+				driver.findElement(By.cssSelector("div[data-testid=listview-group-" + MLB_GROUP_NUMBER + "-events-container]"));
+		List<WebElement> games = container.findElements(By.tagName("article"));
+		numGames = games.size();
+//System.out.println("Number of games: " + numGames);		
+
+		
+		
+		for(int gameNum = 0; gameNum < numGames; ++gameNum) {
+
+			// See if we have more events
+			try {
+				WebElement moreEventsLabel = driver
+						.findElement(By.cssSelector("button[data-testid=show-more-events-button]"));
+				int cnt = 0;
+				do {
+					javascriptExecutor.executeScript("javascript:window.scrollBy(0,200)"); 
+					try {
+						moreEventsLabel.click();
+						break;
+					} catch(Exception eee) {
+						try {Thread.sleep(50);} catch(Exception ee) {}
+						cnt++;
+					}
+				} while(cnt < 100);
+				try {Thread.sleep(1000);} catch(Exception ee) {}
+			} catch(Exception e) {
+				// do nothing, we should be done
+			}
+
+			javascriptExecutor.executeScript("javascript:window.scrollBy(0,-5000)"); 
+			try {Thread.sleep(1000);} catch(Exception ee) {}
+			javascriptExecutor.executeScript("javascript:window.scrollBy(0," + gameNum*200 + ")"); 
+			try {Thread.sleep(1000);} catch(Exception ee) {}
+
+			try {
+				
+				// Refresh list of games
+				int c = 0;
+				container = null;
+				do {
+					try {
+						container = driver.findElement(By.cssSelector("div[data-testid=listview-group-" + MLB_GROUP_NUMBER + "-events-container]"));
+						break;
+					} catch(Exception e) {
+						System.out.println("Failed to get container: cnt: " + c);
+						try {Thread.sleep(10L);} catch (InterruptedException e4) {}
+						c++;
+					}
+				} while(c < 500);
+
+				if(container == null) {
+					System.out.println("failed to get the container");
+					continue;
+				}
+	// this delay might be important to allow the game list to populate
+	//try {Thread.sleep(2000L);} catch (InterruptedException e) {}
+
+				c = 0;
+				games = null;
+				do {
+	//System.out.println("Attempting to get games list again ...");
+					games = container.findElements(By.tagName("article"));
+	//System.out.println("Number of games: " + games.size() + ", cnt: " + c);
+					c++;
+				} while(games.size() == 0);
+
+				// See if game is live
+				WebElement liveIndicator = games.get(gameNum).findElement(By.cssSelector("div[data-testid^='default-header'"));
+				if(liveIndicator.getText().contains("LIVE")) {
+					System.out.println("Event is live");
+					continue;
+				}
+
+				// Get the two teams
+				List<WebElement> parts = games.get(gameNum).findElements(By.cssSelector("div[data-testid=participant-row]"));
+				String awayTeam = parts.get(0).getText();
+				String homeTeam = parts.get(1).getText();
+				Team aTeam = null;
+				Team hTeam = null;
+				boolean foundBoth = true;
+				try {
+					aTeam = getTeam(this.sportsbook, Sport.MLB_STATS, awayTeam, true);
+				} catch(Exception e3) {
+					foundBoth = false;
+				}
+				try {
+					hTeam = getTeam(this.sportsbook, Sport.MLB_STATS, homeTeam, true);
+				} catch(Exception e3) {
+					foundBoth = false;
+				}
+
+				if(foundBoth == false) {
+					continue;
+				}
+	System.out.println("Home: " + hTeam.getCommonName());
+	System.out.println("Away: " + aTeam.getCommonName());
+
+	try {Thread.sleep(1000L);} catch (InterruptedException e) {}
+				if(waitForClick(games.get(gameNum)) == false) {
+					System.out.println("Failed to click the game");
+					continue;
+				}
+
+				processMLBGame(oddsList, aTeam, hTeam);
+	//System.out.println("OddsList has " + oddsList.size() + " items");			
+				driver.navigate().back();
+				try {Thread.sleep(2000L);} catch (InterruptedException e) {}
+
+			} catch(Exception outerEx) {
+				System.out.println("Exception processing game number: " + gameNum);
+				System.out.println("Exception: " + outerEx.getMessage());
+				outerEx.printStackTrace();
+			}
+
+		}
+		
+		return oddsList;
+	}
+
+	private boolean elementContains(WebElement element, String string) {
+
+		@SuppressWarnings("deprecation")
+		String classAttribute = element.getAttribute("class");
+        if (classAttribute == null || classAttribute.isEmpty()) {
+        	return false;
+        }
+
+        // Split the class attribute string by spaces into a list of individual class names
+        List<String> classNames = Arrays.asList(classAttribute.split("\\s+"));
+
+        // Check if the specific class name is in the list
+        if(classNames.contains(string)) {
+        	return true;
+        } else {
+        	return false;
+        }
+	}
+
+	private void processMLBGame(List<Odds> oddsList, Team awayTeam, Team homeTeam) {
+		
+		WebElement container = waitForElement(By.cssSelector("div.KambiBC-event-page-component__column--1"));
+		if(container == null) {
+			System.out.println("Failed to find the container");
+			return;
+		}
+
+try {Thread.sleep(2000L);} catch (InterruptedException e) {}
+		
+		List<WebElement> selections = container.findElements(By.cssSelector("li.KambiBC-bet-offer-category"));
+//System.out.println("Number of sections: " + selections.size());		
+		for(WebElement section : selections) {
+
+//System.out.println("Section: " + section.getText());
+
+			// Expand Show Lists
+			List<WebElement> showLists = section.findElements(By.cssSelector("button[aria-label^='Show list']"));
+
+//System.out.println("Number of show lists: " + showLists.size());
+
+			for(WebElement showList : showLists) {
+				
+				if(waitForClick(showList) == false) {
+					System.out.println("Unable to click the Show List");
+				}
+
+			}
+try {Thread.sleep(2000L);} catch (InterruptedException e) {}
+			System.out.println();
+			
+			// Get all the spreads
+			String awaySpread = null;
+			String homeSpread = null;
+			String awayML = null;
+			String homeML = null;
+			
+			WebElement spreadList = waitForElement(section, By.cssSelector("li.KambiBC-bet-offer-subcategory--handicap"));
+			if(spreadList == null) {
+				System.out.println("Failed to find the spreadlist");
+				return;
+			}
+			
+			List<WebElement> lists = spreadList.findElements(By.cssSelector("div.KambiBC-outcomes-list__column"));
+			List<WebElement> leftButtons  = lists.get(0).findElements(By.tagName("button"));
+			List<WebElement> rightButtons = lists.get(1).findElements(By.tagName("button"));
+			for(int i = 0; i < leftButtons.size(); ++i) {
+
+				WebElement firstDiv = leftButtons.get(i).findElement(By.xpath("./*"));
+				List<WebElement> nextTwoDivs = firstDiv.findElements(By.xpath("./*"));
+				List<WebElement> nextNextTwoDivs = nextTwoDivs.get(0).findElements(By.xpath("./*"));
+				awaySpread = nextNextTwoDivs.get(1).getText();
+				awayML = nextTwoDivs.get(1).getText();
+
+				firstDiv = rightButtons.get(i).findElement(By.xpath("./*"));
+				nextTwoDivs = firstDiv.findElements(By.xpath("./*"));
+				nextNextTwoDivs = nextTwoDivs.get(0).findElements(By.xpath("./*"));
+				homeSpread = nextNextTwoDivs.get(1).getText();
+				homeML     = nextTwoDivs.get(1).getText();
+				
+				try {
+					Double awaySpreadPoints = Double.parseDouble(awaySpread.trim());
+					Integer awaymoneyline = Integer.parseInt(awayML);
+					Double homeSpreadPoints = Double.parseDouble(homeSpread.trim());
+					Integer homemoneyline = Integer.parseInt(homeML);
+					Spread s = new Spread();
+					s.setAwayPoints(awaySpreadPoints);
+					s.setAwayPrice(awaymoneyline);
+					s.setHomePoints(homeSpreadPoints);
+					s.setHomePrice(homemoneyline);
+					s.setPeriod(Period.GAME);
+
+					Odds odds = new Odds();
+					odds.setTimeStamp(new Date());
+					odds.setBook(this.sportsbook);
+					odds.setSport(Sport.MLB_STATS);
+					odds.setPeriod(Period.GAME); 
+					odds.setStatus(Status.SCHEDULED);
+					odds.setMlbStat(MLB_STAT.SPREAD);
+					odds.setSpread(s);
+					odds.setHome(homeTeam);
+					odds.setAway(awayTeam);
+						
+					oddsList.add(odds);
+
+				} catch(Exception e3) {
+					// do nothing
+				}
+			}
+			
+			
+			// Roll out each one
+//			if(elementContains(section, "KambiBC-expanded") == false) {
+//				WebElement h2 = section.findElement(By.tagName("h2"));
+//				javascriptExecutor.executeScript("arguments[0].scrollIntoView();", h2);
+//				try {Thread.sleep(500L);} catch (InterruptedException e) {}
+//				h2.click();
+//				try {Thread.sleep(500L);} catch (InterruptedException e) {}
+//			}
+			
+			break; // this has us just processing the first section (most popular)
+		}
+		
+//		for(Odds o : oddsList) {
+//			System.out.println(o);
+//		}
+		return;
+	}
+	
+	private boolean waitForClick(WebElement element) {
+
+		boolean success = false;
+		int cnt = 0;
+		do {
+			try {
+				javascriptExecutor.executeScript("javascript:window.scrollBy(0,100)"); 
+				element.click();
+				try {Thread.sleep(100);} catch(Exception ee) {}
+				success = true;
+				break;
+			} catch(Exception eee) {
+				try {Thread.sleep(100);} catch(Exception ee) {}
+				cnt++;
+			}
+		} while(cnt < 100);
+
+		return success;
+	}
+
+	private WebElement waitForElement(By by) {
+		WebElement rtn = null;
+		int cnt = 0;
+		do {
+			try {
+				rtn = driver.findElement(by);
+				break;
+			} catch(Exception e) {
+				try {Thread.sleep(100);} catch(Exception ee) {}
+				cnt++;
+			}
+		} while(cnt < 20);
+
+		return rtn;
+	}
+
+	private WebElement waitForElement(WebElement fromElement, By by) {
+		WebElement rtn = null;
+		int cnt = 0;
+		do {
+			try {
+				rtn = fromElement.findElement(by);
+				break;
+			} catch(Exception e) {
+				try {Thread.sleep(100);} catch(Exception ee) {}
+				cnt++;
+			}
+		} while(cnt < 20);
+
+		return rtn;
+	}
+
 	private List<Odds> parseTeamEvent(List<String> files, Sport sport) {
 
 		List<Odds> list = new ArrayList<>();
@@ -731,14 +1069,15 @@ public class BetRivers extends Book {
 		}
 		Sport sport = null;
 		switch(args[0].toUpperCase()) {
-			case "NHL":    sport = Sport.NHL;    break;
-			case "TENNIS": sport = Sport.TENNIS; break;
-			case "NBA":    sport = Sport.NBA;    break;
-			case "NFL":    sport = Sport.NFL;    break;
-			case "NCAAF":  sport = Sport.NCAAF;  break;
-			case "NCAAM":  sport = Sport.NCAAM;  break;
-			case "NCAAW":  sport = Sport.NCAAW;  break;
-			case "MLB":    sport = Sport.MLB;    break;
+			case "NHL":       sport = Sport.NHL;       break;
+			case "TENNIS":    sport = Sport.TENNIS;    break;
+			case "NBA":       sport = Sport.NBA;       break;
+			case "NFL":       sport = Sport.NFL;       break;
+			case "NCAAF":     sport = Sport.NCAAF;     break;
+			case "NCAAM":     sport = Sport.NCAAM;     break;
+			case "NCAAW":     sport = Sport.NCAAW;     break;
+			case "MLB":       sport = Sport.MLB;       break;
+			case "MLB_STATS": sport = Sport.MLB_STATS; break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}
 		System.out.println("Sport is " + sport);
