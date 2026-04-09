@@ -619,9 +619,76 @@ public class FanDuel extends Book {
 				return;
 			}
 
-			// TODO - set game time
-//			Elements gameTime = e.select("time");
-//			System.out.println(gameTime.text());
+			try {
+				Elements gameTime = e.select("time");
+				// Ex: Sun 1:36pm ET or 1:36pm ET if same day
+				String[] parts = gameTime.text().split(" ");
+				Calendar c = Calendar.getInstance();
+				c.setTime(new Date());
+				int month=0, day=0, year=0;
+				int hour=0, minute=0;
+				if(parts.length == 2) { // Today
+					month = c.get(Calendar.MONTH) + 1;
+					day = c.get(Calendar.DAY_OF_MONTH);
+					year = c.get(Calendar.YEAR);
+					String dateStr = parts[0];
+					String[] hm = dateStr.split(":");
+					hour = Integer.parseInt(hm[0]);
+					minute = Integer.parseInt(hm[1].replace("am", "").replace("pm", ""));
+					if(dateStr.contains("pm")) {
+						if(hour != 12) {
+							hour +=12;
+						}
+					} else {
+						if(hour == 12) {
+							hour = 0;
+						}
+					}
+				} else { // beyond today
+					String[] days = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+					int gameDow = 0;
+					for(String d : days) {
+						if(parts[0].toUpperCase().contentEquals(d)) {
+							break;
+						}
+						gameDow++;
+					}
+					if((gameDow >= 7)) {
+						System.out.println("Failed to find the day for " + parts[0]);
+					} else {
+						int currDow = c.get(Calendar.DAY_OF_WEEK) - 1;
+						if(gameDow < currDow) {
+							gameDow += 7;
+						}
+
+						c.add(Calendar.DATE, (gameDow-currDow));
+						month = c.get(Calendar.MONTH) + 1;
+						day = c.get(Calendar.DAY_OF_MONTH);
+						year = c.get(Calendar.YEAR);
+						String dateStr = parts[1];
+						String[] hm = dateStr.split(":");
+						hour = Integer.parseInt(hm[0]);
+						minute = Integer.parseInt(hm[1].replace("am", "").replace("pm", ""));
+						if(dateStr.contains("pm")) {
+							if(hour != 12) {
+								hour +=12;
+							}
+						} else {
+							if(hour == 12) {
+								hour = 0;
+							}
+						}
+					}
+				}
+				odds.setGameDateTime(
+						new SimpleDateFormat("yyyy-MM-dd HH:mm")
+							.parse(String.format("%04d-%02d-%02d %02d:%02d", year, month, day, hour, minute)));
+				System.out.println("Game Time: " + odds.getGameDateTime());
+
+			} catch(Exception eee) {
+				System.out.println("Exception getting game start: " + eee.getMessage());
+				eee.printStackTrace();
+			}
 
 		} catch(Exception e2) {
 			System.out.println("Failed to get teams, live marker, or time: " + e2.getMessage());

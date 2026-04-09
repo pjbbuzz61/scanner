@@ -14,8 +14,10 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -523,6 +525,10 @@ public class BetRivers extends Book {
 					continue;
 				}
 
+				// Get the game time
+				Date gameTime = getGameTime(games.get(gameNum));
+				
+				
 				// Get the two teams
 				List<WebElement> parts = games.get(gameNum).findElements(By.cssSelector("div[data-testid=participant-row]"));
 				String awayTeam = parts.get(0).getText();
@@ -596,123 +602,214 @@ public class BetRivers extends Book {
 			return;
 		}
 
-try {Thread.sleep(2000L);} catch (InterruptedException e) {}
+		try {Thread.sleep(2000L);} catch (InterruptedException e) {}
 		
 		List<WebElement> selections = container.findElements(By.cssSelector("li.KambiBC-bet-offer-category"));
-//System.out.println("Number of sections: " + selections.size());		
 		for(WebElement section : selections) {
 
-//System.out.println("Section: " + section.getText());
-
-			// Expand Show Lists
-			List<WebElement> showLists = section.findElements(By.cssSelector("button[aria-label^='Show list']"));
-
-//System.out.println("Number of show lists: " + showLists.size());
-
-			for(WebElement showList : showLists) {
-				
-				if(waitForClick(showList) == false) {
-					System.out.println("Unable to click the Show List");
-				}
-
-			}
-try {Thread.sleep(2000L);} catch (InterruptedException e) {}
-			System.out.println();
-			
-			// Get all the spreads
-			String awaySpread = null;
-			String homeSpread = null;
-			String awayML = null;
-			String homeML = null;
-			
-			WebElement spreadList = waitForElement(section, By.cssSelector("li.KambiBC-bet-offer-subcategory--handicap"));
-			if(spreadList == null) {
-				System.out.println("Failed to find the spreadlist");
-				return;
-			}
-			
-			List<WebElement> lists = spreadList.findElements(By.cssSelector("div.KambiBC-outcomes-list__column"));
-			List<WebElement> leftButtons  = lists.get(0).findElements(By.tagName("button"));
-			List<WebElement> rightButtons = lists.get(1).findElements(By.tagName("button"));
-			for(int i = 0; i < leftButtons.size(); ++i) {
-
-				WebElement firstDiv = leftButtons.get(i).findElement(By.xpath("./*"));
-				List<WebElement> nextTwoDivs = firstDiv.findElements(By.xpath("./*"));
-				List<WebElement> nextNextTwoDivs = nextTwoDivs.get(0).findElements(By.xpath("./*"));
-				awaySpread = nextNextTwoDivs.get(1).getText();
-				awayML = nextTwoDivs.get(1).getText();
-
-				firstDiv = rightButtons.get(i).findElement(By.xpath("./*"));
-				nextTwoDivs = firstDiv.findElements(By.xpath("./*"));
-				nextNextTwoDivs = nextTwoDivs.get(0).findElements(By.xpath("./*"));
-				homeSpread = nextNextTwoDivs.get(1).getText();
-				homeML     = nextTwoDivs.get(1).getText();
-				
-				try {
-					Double awaySpreadPoints = Double.parseDouble(awaySpread.trim());
-					Integer awaymoneyline = Integer.parseInt(awayML);
-					Double homeSpreadPoints = Double.parseDouble(homeSpread.trim());
-					Integer homemoneyline = Integer.parseInt(homeML);
-					Spread s = new Spread();
-					s.setAwayPoints(awaySpreadPoints);
-					s.setAwayPrice(awaymoneyline);
-					s.setHomePoints(homeSpreadPoints);
-					s.setHomePrice(homemoneyline);
-					s.setPeriod(Period.GAME);
-
-					Odds odds = new Odds();
-					odds.setTimeStamp(new Date());
-					odds.setBook(this.sportsbook);
-					odds.setSport(Sport.MLB_STATS);
-					odds.setPeriod(Period.GAME); 
-					odds.setStatus(Status.SCHEDULED);
-					odds.setMlbStat(MLB_STAT.SPREAD);
-					odds.setSpread(s);
-					odds.setHome(homeTeam);
-					odds.setAway(awayTeam);
-						
-					oddsList.add(odds);
-
-				} catch(Exception e3) {
-					// do nothing
-				}
-			}
-			
-			
-			// Roll out each one
 //			if(elementContains(section, "KambiBC-expanded") == false) {
 //				WebElement h2 = section.findElement(By.tagName("h2"));
-//				javascriptExecutor.executeScript("arguments[0].scrollIntoView();", h2);
-//				try {Thread.sleep(500L);} catch (InterruptedException e) {}
-//				h2.click();
-//				try {Thread.sleep(500L);} catch (InterruptedException e) {}
+//				waitForClick(h2);
 //			}
+
+			// Get the section name
+			WebElement button = section.findElement(By.cssSelector("button[id^=bet-offer-category-header]"));
+			WebElement label  = button.findElement(By.tagName("h2"));
+			String sectionName = label.getText().trim();
+
+			placeElementInView(label);
 			
-			break; // this has us just processing the first section (most popular)
+			switch(sectionName) {
+			
+				case "Most Popular":
+					processMostPopular(section, oddsList, homeTeam, awayTeam);
+					return;
+//					break;
+				case "Batter HRs":
+				case "Inning 1":
+				case "Batter Hits":
+				case "Pitcher Props":
+				case "Total Bases":
+				case "Batter RBIs":
+				case "Batter Runs":
+				case "Stolen Bases":
+				case "Innings":
+				case "Team Totals":
+				case "Listed Pitcher":
+				case "Game Props":
+					//break;
+					continue;
+				default:
+					System.out.println("Unknown section label: " + sectionName);
+			}			
 		}
 		
-//		for(Odds o : oddsList) {
-//			System.out.println(o);
-//		}
 		return;
 	}
 	
+	private void placeElementInView(WebElement element) {
+	
+		int cnt = 0;
+		boolean found = false;
+		do {
+			javascriptExecutor.executeScript("javascript:window.scrollBy(0,10)"); 
+			if(element.isDisplayed()) {
+				found = true;
+				break;
+			} else {
+				try {Thread.sleep(50L);} catch (InterruptedException e) {}
+			}
+		} while(cnt < 100);
+		
+		if(found == false) {
+			System.out.println("Failed to get element in view: " + element.getText());
+		}
+	}
+
+	private void processMostPopular(WebElement section, List<Odds> oddsList, Team homeTeam, Team awayTeam) {
+
+		// Expand Show Lists
+		List<WebElement> showLists = section.findElements(By.cssSelector("button[aria-label^='Show list']"));
+
+		for(WebElement showList : showLists) {
+			
+			if(waitForClick(showList) == false) {
+				System.out.println("Unable to click the Show List");
+			}
+
+		}
+
+		try {Thread.sleep(2000L);} catch (InterruptedException e) {}
+		
+		// Get all the spreads
+		String awaySpread = null;
+		String homeSpread = null;
+		String awayML = null;
+		String homeML = null;
+		
+		WebElement spreadList = waitForElement(section, By.cssSelector("li.KambiBC-bet-offer-subcategory--handicap"));
+		if(spreadList == null) {
+			System.out.println("Failed to find the spreadlist");
+			return;
+		}
+		
+		List<WebElement> lists = spreadList.findElements(By.cssSelector("div.KambiBC-outcomes-list__column"));
+		List<WebElement> leftButtons  = lists.get(0).findElements(By.tagName("button"));
+		List<WebElement> rightButtons = lists.get(1).findElements(By.tagName("button"));
+		for(int i = 0; i < leftButtons.size(); ++i) {
+
+			WebElement firstDiv = leftButtons.get(i).findElement(By.xpath("./*"));
+			List<WebElement> nextTwoDivs = firstDiv.findElements(By.xpath("./*"));
+			List<WebElement> nextNextTwoDivs = nextTwoDivs.get(0).findElements(By.xpath("./*"));
+			awaySpread = nextNextTwoDivs.get(1).getText();
+			awayML = nextTwoDivs.get(1).getText();
+
+			firstDiv = rightButtons.get(i).findElement(By.xpath("./*"));
+			nextTwoDivs = firstDiv.findElements(By.xpath("./*"));
+			nextNextTwoDivs = nextTwoDivs.get(0).findElements(By.xpath("./*"));
+			homeSpread = nextNextTwoDivs.get(1).getText();
+			homeML     = nextTwoDivs.get(1).getText();
+			
+			try {
+				Double awaySpreadPoints = Double.parseDouble(awaySpread.trim());
+				Integer awaymoneyline = Integer.parseInt(awayML);
+				Double homeSpreadPoints = Double.parseDouble(homeSpread.trim());
+				Integer homemoneyline = Integer.parseInt(homeML);
+				Spread s = new Spread();
+				s.setAwayPoints(awaySpreadPoints);
+				s.setAwayPrice(awaymoneyline);
+				s.setHomePoints(homeSpreadPoints);
+				s.setHomePrice(homemoneyline);
+				s.setPeriod(Period.GAME);
+
+				Odds odds = new Odds();
+				odds.setTimeStamp(new Date());
+				odds.setBook(this.sportsbook);
+				odds.setSport(Sport.MLB_STATS);
+				odds.setPeriod(Period.GAME); 
+				odds.setStatus(Status.SCHEDULED);
+				odds.setMlbStat(MLB_STAT.SPREAD);
+				odds.setSpread(s);
+				odds.setHome(homeTeam);
+				odds.setAway(awayTeam);
+					
+				oddsList.add(odds);
+
+			} catch(Exception e3) {
+				// do nothing
+			}
+		}
+		
+		// Get all the totals
+		String overPoints  = null;
+		String overML  = null;
+		String underML = null;
+		WebElement ouList = waitForElement(section, By.cssSelector("li.KambiBC-bet-offer-subcategory--overunder"));
+		if(ouList == null) {
+			System.out.println("Failed to find the over/under list");
+			return;
+		}
+
+		lists = ouList.findElements(By.cssSelector("div.KambiBC-outcomes-list__column"));
+		leftButtons  = lists.get(0).findElements(By.tagName("button"));
+		rightButtons = lists.get(1).findElements(By.tagName("button"));
+		for(int i = 0; i < leftButtons.size(); ++i) {
+			WebElement firstDiv = leftButtons.get(i).findElement(By.xpath("./*"));
+			List<WebElement> nextTwoDivs = firstDiv.findElements(By.xpath("./*"));
+			List<WebElement> nextNextTwoDivs = nextTwoDivs.get(0).findElements(By.xpath("./*"));
+			overPoints = nextNextTwoDivs.get(1).getText();
+			overML = nextTwoDivs.get(1).getText();
+
+			firstDiv = rightButtons.get(i).findElement(By.xpath("./*"));
+			nextTwoDivs = firstDiv.findElements(By.xpath("./*"));
+			nextNextTwoDivs = nextTwoDivs.get(0).findElements(By.xpath("./*"));
+			underML     = nextTwoDivs.get(1).getText();
+
+			try {
+				Double overPts = Double.parseDouble(overPoints.trim());
+				Integer overMoneyLine = Integer.parseInt(overML);
+				Integer underMoneyLine = Integer.parseInt(underML);
+				OU ou = new OU();
+				ou.setPoints(overPts);
+				ou.setOver(overMoneyLine);
+				ou.setUnder(underMoneyLine);
+				ou.setPeriod(Period.GAME);
+
+				Odds odds = new Odds();
+				odds.setTimeStamp(new Date());
+				odds.setBook(this.sportsbook);
+				odds.setSport(Sport.MLB_STATS);
+				odds.setPeriod(Period.GAME); 
+				odds.setStatus(Status.SCHEDULED);
+				odds.setMlbStat(MLB_STAT.TOTALS);
+				odds.setOu(ou);
+				odds.setHome(homeTeam);
+				odds.setAway(awayTeam);
+					
+				oddsList.add(odds);
+
+			} catch(Exception e3) {
+				// do nothing
+			}
+		}		
+	}
+
 	private boolean waitForClick(WebElement element) {
 
 		boolean success = false;
 		int cnt = 0;
 		do {
 			try {
-				javascriptExecutor.executeScript("javascript:window.scrollBy(0,100)"); 
+				javascriptExecutor.executeScript("javascript:window.scrollBy(0,10)"); 
 				element.click();
 				try {Thread.sleep(100);} catch(Exception ee) {}
 				success = true;
 				break;
 			} catch(Exception eee) {
-				try {Thread.sleep(100);} catch(Exception ee) {}
+				try {Thread.sleep(20);} catch(Exception ee) {}
 				cnt++;
 			}
-		} while(cnt < 100);
+		} while(cnt < 500);
 
 		return success;
 	}
@@ -864,9 +961,10 @@ try {Thread.sleep(2000L);} catch (InterruptedException e) {}
 			}
 		}
 
-		// TODO - set game time
-//		Elements gameTime = e.select("time");
-//		System.out.println(gameTime.text());
+		Date gameTime = getGameTime(match);
+		if(gameTime != null) {
+			odds.setGameDateTime(gameTime);
+		}
 
 		Elements offersCon = match.select("div > div > div > div:nth-child(3)");
 		Elements offerSpans = offersCon.get(0).select("span");
@@ -956,6 +1054,105 @@ try {Thread.sleep(2000L);} catch (InterruptedException e) {}
 		}
 		
 		return true;
+	}
+
+	private Date getGameTime(Element match) {
+		try {
+			Element time = match.select("div > div > div > div > div > div > time").first();
+			if(time != null) {
+				return getGameTime(time.text());
+			}
+		} catch(Exception e) {
+			System.out.println("Exception finding the time element: " + e.getMessage());
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	private Date getGameTime(WebElement match) {
+		try {
+			WebElement time = match.findElement(By.tagName("time"));
+			if(time != null) {
+				return getGameTime(time.getText());
+			}
+		} catch(Exception e) {
+			System.out.println("Exception finding the time element: " + e.getMessage());
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	private Date getGameTime(String timeString) {
+		Date gameTime = null;
+		try {
+			if(timeString != null) {
+				int month=0, day=0, year=0;
+				int hour=0, minute=0;
+				Calendar c = Calendar.getInstance();
+				c.setTime(new Date());
+				String[] parts = timeString.split(" "); // should be Today or Tomorrow or date (ex: 4/11/26), h:mm, then Am/PM
+				if(parts[0].compareToIgnoreCase("TODAY") == 0) {
+					month = c.get(Calendar.MONTH) + 1;
+					day = c.get(Calendar.DAY_OF_MONTH);
+					year = c.get(Calendar.YEAR);
+					String[] hm = parts[1].split(":");
+					hour = Integer.parseInt(hm[0]);
+					minute = Integer.parseInt(hm[1]);
+					if(parts[2].contentEquals("PM")) {
+						if(hour != 12) {
+							hour +=12;
+						}
+					} else {
+						if(hour == 12) {
+							hour = 0;
+						}
+					}
+				} else if(parts[0].compareToIgnoreCase("TOMORROW") == 0) {
+					c.add(Calendar.DATE, 1);
+					month = c.get(Calendar.MONTH) + 1;
+					day = c.get(Calendar.DAY_OF_MONTH);
+					year = c.get(Calendar.YEAR);
+					String[] hm = parts[1].split(":");
+					hour = Integer.parseInt(hm[0]);
+					minute = Integer.parseInt(hm[1]);
+					if(parts[2].contentEquals("PM")) {
+						if(hour != 12) {
+							hour +=12;
+						}
+					} else {
+						if(hour == 12) {
+							hour = 0;
+						}
+					}
+				} else if(parts[0].contains("Starting in")) {
+					gameTime = new Date(); // just use right now, close enough
+				} else { // date of the form m/d/y
+					String[] mdy = parts[0].split("/");
+					month = Integer.parseInt(mdy[0]);
+					day = Integer.parseInt(mdy[1]);
+					year = Integer.parseInt(mdy[2]) + 2000;
+					String[] hm = parts[1].split(":");
+					hour = Integer.parseInt(hm[0]);
+					minute = Integer.parseInt(hm[1]);
+					if(parts[2].contentEquals("PM")) {
+						if(hour != 12) {
+							hour +=12;
+						}
+					} else {
+						if(hour == 12) {
+							hour = 0;
+						}
+					}
+				}
+				
+				gameTime = new SimpleDateFormat("yyyy-MM-dd HH:mm")
+						.parse(String.format("%04d-%02d-%02d %02d:%02d", year, month, day, hour, minute));
+			}
+		} catch(Exception e5) {
+			System.out.println("Exception: " + e5.getMessage());
+			e5.printStackTrace();
+		}
+		return gameTime;
 	}
 
 	private String readClipboard (String file) {

@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 
 import com.mongodb.client.MongoClients;
 
-import scanner.scanner.model.OU;
 import scanner.scanner.model.Odds;
 import scanner.scanner.model.Play;
 import scanner.scanner.model.Spread;
@@ -97,6 +96,13 @@ public class FinderService {
 					continue;
 				}
 
+				// If MLB make sure the game times are within one hour
+				if(sport == Sport.MLB) {
+					if(gameTimesWithinOneHour(src, tgt) == false) {
+						continue;
+					}
+				}
+
 				// swap home and away for target if they match
 				if
 				(
@@ -168,6 +174,18 @@ public class FinderService {
 		}
 		
 		return playList;
+	}
+
+	private boolean gameTimesWithinOneHour(Odds src, Odds tgt) {
+		if(src.getGameDateTime() == null) return false;
+		if(tgt.getGameDateTime() == null) return false;
+		Long srcTime = src.getGameDateTime().getTime();
+		Long tgtTime = tgt.getGameDateTime().getTime();
+		long diff = Math.abs(srcTime-tgtTime);
+		if(diff < 3600000) {
+			return true;
+		}
+		return false;
 	}
 
 	private void swapHomeAndAway(Odds tgt) {

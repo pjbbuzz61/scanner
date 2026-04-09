@@ -444,6 +444,69 @@ public class Caesars extends Book {
 			return false;
 		}
 		
+		try {
+			Elements spans = liveIndicator.select("span");
+			if(spans != null) {
+				int month=0, day=0, year=0;
+				int hour=0, minute=0;
+				if(spans.size() == 3) {
+					Calendar c = Calendar.getInstance();
+					c.setTime(new Date());
+					String dateString = spans.get(2).text();
+					String[] parts = dateString.split(" "); // should be h:mm PM
+					boolean dateSet = false;
+					if(spans.get(1).text().contentEquals("Today")) {
+						month = c.get(Calendar.MONTH) + 1;
+						day = c.get(Calendar.DAY_OF_MONTH);
+						year = c.get(Calendar.YEAR);
+						String[] hm = parts[0].split(":");
+						hour = Integer.parseInt(hm[0]);
+						minute = Integer.parseInt(hm[1]);
+						if(parts[1].contentEquals("PM")) {
+							if(hour != 12) {
+								hour +=12;
+							}
+						} else {
+							if(hour == 12) {
+								hour = 0;
+							}
+						}
+						dateSet = true;
+					} else if(spans.get(1).text().contentEquals("Tomorrow")) {
+						c.add(Calendar.DATE, 1);
+						month = c.get(Calendar.MONTH) + 1;
+						day = c.get(Calendar.DAY_OF_MONTH);
+						year = c.get(Calendar.YEAR);
+						String[] hm = parts[0].split(":");
+						hour = Integer.parseInt(hm[0]);
+						minute = Integer.parseInt(hm[1]);
+						if(parts[1].contentEquals("PM")) {
+							if(hour != 12) {
+								hour +=12;
+							}
+						} else {
+							if(hour == 12) {
+								hour = 0;
+							}
+						}
+						dateSet = true;
+					} else {
+						// game is in the future
+					}
+					if(dateSet) {
+						odds.setGameDateTime(
+								new SimpleDateFormat("yyyy-MM-dd HH:mm")
+									.parse(String.format("%04d-%02d-%02d %02d:%02d", year, month, day, hour, minute)));
+
+					}
+				
+				} // 3 spans to check
+			}
+		} catch(Exception e33) {
+			System.out.println("Exception: " + e33.getMessage());
+			e33.printStackTrace();
+		}
+		
 
 		// Look for live event marker
 //		Elements live = atest.select("span._cui__score-xs_cui-_1");

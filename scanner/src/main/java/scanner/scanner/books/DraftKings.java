@@ -15,7 +15,9 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
@@ -396,6 +398,76 @@ public class DraftKings extends Book {
 		if(live.size() > 0) {
 			return;
 		}
+		
+		try {
+			Element startTime = time.selectFirst("span[data-testid=cb-event-cell__start-time]");
+			if(startTime != null) {
+				int month=0, day=0, year=0;
+				int hour=0, minute=0;
+				Calendar c = Calendar.getInstance();
+				c.setTime(new Date());
+				String[] parts = startTime.text().split(" "); // should be Today or Tomorrow or date (ex: 4/11/26), h:mm, then Am/PM
+				if(parts[0].contentEquals("Today")) {
+					month = c.get(Calendar.MONTH) + 1;
+					day = c.get(Calendar.DAY_OF_MONTH);
+					year = c.get(Calendar.YEAR);
+					String[] hm = parts[1].split(":");
+					hour = Integer.parseInt(hm[0]);
+					minute = Integer.parseInt(hm[1]);
+					if(parts[2].contentEquals("PM")) {
+						if(hour != 12) {
+							hour +=12;
+						}
+					} else {
+						if(hour == 12) {
+							hour = 0;
+						}
+					}
+				} else if(parts[0].contentEquals("Tomorrow")) {
+					c.add(Calendar.DATE, 1);
+					month = c.get(Calendar.MONTH) + 1;
+					day = c.get(Calendar.DAY_OF_MONTH);
+					year = c.get(Calendar.YEAR);
+					String[] hm = parts[1].split(":");
+					hour = Integer.parseInt(hm[0]);
+					minute = Integer.parseInt(hm[1]);
+					if(parts[2].contentEquals("PM")) {
+						if(hour != 12) {
+							hour +=12;
+						}
+					} else {
+						if(hour == 12) {
+							hour = 0;
+						}
+					}
+				} else { // date of the form m/d/y
+					String[] mdy = parts[0].split("/");
+					month = Integer.parseInt(mdy[0]);
+					day = Integer.parseInt(mdy[1]);
+					year = Integer.parseInt(mdy[2]) + 2000;
+					String[] hm = parts[1].split(":");
+					hour = Integer.parseInt(hm[0]);
+					minute = Integer.parseInt(hm[1]);
+					if(parts[2].contentEquals("PM")) {
+						if(hour != 12) {
+							hour +=12;
+						}
+					} else {
+						if(hour == 12) {
+							hour = 0;
+						}
+					}
+				}
+				odds.setGameDateTime(
+						new SimpleDateFormat("yyyy-MM-dd HH:mm")
+						.parse(String.format("%04d-%02d-%02d %02d:%02d", year, month, day, hour, minute)));
+				System.out.println("Game Time: " + odds.getGameDateTime());
+			}
+		} catch(Exception e55) {
+			System.out.println("Exception gettting the start time fo the event: " + e55.getMessage());
+			e55.printStackTrace();
+		}
+		
 
 		
 		// TODO - set game time

@@ -538,6 +538,7 @@ public class BetMGM extends Book {
 								break;
 							case "Batter H+R+RBIs O/U":
 							case "Batter hits +runs + RBIs O/U":
+							case "Batter hits + runs + RBIs O/U":
 								mlbStat = MLB_STAT.H_R_RBI;
 								isBatterStat = true;
 								break;
