@@ -1,10 +1,13 @@
 package scanner.scanner.books;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,6 +64,81 @@ public abstract class Book {
 
 	public Player getPlayer(Team team, String sbSpecificPlayerName) throws OddsException {
 		return playerService.getPlayer(team, sbSpecificPlayerName);
+	}
+
+	public Object getPlayer(List<Team> teams, String sbSpecificPlayerName) throws OddsException {
+		return playerService.getPlayer(teams, sbSpecificPlayerName);
+	}
+
+	public WebElement waitForElement(WebElement fromElement, By by) {
+		WebElement rtn = null;
+		int cnt = 0;
+		do {
+			try {
+				rtn = fromElement.findElement(by);
+				break;
+			} catch(Exception e) {
+				try {Thread.sleep(100);} catch(Exception ee) {}
+				cnt++;
+			}
+		} while(cnt < 20);
+
+		return rtn;
+	}
+
+	public WebElement waitForElement(By by) {
+		WebElement rtn = null;
+		int cnt = 0;
+		do {
+			try {
+				rtn = driver.findElement(by);
+				break;
+			} catch(Exception e) {
+				try {Thread.sleep(100);} catch(Exception ee) {}
+				cnt++;
+			}
+		} while(cnt < 20);
+
+		return rtn;
+	}
+
+	public List<WebElement> waitForElements(By by) {
+		List<WebElement> rtn = null;
+		int cnt = 0;
+		do {
+			try {
+				rtn = driver.findElements(by);
+				break;
+			} catch(Exception e) {
+				try {Thread.sleep(100);} catch(Exception ee) {}
+				cnt++;
+			}
+		} while(cnt < 20);
+
+		return rtn;
+	}
+
+	public boolean waitForClick(WebElement element) {
+
+		boolean success = false;
+		int cnt = 0;
+		String name = element.getText();
+		do {
+			try {
+				javascriptExecutor.executeScript("javascript:window.scrollBy(0,100)"); 
+				element.click();
+				try {Thread.sleep(100);} catch(Exception ee) {}
+				success = true;
+				break;
+			} catch(Exception eee) {
+				try {Thread.sleep(2);} catch(Exception ee) {}
+				cnt++;
+			}
+		} while(cnt < 500);
+
+		//System.out.println("WaitForClick: cnt: " + cnt + ", Name: " + name);
+		
+		return success;
 	}
 
 	public void persistOdds(Odds odds) {

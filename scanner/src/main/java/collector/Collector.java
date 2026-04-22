@@ -749,12 +749,19 @@ public class Collector {
 						System.exit(0);
 					}
 
+					int indexForDate = 0;
 					try {
-						Date d = sdf.parse(eventRefs.get(1).text());
+						String theDate = eventRefs.get(0).text();
+						if(theDate.contains("Final Score")) {
+							indexForDate = 1;
+						} else if(theDate.contains("Bet Ended")) {
+							indexForDate = 1;
+						}
+						Date d = sdf.parse(eventRefs.get(indexForDate).text());
 						w.setEventTimestamp(d);
 					} catch (Exception e) {
 						System.out.println("Exception parsing event date: " + e.getMessage());
-						System.out.println("Error parsing date: " + betRefs.get(0).text());
+						System.out.println("Error parsing date: " + eventRefs.get(indexForDate).text());
 						System.exit(0);
 					}
 
@@ -775,8 +782,9 @@ public class Collector {
 					}
 
         			switch(status.text()) {
-	    				case "Lost":       w.setResult(WAGER_RESULT.LOSS);       break;
-	    				case "Won":        w.setResult(WAGER_RESULT.WIN);        break;
+	    				case "Lost":        w.setResult(WAGER_RESULT.LOSS);       break;
+	    				case "Won":         w.setResult(WAGER_RESULT.WIN);        break;
+	    				case "Cancelled":   w.setResult(WAGER_RESULT.CANCELLED);  break;
 	    				default: 
 	    					System.out.println("New state: " + status.text());
 	    					System.exit(0);
@@ -1082,10 +1090,11 @@ public class Collector {
 	        			}
 
 	        			switch(fnb.getResult()) {
-	        				case "LOST":       w.setResult(WAGER_RESULT.LOSS);       break;
-	        				case "WON":        w.setResult(WAGER_RESULT.WIN);        break;
-	        				case "CASHED_OUT": w.setResult(WAGER_RESULT.CASHED_OUT); break;
-	        				case "VOID":       w.setResult(WAGER_RESULT.CANCELLED);  break;
+	        				case "LOST":              w.setResult(WAGER_RESULT.LOSS);       break;
+	        				case "WON":               w.setResult(WAGER_RESULT.WIN);        break;
+	        				case "CASHED_OUT":        w.setResult(WAGER_RESULT.CASHED_OUT); break;
+	        				case "VOID":              w.setResult(WAGER_RESULT.CANCELLED);  break;
+	        				case "VOID_WITH_TOKEN":   w.setResult(WAGER_RESULT.LOSS);       break;
 	        				default: 
 	        					System.out.println("New state: " + fnb.getResult());
 	        			}

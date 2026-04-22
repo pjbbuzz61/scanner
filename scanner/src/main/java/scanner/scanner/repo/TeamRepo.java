@@ -45,5 +45,12 @@ public class TeamRepo {
 	public List<Team> findAllForSport(Sport sport) {
 		return mongoTemplate.find(new Query().addCriteria(Criteria.where("sport").is(sport)), Team.class);
 	}
-	
+
+	public List<Team> findAllForSport(Sport sport, Sportsbook book) {
+    	Query q = new Query();
+    	q.addCriteria(Criteria.where("book").is(book));
+    	q.addCriteria(Criteria.where("sport").is(sport));
+    	return mongoTemplate.find(q, Team.class);
+	}
+
 }

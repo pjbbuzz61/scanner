@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -39,7 +40,10 @@ import com.mongodb.client.MongoClients;
 
 import scanner.scanner.model.OU;
 import scanner.scanner.model.Odds;
+import scanner.scanner.model.OuRecord;
+import scanner.scanner.model.Player;
 import scanner.scanner.model.Spread;
+import scanner.scanner.model.Team;
 import scanner.scanner.exceptions.OddsException;
 import scanner.scanner.repo.OddsRepo;
 import scanner.scanner.repo.PlayerRepo;
@@ -49,9 +53,11 @@ import scanner.scanner.service.OddsService;
 import scanner.scanner.service.PlayerService;
 import scanner.scanner.service.TeamService;
 import scanner.scanner.service.UpdateService;
+import scanner.scanner.util.MLB_STAT;
 import scanner.scanner.util.Period;
 import scanner.scanner.util.Sport;
 import scanner.scanner.util.Sportsbook;
+import scanner.scanner.util.Status;
 
 @Component
 public class DraftKings extends Book {
@@ -89,6 +95,9 @@ public class DraftKings extends Book {
 				urls.add("https://sportsbook.draftkings.com/leagues/baseball/mlb");
 //				urls.add("https://sportsbook.draftkings.com/leagues/baseball/mlb-preseason");
 //				urls.add("https://sportsbook.draftkings.com/leagues/baseball/world-baseball-classic");
+				break;
+			case MLB_STATS:
+				urls.add("https://sportsbook.draftkings.com/leagues/baseball/mlb");
 				break;
 			case NBA:
 				urls.add("https://sportsbook.draftkings.com/leagues/basketball/nba");
@@ -155,6 +164,10 @@ public class DraftKings extends Book {
 		if(useDriver) {
 			
 			refresh(sport, url);
+			if(sport == Sport.MLB_STATS) {
+				List<Odds> list = parseMlbStats();
+				return list;
+			}
 			
 			try {
 
@@ -315,6 +328,415 @@ public class DraftKings extends Book {
 		return list;
 	}
 	
+	private List<Odds> parseMlbStats() {
+		
+		List<Odds> oddsList = new ArrayList<>();
+		
+		List<WebElement> containers = null;
+		WebElement container = null;;
+		List<WebElement> games = null;
+		
+		containers = driver.findElements(By.cssSelector("div[data-testid=marketboard]"));
+		int numContainers = containers.size();
+
+		for(int cont = 0; cont < numContainers; ++cont) {
+
+			int numAttempts = 0;
+			boolean success = false;
+			do {
+				try {
+					containers = driver.findElements(By.cssSelector("div[data-testid=marketboard]"));
+					container = containers.get(cont);
+					games = container.findElements(By.cssSelector("div.cb-static-parlay__content--inner"));
+					success = true;
+				} catch(Exception eee) {
+					try {Thread.sleep(200L);} catch (InterruptedException ew) {}
+					numAttempts++;
+				}
+				
+			} while((numAttempts < 5) && (success == false));
+			
+			if(success == false) {
+				System.out.println("Failed to load page: Cont: " + cont);
+				continue;
+			}
+			if((games.size() % 3) != 0) {
+				System.out.println("Problem: Should be three containers for each game");
+				return oddsList;
+			}
+			
+			int len = games.size();
+			for(int i = 0; i < len; i+=3) {
+
+				int tries = 0;
+				boolean worked = false;
+				do {
+					
+					try {
+						// reload the pages -- do this because we will have reloaded the page below
+						containers = driver.findElements(By.cssSelector("div[data-testid=marketboard]"));
+						container = containers.get(cont);
+						games = container.findElements(By.cssSelector("div.cb-static-parlay__content--inner"));
+
+						processEventTeamMlbStats(games.get(i+0), games.get(i+1), games.get(i+2), oddsList);
+						worked = true;
+					} catch(Exception e) {
+						System.out.println("Failed to read game, trying again. Tries is " + tries + ", Msg: " + e.getMessage());
+						try {Thread.sleep(200L);} catch (InterruptedException ew) {}
+						tries++;
+					}
+
+				} while((tries < 10) && (worked == false));
+			}
+
+		}
+		
+		return oddsList;
+	}
+
+	private void processEventTeamMlbStats(WebElement match, WebElement time, WebElement unused, List<Odds> oddsList) {
+		
+		Team away = null;
+		Team home = null;
+		String awayName = null;
+		String homeName = null;
+		
+		List<WebElement> teams = match.findElements(By.cssSelector("div.cb-market__label-team-wrapper--col"));
+		List<WebElement> spans_away = teams.get(0).findElements(By.tagName("span"));
+		List<WebElement> spans_home = teams.get(1).findElements(By.tagName("span"));
+		
+		boolean failed = false;
+		try {
+			awayName = spans_away.get(0).getText();
+			away = getTeam(this.sportsbook, Sport.MLB_STATS, awayName, true);
+		} catch(Exception e3) {
+			failed = true;
+		}
+		try {
+			homeName = spans_home.get(0).getText();
+			home = getTeam(this.sportsbook, Sport.MLB_STATS, homeName, true);
+		} catch(Exception e3) {
+			failed = true;
+		}
+		if(failed) {
+			return;
+		}
+
+		// See if game is live -- if so, skip it
+		List<WebElement> live = time.findElements(By.cssSelector("svg[data-testid=live-badge]"));
+		if(live.size() > 0) {
+			return;
+		}
+
+		WebElement startTime = time.findElement(By.cssSelector("span.cb-event-cell__start-time"));
+		Date gameTime = null;
+		if(startTime != null) {
+			gameTime = getGameTime(startTime.getText());
+		}
+
+		// click on the game
+		System.out.println("Going to click for game: " + away.getCommonName() + " at " + home.getCommonName());
+		WebElement c = match.findElement(By.cssSelector("div.cb-market__label-wrapper"));
+		if(waitForClick(c) == false) {
+			System.out.println("Unable to click the game");
+			return;
+		}
+		try {Thread.sleep(2000L);} catch (InterruptedException e) {}
+
+		WebElement buttonBar = waitForElement(By.cssSelector("div.tab-switcher-tabs-wrapper"));
+		if(buttonBar == null) {
+			System.out.println("Failed to get the button bar, outta here");
+		} else {
+			// Get all the buttons
+			List<WebElement> buttons = buttonBar.findElements(By.tagName("a"));
+			for(WebElement button : buttons) {
+				switch(button.getText()) {
+					case "GAME LINES":
+						waitForClick(button);
+						processGameLines(oddsList, away, home, gameTime);
+						break;
+					case "BATTER PROPS":
+						waitForClick(button);
+						processBatterProps(oddsList, away, home, gameTime);
+						break;
+					default:
+						// do nothing
+				}
+			}
+		}
+				
+		driver.navigate().back();
+		try {Thread.sleep(2000L);} catch (InterruptedException e) {}
+
+		
+	}
+
+	private void processBatterProps(List<Odds> oddsList, Team away, Team home, Date gameTime) {
+		
+		List<WebElement> topics = waitForElements(By.cssSelector("div.cms-expander-container"));
+		for(WebElement topic : topics) {
+			
+			WebElement label = topic.findElement(By.tagName("h2"));
+			String name = label.getText();
+			switch(name) {
+				case "Hits O/U":
+					processOu(topic, oddsList, away, home, gameTime, MLB_STAT.HITS);
+					break;
+				case "Total Bases O/U":
+					processOu(topic, oddsList, away, home, gameTime, MLB_STAT.BASES);
+					break;
+				case "RBIs O/U":
+					processOu(topic, oddsList, away, home, gameTime, MLB_STAT.RBI);
+					break;
+				case "Hits + Runs + RBIs O/U":
+					processOu(topic, oddsList, away, home, gameTime, MLB_STAT.H_R_RBI);
+					break;
+				case "Runs O/U":
+					processOu(topic, oddsList, away, home, gameTime, MLB_STAT.RUNS);
+					break;
+				case "Singles O/U":
+					processOu(topic, oddsList, away, home, gameTime, MLB_STAT.SINGLES);
+					break;
+				case "Doubles O/U":
+					processOu(topic, oddsList, away, home, gameTime, MLB_STAT.DOUBLES);
+					break;
+				default:
+					break;
+			}
+
+			if(oddsList != null) {
+				for(Odds odds : oddsList) {
+					persistOdds(odds, "odds" + "_" + Sport.MLB_STATS);
+				}
+			}
+			oddsList.clear();
+		}
+	}
+
+	private void processOu(
+			WebElement topic, List<Odds> oddsList, 
+			Team away, Team home, 
+			Date gameTime, MLB_STAT mlbStat) {
+
+		// See if collapsed
+		WebElement wrapper = topic.findElement(By.cssSelector("div[data-testid=collapsible-wrapper]"));
+		@SuppressWarnings("deprecation")
+		String isCollapsed = wrapper.getAttribute("data-collapsed");
+		if(isCollapsed.contentEquals("true")) {
+			waitForClick(wrapper);
+		}
+
+		List<WebElement> rows = topic.findElements(By.cssSelector("div[data-testid=market-mapping-template-8]"));
+		for(WebElement row : rows) {
+			
+			Player pl = null;
+			Team theTeam = null;
+
+			try {
+				WebElement label = row.findElement(By.cssSelector("a.cb-player-page-link"));
+				WebElement name = label.findElement(By.cssSelector("p.cb-market__label--truncate-strings"));
+				String playerName = name.getText();
+
+				try {
+					Object res = getPlayer(Arrays.asList(away, home), playerName);
+					if(res != null) {
+						if(res instanceof Player) {
+							pl = (Player)res;
+							theTeam = pl.getTeam();
+						} else if(res instanceof Team) {
+							try {
+								theTeam = (Team)res;
+								Team t = null;
+								if(home.getCommonName().contentEquals(theTeam.getCommonName())) {
+									t = home;
+								} else if(away.getCommonName().contentEquals(theTeam.getCommonName())) {
+									t = away;
+								} else {
+									System.out.println("Team returned isn't either team, this shouldn't happen");
+									continue;
+								}
+								pl = getPlayer(t, playerName);
+							} catch(Exception e2) {
+								System.out.println("Failed to find player: " + playerName);
+								continue;
+							}
+						}
+					}
+				} catch(Exception ee) {
+					System.out.println("Failed to find player: " + playerName);
+					continue;
+				}
+
+				List<WebElement> buttons = row.findElements(By.tagName("button"));
+				OuRecord recOver = getRecord(buttons.get(0));
+				OuRecord recUnder = getRecord(buttons.get(1));
+
+				// Build the odds structure
+				Odds odds = new Odds();
+				odds.setTimeStamp(new Date());
+				odds.setBook(this.sportsbook);
+				odds.setSport(Sport.MLB_STATS);
+				odds.setPeriod(Period.GAME); 
+				odds.setStatus(Status.SCHEDULED);
+				odds.setMlbStat(mlbStat);
+				odds.setGameDateTime(gameTime);
+				
+				OU ou = new OU();
+				ou.setPoints(recOver.getPoints());
+				ou.setOver(recOver.getMl());
+				ou.setUnder(recUnder.getMl());
+				
+				odds.setOu(ou);
+				odds.setHome(home);
+				odds.setAway(away);
+				odds.setPlayer1(pl);
+				odds.setPlayer2(pl);
+				odds.setHome(theTeam);
+				odds.setAway(theTeam);
+
+				oddsList.add(odds);
+
+				
+			} catch(Exception e) {
+				
+			}
+
+		}
+	}
+
+	private void processGameLines(List<Odds> oddsList, Team away, Team home, Date gameTime) {
+
+		List<WebElement> topics = waitForElements(By.cssSelector("div.cms-expander-container"));
+		topics = waitForElements(By.cssSelector("div.cms-expander-container"));
+		for(WebElement topic : topics) {
+			
+			WebElement label = topic.findElement(By.tagName("h2"));
+			String name = label.getText();
+			switch(name) {
+				case "Alternate Run Line":
+				case "Alternate Run Lines":
+					// Expand 
+					WebElement expand = waitForElement(topic, By.cssSelector("button.cb-view-more__button"));
+					waitForClick(expand);
+					processAltRunLines(topic, oddsList, away, home, gameTime);
+					break;
+				case "Alternate Total Runs":
+					// Expand 
+					WebElement expand2 = waitForElement(topic, By.cssSelector("button.cb-view-more__button"));
+					waitForClick(expand2);
+					processAltTotalRuns(topic, oddsList, away, home, gameTime);
+					break;
+				default:
+					break;
+			}
+
+			if(oddsList != null) {
+				for(Odds odds : oddsList) {
+					persistOdds(odds, "odds" + "_" + Sport.MLB_STATS);
+				}
+			}
+			oddsList.clear();
+		}
+	}
+
+	private void processAltTotalRuns(WebElement topic, List<Odds> oddsList, Team away, Team home, Date gameTime) {
+
+		WebElement view = topic.findElement(By.cssSelector("div[data-testid=market-template]"));
+		
+		// Each button below holds a over/under line
+		List<WebElement> buttons = view.findElements(By.tagName("button"));
+		for(int index = 0; index < buttons.size(); index+=2) {
+			try {
+				OuRecord recOver = getRecord(buttons.get(index+0));
+				OuRecord recUnder = getRecord(buttons.get(index+1));
+
+				Odds odds = new Odds();
+				odds.setTimeStamp(new Date());
+				odds.setBook(this.sportsbook);
+				odds.setSport(Sport.MLB_STATS);
+				odds.setPeriod(Period.GAME); 
+				odds.setStatus(Status.SCHEDULED);
+				odds.setMlbStat(MLB_STAT.TOTALS);
+				odds.setGameDateTime(gameTime);
+				
+				OU ou = new OU();
+				ou.setPoints(recOver.getPoints());
+				ou.setOver(recOver.getMl());
+				ou.setUnder(recUnder.getMl());
+				
+				odds.setOu(ou);
+				odds.setHome(home);
+				odds.setAway(away);
+
+				oddsList.add(odds);
+
+			} catch(Exception e) {
+				System.out.println("Exception getting over/unders: " + e.getMessage());
+			}
+		}
+	}
+
+	private void processAltRunLines(WebElement topic, List<Odds> oddsList, Team away, Team home, Date gameTime) {
+
+		WebElement view = topic.findElement(By.cssSelector("div[data-testid=market-template]"));
+
+		// Each button below holds a spread line
+		List<WebElement> buttons = view.findElements(By.tagName("button"));
+		for(int index = 0; index < buttons.size(); index+=2) {
+			try {
+				OuRecord recAway = getRecord(buttons.get(index+0));
+				OuRecord recHome = getRecord(buttons.get(index+1));
+
+				Odds odds = new Odds();
+				odds.setTimeStamp(new Date());
+				odds.setBook(this.sportsbook);
+				odds.setSport(Sport.MLB_STATS);
+				odds.setPeriod(Period.GAME); 
+				odds.setStatus(Status.SCHEDULED);
+				odds.setMlbStat(MLB_STAT.SPREAD);
+				odds.setGameDateTime(gameTime);
+				
+				Spread s = new Spread();
+				s.setAwayPoints(recAway.getPoints());
+				s.setAwayPrice(recAway.getMl());
+				s.setHomePoints(recHome.getPoints());
+				s.setHomePrice(recHome.getMl());
+
+				odds.setSpread(s);
+				odds.setHome(home);
+				odds.setAway(away);
+
+				oddsList.add(odds);
+
+			} catch(Exception e) {
+				System.out.println("Exception getting spreads: " + e.getMessage());
+			}
+		}
+	}
+
+	private OuRecord getRecord(WebElement element) throws Exception {
+
+		OuRecord rec = new OuRecord();
+
+		String name = element.findElement(By.cssSelector("span[data-testid=button-title-market-board]")).getText();
+		String points = fixIt(
+				element.findElement(
+						By.cssSelector(
+								"span[data-testid=button-points-market-board]"
+								)
+				).getText().replace("pk", "0.0"));
+		String ml = fixIt(
+				element.findElement(
+						By.cssSelector("span[data-testid=button-odds-market-board]")
+				).getText());
+		
+		rec.setName(name);
+		rec.setPoints(Double.parseDouble(points));
+		rec.setMl(Integer.parseInt(ml));
+		
+		return rec;
+	}
+
 	private List<Odds> parseTeamEvent(String file, Sport sport) {
 
 		StringBuilder sb = new StringBuilder();
@@ -400,82 +822,21 @@ public class DraftKings extends Book {
 		}
 		
 		try {
-			Element startTime = time.selectFirst("span[data-testid=cb-event-cell__start-time]");
+			Element startTime = time.selectFirst("span.cb-event-cell__start-time");
 			if(startTime != null) {
-				int month=0, day=0, year=0;
-				int hour=0, minute=0;
-				Calendar c = Calendar.getInstance();
-				c.setTime(new Date());
-				String[] parts = startTime.text().split(" "); // should be Today or Tomorrow or date (ex: 4/11/26), h:mm, then Am/PM
-				if(parts[0].contentEquals("Today")) {
-					month = c.get(Calendar.MONTH) + 1;
-					day = c.get(Calendar.DAY_OF_MONTH);
-					year = c.get(Calendar.YEAR);
-					String[] hm = parts[1].split(":");
-					hour = Integer.parseInt(hm[0]);
-					minute = Integer.parseInt(hm[1]);
-					if(parts[2].contentEquals("PM")) {
-						if(hour != 12) {
-							hour +=12;
-						}
-					} else {
-						if(hour == 12) {
-							hour = 0;
-						}
-					}
-				} else if(parts[0].contentEquals("Tomorrow")) {
-					c.add(Calendar.DATE, 1);
-					month = c.get(Calendar.MONTH) + 1;
-					day = c.get(Calendar.DAY_OF_MONTH);
-					year = c.get(Calendar.YEAR);
-					String[] hm = parts[1].split(":");
-					hour = Integer.parseInt(hm[0]);
-					minute = Integer.parseInt(hm[1]);
-					if(parts[2].contentEquals("PM")) {
-						if(hour != 12) {
-							hour +=12;
-						}
-					} else {
-						if(hour == 12) {
-							hour = 0;
-						}
-					}
-				} else { // date of the form m/d/y
-					String[] mdy = parts[0].split("/");
-					month = Integer.parseInt(mdy[0]);
-					day = Integer.parseInt(mdy[1]);
-					year = Integer.parseInt(mdy[2]) + 2000;
-					String[] hm = parts[1].split(":");
-					hour = Integer.parseInt(hm[0]);
-					minute = Integer.parseInt(hm[1]);
-					if(parts[2].contentEquals("PM")) {
-						if(hour != 12) {
-							hour +=12;
-						}
-					} else {
-						if(hour == 12) {
-							hour = 0;
-						}
-					}
-				}
-				odds.setGameDateTime(
-						new SimpleDateFormat("yyyy-MM-dd HH:mm")
-						.parse(String.format("%04d-%02d-%02d %02d:%02d", year, month, day, hour, minute)));
+				Date gameTime = getGameTime(startTime.text());
+				odds.setGameDateTime(gameTime);
 				System.out.println("Game Time: " + odds.getGameDateTime());
 			}
 		} catch(Exception e55) {
-			System.out.println("Exception gettting the start time fo the event: " + e55.getMessage());
+			System.out.println("Exception gettting the start time for the event: " + e55.getMessage());
 			e55.printStackTrace();
 		}
 		
 
 		
-		// TODO - set game time
-//		Elements gameTime = e.select("time");
-//		System.out.println(gameTime.text());
 
 		Elements oddsCon = match.select("div.cb-side-column__right");
-//		Elements buttons = oddsCon.get(0).select("button");
 		Elements buttons = oddsCon.get(0).select(".cb-market__button");
 		if(sport != Sport.TENNIS) {
 			if(buttons.size() != 6) {
@@ -572,6 +933,118 @@ public class DraftKings extends Book {
 			System.out.println("Not persisting: " + odds);
 		}
 
+	}
+
+	private Date getGameTime(String start) {
+		
+		int month=0, day=0, year=0;
+		int hour=0, minute=0;
+		Calendar c = Calendar.getInstance();
+		c.setTime(new Date());
+		String[] parts = start.split(" "); // should be Today or Tomorrow or date (ex: 4/11/26), h:mm, then Am/PM
+		if(parts[0].contentEquals("Today")) {
+			month = c.get(Calendar.MONTH) + 1;
+			day = c.get(Calendar.DAY_OF_MONTH);
+			year = c.get(Calendar.YEAR);
+			String[] hm = parts[1].split(":");
+			hour = Integer.parseInt(hm[0]);
+			minute = Integer.parseInt(hm[1]);
+			if(parts[2].contentEquals("PM")) {
+				if(hour != 12) {
+					hour +=12;
+				}
+			} else {
+				if(hour == 12) {
+					hour = 0;
+				}
+			}
+		} else if(parts[0].contentEquals("Tomorrow")) {
+			c.add(Calendar.DATE, 1);
+			month = c.get(Calendar.MONTH) + 1;
+			day = c.get(Calendar.DAY_OF_MONTH);
+			year = c.get(Calendar.YEAR);
+			String[] hm = parts[1].split(":");
+			hour = Integer.parseInt(hm[0]);
+			minute = Integer.parseInt(hm[1]);
+			if(parts[2].contentEquals("PM")) {
+				if(hour != 12) {
+					hour +=12;
+				}
+			} else {
+				if(hour == 12) {
+					hour = 0;
+				}
+			}
+		} else if(fieldIsDow(parts[0])) { // Sat Apr 18th 1:10 PM 
+			String[] months = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
+			int monthNum = 0;
+			for(String m : months) {
+				if(parts[1].toUpperCase().contentEquals(m)) {
+					break;
+				}
+				monthNum++;
+			}
+			if((monthNum >= 12)) {
+				System.out.println("Failed to find the month for " + parts[1]);
+			} else {
+				month = monthNum+1;
+
+				String dayStr = parts[2].replace("st", "").replace("nd", "").replace("rd", "").replace("th", "").trim();
+				day = Integer.parseInt(dayStr);
+				year = c.get(Calendar.YEAR);
+				String[] hm = parts[3].split(":");
+				hour = Integer.parseInt(hm[0]);
+				minute = Integer.parseInt(hm[1]);
+				if(parts[4].contentEquals("PM")) {
+					if(hour != 12) {
+						hour +=12;
+					}
+				} else {
+					if(hour == 12) {
+						hour = 0;
+					}
+				}
+			}
+
+		} else { // date of the form m/d/y
+			String[] mdy = parts[0].split("/");
+			month = Integer.parseInt(mdy[0]);
+			day = Integer.parseInt(mdy[1]);
+			year = Integer.parseInt(mdy[2]) + 2000;
+			String[] hm = parts[1].split(":");
+			hour = Integer.parseInt(hm[0]);
+			minute = Integer.parseInt(hm[1]);
+			if(parts[2].contentEquals("PM")) {
+				if(hour != 12) {
+					hour +=12;
+				}
+			} else {
+				if(hour == 12) {
+					hour = 0;
+				}
+			}
+		}
+		
+		Date ret = null;
+		try {
+			ret = new SimpleDateFormat("yyyy-MM-dd HH:mm")
+					.parse(String.format("%04d-%02d-%02d %02d:%02d", year, month, day, hour, minute));
+		} catch(Exception e) {
+			System.out.println("Exception converting date: " + e.getMessage());
+			e.printStackTrace();
+		}
+
+		return ret;
+	}
+
+	private boolean fieldIsDow(String dow) {
+		String[] days = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+		for(String d : days) {
+			if(dow.toUpperCase().contentEquals(d)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private String fixIt(String string) {
@@ -722,14 +1195,15 @@ public class DraftKings extends Book {
 		}
 		Sport sport = null;
 		switch(args[0].toUpperCase()) {
-			case "NHL":    sport = Sport.NHL;    break;
-			case "TENNIS": sport = Sport.TENNIS; break;
-			case "NBA":    sport = Sport.NBA;    break;
-			case "NFL":    sport = Sport.NFL;    break;
-			case "NCAAF":  sport = Sport.NCAAF;  break;
-			case "NCAAM":  sport = Sport.NCAAM;  break;
-			case "NCAAW":  sport = Sport.NCAAW;  break;
-			case "MLB":    sport = Sport.MLB;    break;
+			case "NHL":       sport = Sport.NHL;       break;
+			case "TENNIS":    sport = Sport.TENNIS;    break;
+			case "NBA":       sport = Sport.NBA;       break;
+			case "NFL":       sport = Sport.NFL;       break;
+			case "NCAAF":     sport = Sport.NCAAF;     break;
+			case "NCAAM":     sport = Sport.NCAAM;     break;
+			case "NCAAW":     sport = Sport.NCAAW;     break;
+			case "MLB":       sport = Sport.MLB;       break;
+			case "MLB_STATS": sport = Sport.MLB_STATS; break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}
 		System.out.println("Sport is " + sport);

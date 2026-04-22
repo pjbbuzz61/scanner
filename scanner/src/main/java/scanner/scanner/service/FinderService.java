@@ -15,6 +15,7 @@ import scanner.scanner.model.Play;
 import scanner.scanner.model.Spread;
 import scanner.scanner.model.Team;
 import scanner.scanner.repo.OddsRepo;
+import scanner.scanner.util.MLB_STAT;
 import scanner.scanner.util.Period;
 import scanner.scanner.util.PlayType;
 import scanner.scanner.util.Sport;
@@ -34,7 +35,7 @@ public class FinderService {
 			Sport sport, boolean isBonus, 
 			Sportsbook book1, double amt1, Double pct1, String part1,
 			Sportsbook book2, double amt2, Double pct2, String part2,
-			Integer minSrc) {
+			Integer minSrc, Integer maxSrc) {
 
 		List<Odds> oddsList = oddsService.getOdds(sport, Period.GAME);
 		List<Odds> source = new ArrayList<>();
@@ -113,10 +114,22 @@ public class FinderService {
 					swapHomeAndAway(tgt);
 				}
 	
+				if(src.getPeriod() != tgt.getPeriod()) {
+					continue;
+				}
+				
 				// if this record is MLB stats then the stats must match
 				if((src.getMlbStat() != null) && (tgt.getMlbStat() != null)) {
 					if(src.getMlbStat() != tgt.getMlbStat()) {
 						continue;
+					}
+					if((src.getPlayer1() != null) && (tgt.getPlayer1() != null)) {
+						if(src.getPlayer1().getCommonName().contentEquals(tgt.getPlayer1().getCommonName()) == false) {
+							continue;
+						}
+					}
+					if(src.getMlbStat() != MLB_STAT.HR) {
+//						continue;
 					}
 				}
 				
@@ -142,32 +155,32 @@ public class FinderService {
 							getPerformance(
 									src, tgt, 
 									PlayType.AWAY_MONEYLINE, PlayType.HOME_MONEYLINE, 
-									amt1, pct1, tgtAmt, tgtPct, isBonus), minSrc);
+									amt1, pct1, tgtAmt, tgtPct, isBonus), minSrc, maxSrc);
 					addToPlayList(
 							getPerformance(
 									src, tgt, 
 									PlayType.HOME_MONEYLINE, PlayType.AWAY_MONEYLINE, 
-									amt1, pct1, tgtAmt, tgtPct, isBonus), minSrc);
+									amt1, pct1, tgtAmt, tgtPct, isBonus), minSrc, maxSrc);
 					addToPlayList(
 							getPerformance(
 									src, tgt, 
 									PlayType.HOME_SPREAD, PlayType.AWAY_SPREAD, 
-									amt1, pct1, tgtAmt, tgtPct, isBonus), minSrc);
+									amt1, pct1, tgtAmt, tgtPct, isBonus), minSrc, maxSrc);
 					addToPlayList(
 							getPerformance(
 									src, tgt, 
 									PlayType.AWAY_SPREAD, PlayType.HOME_SPREAD, 
-									amt1, pct1, tgtAmt, tgtPct, isBonus), minSrc);
+									amt1, pct1, tgtAmt, tgtPct, isBonus), minSrc, maxSrc);
 					addToPlayList(
 							getPerformance(
 									src, tgt, 
 									PlayType.OVER, PlayType.UNDER, 
-									amt1, pct1, tgtAmt, tgtPct, isBonus), minSrc);
+									amt1, pct1, tgtAmt, tgtPct, isBonus), minSrc, maxSrc);
 					addToPlayList(
 							getPerformance(
 									src, tgt, 
 									PlayType.UNDER, PlayType.OVER, 
-									amt1, pct1, tgtAmt, tgtPct, isBonus), minSrc);
+									amt1, pct1, tgtAmt, tgtPct, isBonus), minSrc, maxSrc);
 				}
 				
 			}
@@ -216,12 +229,15 @@ public class FinderService {
 	}
 	
 
-	private void addToPlayList(Play play, Integer minSrc) {
+	private void addToPlayList(Play play, Integer minSrc, Integer maxSrc) {
 
 		if(play == null) {
 			return;
 		}
 		if((minSrc != null) && (play.getSrcML() < minSrc)) {
+			return;
+		}
+		if((maxSrc != null) && (play.getSrcML() > maxSrc)) {
 			return;
 		}
 		if(playList.size() < playListLimit) {
@@ -254,11 +270,9 @@ public class FinderService {
 		play.setSrcBook(src.getBook());
 		play.setTgtBook(tgt.getBook());
 		
-//		if(src.getAway().getCommonName().contentEquals("MIA_HEAT")) {
-//			if(tgt.getBook() == Sportsbook.FANDUEL) {
-//				if(srcPlay == PlayType.AWAY_MONEYLINE) {
-//					System.out.println("Here");
-//				}
+//		if(src.getPlayer1() != null) {
+//			if(src.getPlayer1().getCommonName().contentEquals("JUSTIN CRAWFORD")) {
+//				System.out.println("Here");
 //			}
 //		}
 				
@@ -552,6 +566,7 @@ public class FinderService {
 		String     part1    = null;
 		String     part2    = null;
 		Integer    minSrc   = null;
+		Integer    maxSrc   = null;
 		
 		
 		// Handle input args
@@ -649,6 +664,10 @@ public class FinderService {
 					minSrc = Integer.parseInt(parts[1]);
 					break;
 
+				case "maxSrc":
+					maxSrc = Integer.parseInt(parts[1]);
+					break;
+
 				case "pct1":
 				case "pct":
 					try {
@@ -687,7 +706,7 @@ public class FinderService {
 				sport, isBonus,
 				book1, amt1, pct1, part1,
 				book2, amt2, pct2, part2,
-				minSrc);
+				minSrc, maxSrc);
 		for(Play p : bestPlays) {
 			System.out.println(p);
 		}

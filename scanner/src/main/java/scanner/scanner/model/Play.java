@@ -24,12 +24,46 @@ public class Play {
 
 	@Override
 	public String toString() {
+
+		String srcPlay = srcPlayType.toString()
+				.replace("HOME_SPREAD",    "H_SPD")
+				.replace("HOME_MONEYLINE", "H_ML")
+				.replace("AWAY_SPREAD",    "A_SPD")
+				.replace("AWAY_MONEYLINE", "A_ML")
+				.replace("OVER",           "OVER")
+				.replace("UNDER",          "UNDER");
+		String tgtPlay = tgtPlayType.toString()
+				.replace("HOME_SPREAD",    "H_SPD")
+				.replace("HOME_MONEYLINE", "H_ML")
+				.replace("AWAY_SPREAD",    "A_SPD")
+				.replace("AWAY_MONEYLINE", "A_ML")
+				.replace("OVER",           "OVER")
+				.replace("UNDER",          "UNDER");
+		String sBook = srcBook.toString()
+				.replace("DRAFTKINGS", "DRAFT")
+				.replace("BETMGM",     "MGM")
+				.replace("CAESARS",    "CAES")
+				.replace("FANDUEL",    "FAND")
+				.replace("ESPN",       "ESPN")
+				.replace("BETRIVERS",  "RIVERS");
+		String tBook = tgtBook.toString()
+				.replace("DRAFTKINGS", "DRAFT")
+				.replace("BETMGM",     "MGM")
+				.replace("CAESARS",    "CAES")
+				.replace("FANDUEL",    "FAND")
+				.replace("ESPN",       "ESPN")
+				.replace("BETRIVERS",  "RIVERS");
+		
 		return String.format(
-				"%-30s at %-30s: %-10s: %-14s at %5.1f/%-6d for $%-7.2f vs %-10s: %-14s at %5.1f/%-6d for $%-7.2f to win %-7.2f %.2f",  
+				"%-28s at %-28s: %-6s: %-5s at %5.1f/%-6d for $%-7.2f vs %-6s: %-5s at %5.1f/%-6d for $%-7.2f to win %-7.2f %7s %s",  
 				src.getAway().getCommonName(), src.getHome().getCommonName(),
-				srcBook, srcPlayType, srcPts, srcML, srcBetAmt, 
-				tgtBook, tgtPlayType, tgtPts, tgtML, tgtBetAmt,
-				performance, 100.0*performance/(srcBetAmt+tgtBetAmt));
+				sBook, srcPlay, srcPts, srcML, srcBetAmt, 
+				tBook, tgtPlay, tgtPts, tgtML, tgtBetAmt,
+				performance, 
+				src.getMlbStat()==null?" ":src.getMlbStat(),
+				src.getPlayer1()==null?" ":src.getPlayer1().getCommonName()
+				);
+//				100.0*performance/(srcBetAmt+tgtBetAmt));
 	}
 
 	public Odds getSrc() {

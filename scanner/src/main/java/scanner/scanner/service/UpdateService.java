@@ -233,7 +233,7 @@ public class UpdateService {
 		return choices;
 	}
 
-	private static float getWeight(String specName, String commonName) {
+	public static float getWeight(String specName, String commonName) {
 		CosineSimilarity cs = new CosineSimilarity();
 		OverlapCoefficient os = new OverlapCoefficient();
 		SmithWaterman sw = new SmithWaterman();

@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -28,6 +29,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.interactions.Actions;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -51,6 +53,7 @@ import scanner.scanner.service.OddsService;
 import scanner.scanner.service.PlayerService;
 import scanner.scanner.service.TeamService;
 import scanner.scanner.service.UpdateService;
+import scanner.scanner.util.MLB_STAT;
 import scanner.scanner.util.Period;
 import scanner.scanner.util.Sport;
 import scanner.scanner.util.Sportsbook;
@@ -91,6 +94,9 @@ public class Espn extends Book {
 			case MLB:
 //				urls.add("https://sportsbook.thescore.bet/sport/baseball/organization/global/competition/world-baseball-classic#lines");
 //				urls.add("https://sportsbook.thescore.bet/sport/baseball/organization/united-states/competition/mlb-spring-training#lines");
+				urls.add("https://sportsbook.thescore.bet/sport/baseball/organization/united-states/competition/mlb#lines");
+				break;
+			case MLB_STATS:
 				urls.add("https://sportsbook.thescore.bet/sport/baseball/organization/united-states/competition/mlb#lines");
 				break;
 			case NBA:
@@ -186,7 +192,11 @@ public class Espn extends Book {
 		if(useDriver) {
 			
 			refresh(sport, url);
-			
+			if(sport == Sport.MLB_STATS) {
+				List<Odds> list = parseMlbStats(url);
+				return list;
+			}
+
 			try {
 
 				WebElement scroll = driver.findElement(By.cssSelector("main"));
@@ -339,6 +349,526 @@ public class Espn extends Book {
 		return list;
 	}
 	
+	private List<Odds> parseMlbStats(String url) {
+
+		List<Odds> oddsList = new ArrayList<>();
+
+		WebElement container = driver.findElement(By.tagName("main"));
+		
+		List<WebElement> games = null;
+		int cntr = 0;
+		do {
+			games = container.findElements(By.tagName("article"));
+			if(games.size() > 0) break;
+			cntr++;
+			try {Thread.sleep(200L);} catch (InterruptedException e) {}
+
+		} while(cntr < 50);
+		System.out.println("Cntr is " + cntr);
+		
+		int numGames = games.size();
+		
+		for(int gameNum = 0; gameNum < numGames; ++gameNum) {
+			
+			try {
+				
+				// Refresh list of games
+				container = driver.findElement(By.tagName("main"));
+				games = container.findElements(By.tagName("article"));
+
+				List<WebElement> dateTimeOfGame = games.get(gameNum).findElements(By.cssSelector("div.flex-wrap"));
+				List<WebElement> participants   = games.get(gameNum).findElements(By.cssSelector("div.flex-row"));
+				if((dateTimeOfGame == null) || (dateTimeOfGame.size() != 1)) {
+					continue;
+				}
+				if((participants == null) || (participants.size() != 2)) {
+					continue;
+				}
+				
+				WebElement away = participants.get(0).findElement(By.cssSelector("div.text-primary"));
+				if(away == null) {
+					System.out.println("Failed to find the string for the away team");
+					continue;
+				}
+				String awayTeam = removeParens(away.getText().toUpperCase());
+				
+				WebElement home = participants.get(1).findElement(By.cssSelector("div.text-primary"));
+				if(home == null) {
+					System.out.println("Failed to find the string for the home team");
+					continue;
+				}
+				String homeTeam = removeParens(home.getText().toUpperCase());
+
+				Team aTeam = null;
+				Team hTeam = null;
+				
+				boolean failed = false;
+				try {
+					aTeam = getTeam(this.sportsbook, Sport.MLB_STATS, awayTeam, true);
+				} catch(Exception e3) {
+					failed = true;
+				}
+				try {
+					hTeam = getTeam(this.sportsbook, Sport.MLB_STATS, homeTeam, true);
+				} catch(Exception e3) {
+					failed = true;
+				}
+
+				if(failed) {
+					continue;
+				}
+				
+				// Look for LIVE indicator
+				try {
+					dateTimeOfGame.get(0).findElement(By.cssSelector("div[data-testid='live-indicator']"));
+					continue; // if we're here the game is live, so skip it
+				} catch(Exception e) {
+					// Exception indications no live block, so it's pregame and we want those. Drop through
+				}
+
+				WebElement dateTime = dateTimeOfGame.get(0).findElement(By.tagName("span"));
+				Date startingTime = getStartingDate(dateTime.getText());
+				
+				// click on the game to get the stats
+				boolean clickResult = waitForClick(away);
+				if(clickResult == false) {
+					System.out.println("Failed to click on game " + awayTeam + " at " + homeTeam);
+					continue;
+				}
+				try {Thread.sleep(1000L);} catch (InterruptedException e) {}
+				
+				processMLBGame(awayTeam, aTeam, homeTeam, hTeam, oddsList, startingTime);
+
+				if(oddsList != null) {
+					for(Odds odds : oddsList) {
+						persistOdds(odds, "odds" + "_" + Sport.MLB_STATS);
+					}
+				}
+				
+				oddsList.clear();
+
+				//System.out.println("Start of refresh: " + new Date());
+				refresh(Sport.MLB_STATS, url);
+				//System.out.println("End of refresh: " + new Date());
+		
+			} catch(Exception ert) {
+				System.out.println("Exception processing game");
+			}
+		}
+
+		return oddsList;
+	}
+
+	private void processMLBGame(
+			String awayTeam, Team aTeam, 
+			String homeTeam, Team hTeam, 
+			List<Odds> oddsList, Date startingTime) {
+
+		// Get all the header buttons
+		WebElement buttonBar = null;
+		List<WebElement> hdrButtons = null;
+		try {
+			buttonBar = driver.findElement(By.cssSelector("div.ao--carousel-slide-container"));
+			hdrButtons = buttonBar.findElements(By.tagName("a"));
+		} catch(Exception e) {
+			System.out.println("Failed to get header buttons for " + awayTeam + " at " + homeTeam);
+			return;
+		}
+
+		for(WebElement button : hdrButtons) {
+			
+			button.click();
+
+			waitForSteadyList(driver, "details");
+
+			// For each header get all the topics
+			List<WebElement> topics = driver.findElements(By.tagName("details"));
+			for(WebElement topic : topics) {
+				String name = topic.findElement(By.tagName("h2")).getText();
+				switch(name) {
+
+					case "Alternate Run Line":
+						processAltRunLine(awayTeam, aTeam, homeTeam, hTeam, oddsList);
+						break;
+					case "Alternate Total Runs":
+						processAltTotals(awayTeam, aTeam, homeTeam, hTeam, oddsList);
+						break;
+					case "Home Runs (O/U)":
+						processOU(
+								awayTeam, aTeam, homeTeam, hTeam, 
+								MLB_STAT.HR, "drawer-Home Runs (O/U)",
+								oddsList);
+						break;
+					case "Total Bases (O/U)":
+						processOU(
+								awayTeam, aTeam, homeTeam, hTeam, 
+								MLB_STAT.BASES, "drawer-Total Bases (O/U)",
+								oddsList);
+						break;
+					case "Hits (O/U)":
+						processOU(
+								awayTeam, aTeam, homeTeam, hTeam, 
+								MLB_STAT.HITS, "drawer-Hits (O/U)",
+								oddsList);
+						break;
+					case "RBIs (O/U)":
+						processOU(
+								awayTeam, aTeam, homeTeam, hTeam, 
+								MLB_STAT.RBI, "drawer-RBIs (O/U)",
+								oddsList);
+						break;
+					case "Runs (O/U)":
+						processOU(
+								awayTeam, aTeam, homeTeam, hTeam, 
+								MLB_STAT.RUNS, "drawer-Runs (O/U)",
+								oddsList);
+						break;
+					case "Singles (O/U)":
+						processOU(
+								awayTeam, aTeam, homeTeam, hTeam, 
+								MLB_STAT.SINGLES, "drawer-Singles (O/U)",
+								oddsList);
+						break;
+					case "Doubles (O/U)":
+						processOU(
+								awayTeam, aTeam, homeTeam, hTeam, 
+								MLB_STAT.DOUBLES, "drawer-Doubles (O/U)",
+								oddsList);
+						break;
+					case "Hits + Runs + RBIs (O/U)":
+						processOU(
+								awayTeam, aTeam, homeTeam, hTeam, 
+								MLB_STAT.H_R_RBI, "drawer-Hits + Runs + RBIs (O/U)",
+								oddsList);
+						break;
+					default:
+						break; // do nothing
+				}
+			}
+		}
+	}
+
+	private void waitForSteadyList(WebElement we, String tagName) {
+		int prevNumTopics = 0;
+		int consec = 0;
+		int cntr = 0;
+		List<WebElement> topics = null;
+		do {
+			topics = we.findElements(By.tagName(tagName));
+			if(topics.size() != prevNumTopics) {
+				consec = 0;
+			} else {
+				consec++;
+			}
+			prevNumTopics = topics.size();
+			//System.out.println("Topics: " + topics.size() + ", Prev: " + prevNumTopics + ", consec: " + consec);
+			try {Thread.sleep(200);} catch(Exception ee) {}
+			cntr++;
+		} while( ((topics.size() == 0) || (consec < 3)) && (cntr < 10));
+
+		if(topics.size() == 0) {
+			System.out.println("Warning: No items found");
+		}
+	}
+
+	private void waitForSteadyList(WebDriver driver, String tagName) {
+		int prevNumTopics = 0;
+		int consec = 0;
+		int cntr = 0;
+		List<WebElement> topics = null;
+		do {
+			topics = driver.findElements(By.tagName(tagName));
+			if(topics.size() != prevNumTopics) {
+				consec = 0;
+			} else {
+				consec++;
+			}
+			prevNumTopics = topics.size();
+			//System.out.println("Topics: " + topics.size() + ", Prev: " + prevNumTopics + ", consec: " + consec);
+			try {Thread.sleep(200);} catch(Exception ee) {}
+			cntr++;
+		} while( ((topics.size() == 0) || (consec < 3)) && (cntr < 10));
+
+		if(topics.size() == 0) {
+			System.out.println("Warning: No items found");
+		}
+	}
+
+	@SuppressWarnings("deprecation")
+	private void processOU(
+			String awayTeam, Team aTeam, String homeTeam, Team hTeam, 
+			MLB_STAT mlbStat,
+			String selector,
+			List<Odds> oddsList) {
+		
+		WebElement container = driver.findElement(By.tagName("main"));
+
+		try {
+			WebElement ovUnder = container.findElement(By.cssSelector("details[data-testid='" + selector + "']"));
+			
+			// Open the tab, if necessary
+			if(ovUnder.getAttribute("open") == null) {
+				waitForClick(ovUnder);
+			}
+			
+			waitForSteadyList(ovUnder, "article");
+			
+			List<WebElement> articles = ovUnder.findElements(By.tagName("article"));
+			for(WebElement article : articles) {
+
+				WebElement playerName = article.findElement(By.tagName("header"));
+				String playerAsString = playerName.getText().toUpperCase();
+				
+				List<WebElement> buttons = article.findElements(By.tagName("button"));
+
+				List<WebElement> over_spans  = buttons.get(0).findElements(By.tagName("span"));
+				List<WebElement> under_spans = buttons.get(1).findElements(By.tagName("span"));
+				String o_pts = over_spans.get(1).getText().replace("O", "").trim();
+				String o_ml  = over_spans.get(2).getText().replace("Even", "+100").trim();
+				String u_ml  = under_spans.get(2).getText().replace("Even", "+100").trim();
+				
+				Odds odds = new Odds();
+				odds.setTimeStamp(new Date());
+				odds.setBook(this.sportsbook);
+				odds.setSport(Sport.MLB_STATS);
+				odds.setPeriod(Period.GAME); 
+				odds.setStatus(Status.SCHEDULED);
+				odds.setMlbStat(mlbStat);
+				
+				Player pl = null;
+				Team theTeam = null;
+
+				try {
+					Object res = getPlayer(Arrays.asList(aTeam, hTeam), playerAsString);
+					if(res != null) {
+						if(res instanceof Player) {
+							odds.setPlayer1((Player)res);
+							odds.setPlayer2((Player)res);
+							theTeam = ((Player)res).getTeam();
+						} else if(res instanceof Team) {
+							try {
+								theTeam = (Team)res;
+								Team t = null;
+								if(hTeam.getCommonName().contentEquals(theTeam.getCommonName())) {
+									t = hTeam;
+								} else if(aTeam.getCommonName().contentEquals(theTeam.getCommonName())) {
+									t = aTeam;
+								} else {
+									System.out.println("Team returned isn't either team, this shouldn't happen");
+									continue;
+								}
+								pl = getPlayer(t, playerAsString);
+								odds.setPlayer1(pl);
+								odds.setPlayer2(pl);
+							} catch(Exception e2) {
+								System.out.println("Failed to find player: " + playerAsString);
+								continue;
+							}
+						}
+					}
+				} catch(Exception ee) {
+					System.out.println("Failed to find player: " + playerAsString);
+					continue;
+				}
+				
+				try {
+					Double overPoints      = Double.parseDouble(o_pts.trim());
+					Integer overmoneyline  = Integer.parseInt(o_ml);
+					Integer undermoneyline = Integer.parseInt(u_ml);
+					OU ou = new OU();
+					ou.setPoints(overPoints);
+					ou.setOver(overmoneyline);
+					ou.setUnder(undermoneyline);
+					ou.setPeriod(Period.GAME);
+
+					odds.setTimeStamp(new Date());
+					odds.setBook(this.sportsbook);
+					odds.setSport(Sport.MLB_STATS);
+					odds.setPeriod(Period.GAME); 
+					odds.setStatus(Status.SCHEDULED);
+					odds.setMlbStat(mlbStat);
+					odds.setOu(ou);
+					odds.setHome(theTeam);
+					odds.setAway(theTeam);
+						
+					oddsList.add(odds);
+				} catch(Exception e3) {
+					System.out.println("Exception processing spread: " + e3.getMessage());
+					e3.printStackTrace();
+				}
+
+			}
+			
+		} catch(Exception e) {
+			System.out.println("Exception get HR data: " + e.getMessage());
+		}
+	}
+
+	private void processAltTotals(
+			String awayTeam, Team aTeam, 
+			String homeTeam, Team hTeam, 
+			List<Odds> oddsList) {
+		
+		WebElement container = driver.findElement(By.tagName("main"));
+
+		try {
+			WebElement totalRuns = container.findElement(By.cssSelector("details[data-testid='drawer-Alternate Total Runs']"));
+			boolean clickResult = waitForClick(totalRuns);
+			if(clickResult == false) {
+				System.out.println("Failed to click on detail for alt totals ");
+			} else {
+				
+				List<WebElement> buttons = getButtons(container, "drawer-Alternate Total Runs");
+
+				for(int index = 0; index < buttons.size(); index+=2) {
+					List<WebElement> over_spans  = buttons.get(index).findElements(By.tagName("span"));
+					List<WebElement> under_spans = buttons.get(index+1).findElements(By.tagName("span"));
+					String o_pts = over_spans.get(1).getText().replace("O", "").trim();
+					String o_ml  = over_spans.get(2).getText().replace("Even", "+100").trim();
+					String u_ml  = under_spans.get(2).getText().replace("Even", "+100").trim();
+
+					try {
+						Double overPoints      = Double.parseDouble(o_pts.trim());
+						Integer overmoneyline  = Integer.parseInt(o_ml);
+						Integer undermoneyline = Integer.parseInt(u_ml);
+						OU ou = new OU();
+						ou.setPoints(overPoints);
+						ou.setOver(overmoneyline);
+						ou.setUnder(undermoneyline);
+						ou.setPeriod(Period.GAME);
+
+						Odds odds = new Odds();
+						odds.setTimeStamp(new Date());
+						odds.setBook(this.sportsbook);
+						odds.setSport(Sport.MLB_STATS);
+						odds.setPeriod(Period.GAME); 
+						odds.setStatus(Status.SCHEDULED);
+						odds.setMlbStat(MLB_STAT.TOTALS);
+						odds.setOu(ou);
+						odds.setHome(hTeam);
+						odds.setAway(aTeam);
+							
+						oddsList.add(odds);
+					} catch(Exception e3) {
+						System.out.println("Exception processing spread: " + e3.getMessage());
+						e3.printStackTrace();
+					}
+				} // for all lines
+				
+				// Close the modal
+				WebElement closeButton = driver.findElement(By.id("modal-close-button"));
+				closeButton.click();
+			} // else
+		} catch(Exception e) {
+			System.out.println("Failed to find alt totals");
+		}
+		
+	}
+
+	private void processAltRunLine(
+			String awayTeam, Team aTeam, 
+			String homeTeam, Team hTeam, 
+			List<Odds> oddsList) {
+
+		WebElement container = driver.findElement(By.tagName("main"));
+		
+		try {
+			WebElement runLines = container.findElement(By.cssSelector("details[data-testid='drawer-Alternate Run Line']"));
+			boolean clickResult = waitForClick(runLines);
+			if(clickResult == false) {
+				System.out.println("Failed to click on detail for alt run line");
+			} else {
+				
+				List<WebElement> buttons = getButtons(container, "drawer-Alternate Run Line");
+
+				for(int index = 0; index < buttons.size(); index+=2) {
+					List<WebElement> away_spans = buttons.get(index).findElements(By.tagName("span"));
+					List<WebElement> home_spans = buttons.get(index+1).findElements(By.tagName("span"));
+					String a_rl = away_spans.get(1).getText().substring(awayTeam.length()).trim();
+					String a_ml = away_spans.get(2).getText().replace("Even", "+100").trim();
+					String h_rl = home_spans.get(1).getText().substring(homeTeam.length()).trim();
+					String h_ml = home_spans.get(2).getText().replace("Even", "+100").trim();
+
+					try {
+						Double awaySpreadPoints = Double.parseDouble(a_rl.trim());
+						Integer awaymoneyline = Integer.parseInt(a_ml);
+						Double homeSpreadPoints = Double.parseDouble(h_rl.trim());
+						Integer homemoneyline = Integer.parseInt(h_ml);
+						Spread s = new Spread();
+						s.setAwayPoints(awaySpreadPoints);
+						s.setAwayPrice(awaymoneyline);
+						s.setHomePoints(homeSpreadPoints);
+						s.setHomePrice(homemoneyline);
+						s.setPeriod(Period.GAME);
+
+						Odds odds = new Odds();
+						odds.setTimeStamp(new Date());
+						odds.setBook(this.sportsbook);
+						odds.setSport(Sport.MLB_STATS);
+						odds.setPeriod(Period.GAME); 
+						odds.setStatus(Status.SCHEDULED);
+						odds.setMlbStat(MLB_STAT.SPREAD);
+						odds.setSpread(s);
+						odds.setHome(hTeam);
+						odds.setAway(aTeam);
+							
+						oddsList.add(odds);
+					} catch(Exception e3) {
+						System.out.println("Exception processing spread: " + e3.getMessage());
+						e3.printStackTrace();
+					}
+				} // for all lines
+				
+				// Close the modal
+				WebElement closeButton = driver.findElement(By.id("modal-close-button"));
+				closeButton.click();
+			} // else
+		} catch(Exception e) {
+			//e.printStackTrace();
+			System.out.println("Failed to find alt run lines");
+		}
+		
+	}
+
+	private List<WebElement> getButtons(WebElement container, String selector) {
+		
+		int cntr = 0;
+
+		do {
+
+			// Process the content
+			// get all buttons, find one with See All Lines
+			WebElement runLines = container.findElement(By.cssSelector("details[data-testid='" + selector + "']"));
+			List<WebElement> buttons = null;
+			boolean found = false;
+			try {
+				buttons = runLines.findElements(By.tagName("button"));
+				for(WebElement button : buttons) {
+					if(button.getText().contains("See All Lines")) {
+						if(waitForClick(button)) {
+							found = true;
+							try {Thread.sleep(2000);} catch(Exception ee) {}
+						}
+						break;
+					}
+				}
+				if(found) {
+					List<WebElement> cont = driver.findElements(By.tagName("article"));
+					return cont.get(cont.size()-1).findElements(By.tagName("button"));
+				} else {
+					//System.out.println("Waiting for the See All Lines button, cntr is " + cntr);
+					cntr++;
+					try {Thread.sleep(100);} catch(Exception ee) {}
+				}
+			} catch(Exception e) {
+				
+			}
+			
+		} while(cntr < 20);
+		
+		return null;
+	}
+
 	private List<Odds> parseTeamEvent(String file, Sport sport) {
 
 		StringBuilder sb = new StringBuilder();
@@ -624,41 +1154,28 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		odds.setBook(this.sportsbook);
 		odds.setSport(sport);
 		odds.setPeriod(Period.GAME); 
-
-		Elements containers = e.select("article > div > div > div");
-		if((sport == Sport.TENNIS)) {
-			if(containers.size() != 3) {
-				System.out.println("Failed to get the expected containers for data");
-				return;
-			}
-		} else {
-			if(containers.size() != 4) {
-				System.out.println("Failed to get the expected containers for data");
-				return;
-			}
+		
+		Elements dateTimeOfGame = e.select("div.flex-wrap");
+		Elements participants = e.select("div.flex-row");
+		if((dateTimeOfGame == null) || (dateTimeOfGame.size() != 1)) {
+			return;
+		}
+		if((participants == null) || (participants.size() != 2)) {
+			return;
 		}
 
-		int awayBlock = containers.size() - 2;
-		int homeBlock = containers.size() - 1;
-		int liveBlock = containers.size() - 3;
-
-		Element away = containers.get(awayBlock).select("div.text-primary").first();
+		Element away = participants.get(0).select("div.text-primary").first();
 		if(away == null) {
 			return;
 		}
 		String awayTeam = removeParens(away.text().toUpperCase());
 		
-//		if(awayTeam.contains(")")) {
-//			awayTeam = awayTeam.substring(awayTeam.indexOf(")")+1).trim();
-//		}
-		Element home = containers.get(homeBlock).select("div.text-primary").first();
+		Element home = participants.get(1).select("div.text-primary").first();
 		if(home == null) {
 			return;
 		}
 		String homeTeam = removeParens(home.text().toUpperCase());
-//		if(homeTeam.contains(")")) {
-//			homeTeam = homeTeam.substring(homeTeam.indexOf(")")+1).trim();
-//		}
+
 		boolean failed = false;
 		try {
 			odds.setAway(getTeam(this.sportsbook, sport, awayTeam, true));
@@ -676,12 +1193,12 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		}
 		
 		// Look for LIVE indicator
-		Elements isLive = containers.get(liveBlock).select("div[data-testid='live-indicator']");
+		Elements isLive = dateTimeOfGame.get(0).select("div[data-testid='live-indicator']");
 		if(isLive.size() > 0) {
 			return;
 		}
 
-		Element dateTime = containers.get(liveBlock).select("span").first();
+		Element dateTime = dateTimeOfGame.get(0).select("span").first();
 		odds.setStatus(Status.SCHEDULED);
 		odds.setGameDateTime(getStartingDate(dateTime.text()));
 
@@ -695,58 +1212,61 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		String awayMl = null;
 		String homeMl = null;
 
-		if(sport != Sport.TENNIS) {
-			
-			Elements line = containers.get(awayBlock).select("button");
-			// should be 4 buttons --
-			// #1 is the team
-			// #2 is away spread
-			// #3 is over points and line
-			// #4 is ml away
+		Elements line = participants.get(0).select("button");
+		// should be up to 4 buttons --
+		// #1 is the team
+		// if only 2 then 
+		//  #2 is the ML
+		// if 4 buttons then 
+		//  #2 is away spread
+		//  #3 is over points and line
+		//  #4 is ml away
 
+		if(line.size() == 4) {
+			
 			Elements scans = line.get(1).select("span");
-			// second scan contains fir line (o/u points or spread points)
+			// second scan contains for line (o/u points or spread points)
 			// third line is the spread ml, or o/u line
 			awaySpreadPts = scans.get(1).text();
 			awaySpreadLine = scans.get(2).text().replace("Even", "+100");
-			
+				
 			scans = line.get(2).select("span");
 			// second scan contains fir line (o/u points or spread points)
 			// third line is the spread ml, or o/u line
 			overUnderPts = scans.get(1).text().replace("O", "");
 			overLine = scans.get(2).text().replace("Even", "+100");
-
+			
 			scans = line.get(3).select("span");
 			awayMl = scans.get(2).text().replace("Even", "+100");
+		} else {
+			Elements scans = line.get(1).select("span");
+			awayMl = scans.get(2).text().replace("Even", "+100");
+		}
+ 
+		line = participants.get(1).select("button");
 
-			line = containers.get(homeBlock).select("button");
-
-			scans = line.get(1).select("span");
+		if(line.size() == 4) {
+			
+			Elements scans = line.get(1).select("span");
+			// second scan contains for line (o/u points or spread points)
+			// third line is the spread ml, or o/u line
 			homeSpreadPts = scans.get(1).text();
 			homeSpreadLine = scans.get(2).text().replace("Even", "+100");
-			
+				
 			scans = line.get(2).select("span");
+			// second scan contains fir line (o/u points or spread points)
+			// third line is the spread ml, or o/u line
+			overUnderPts = scans.get(1).text().replace("U", "");
 			underLine = scans.get(2).text().replace("Even", "+100");
-
+			
 			scans = line.get(3).select("span");
 			homeMl = scans.get(2).text().replace("Even", "+100");
-		
 		} else {
-			
-			Elements allButtons = containers.select("button");
-			// Button list
-			// #0 is away team name and seed
-			// #1 is home team name and seed
-			// #2 is away team ML
-			// #3 is home team ML
-			
-			Elements spans = allButtons.get(2).select("span");
-			awayMl = spans.get(2).text().replace("Even", "+100");
-			spans = allButtons.get(3).select("span");
-			homeMl = spans.get(2).text().replace("Even", "+100");
+			Elements scans = line.get(1).select("span");
+			homeMl = scans.get(2).text().replace("Even", "+100");
 		}
 
-		if(sport != Sport.TENNIS) {
+		if(awaySpreadPts != null) {
 			Spread spread = new Spread();
 			spread.setPeriod(Period.GAME);
 			try {
@@ -759,10 +1279,11 @@ private List<Odds> parseTennis(String file, Sport sport) {
 			} catch(Exception e3) {
 				System.out.println("Failed to parse Spread odds: " 
 						+ awaySpreadPts + " " + awaySpreadLine + " " + homeSpreadPts + " " + homeSpreadLine);
-				
 			}
 			odds.setSpread(spread);
+		}
 
+		if(overUnderPts != null) {
 			OU ou = new OU();
 			ou.setPeriod(Period.GAME);
 			try {
@@ -964,7 +1485,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 
 	private void refresh(Sport sport, String url) {
 
-	//	System.out.println("Start of refresh: " + new Date());
+		//System.out.println("Start of refresh: " + new Date());
 		try {
 			getWindowHandle(sport, url);
 		} catch (OddsException e) {
@@ -1077,14 +1598,15 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		}
 		Sport sport = null;
 		switch(args[0].toUpperCase()) {
-			case "NHL":    sport = Sport.NHL;    break;
-			case "TENNIS": sport = Sport.TENNIS; break;
-			case "NBA":    sport = Sport.NBA;    break;
-			case "NFL":    sport = Sport.NFL;    break;
-			case "NCAAF":  sport = Sport.NCAAF;  break;
-			case "NCAAM":  sport = Sport.NCAAM;  break;
-			case "NCAAW":  sport = Sport.NCAAW;  break;
-			case "MLB":    sport = Sport.MLB;    break;
+			case "NHL":       sport = Sport.NHL;       break;
+			case "TENNIS":    sport = Sport.TENNIS;    break;
+			case "NBA":       sport = Sport.NBA;       break;
+			case "NFL":       sport = Sport.NFL;       break;
+			case "NCAAF":     sport = Sport.NCAAF;     break;
+			case "NCAAM":     sport = Sport.NCAAM;     break;
+			case "NCAAW":     sport = Sport.NCAAW;     break;
+			case "MLB":       sport = Sport.MLB;       break;
+			case "MLB_STATS": sport = Sport.MLB_STATS; break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}
 		System.out.println("Sport is " + sport);

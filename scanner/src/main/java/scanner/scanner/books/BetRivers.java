@@ -41,6 +41,8 @@ import com.mongodb.client.MongoClients;
 
 import scanner.scanner.model.OU;
 import scanner.scanner.model.Odds;
+import scanner.scanner.model.OuRecord;
+import scanner.scanner.model.Player;
 import scanner.scanner.model.Spread;
 import scanner.scanner.model.Team;
 import scanner.scanner.exceptions.OddsException;
@@ -134,11 +136,6 @@ public class BetRivers extends Book {
 			refresh(sport, url);
 			if(sport == Sport.MLB_STATS) {
 				List<Odds> list = parseMlbStats();
-				if(list != null) {
-					for(Odds odds : list) {
-						persistOdds(odds, "odds" + "_" + sport);
-					}
-				}
 				return list;
 			}
 
@@ -430,57 +427,22 @@ public class BetRivers extends Book {
 		
 		List<Odds> oddsList = new ArrayList<>();
 		
-		// See if we have more events
-		try {
-			WebElement moreEventsLabel = driver
-					.findElement(By.cssSelector("button[data-testid=show-more-events-button]"));
-			int cnt = 0;
-			do {
-				javascriptExecutor.executeScript("javascript:window.scrollBy(0,200)"); 
-				try {
-					moreEventsLabel.click();
-					break;
-				} catch(Exception eee) {
-					try {Thread.sleep(50);} catch(Exception ee) {}
-					cnt++;
-				}
-			} while(cnt < 100);
-			try {Thread.sleep(1000);} catch(Exception ee) {}
-		} catch(Exception e) {
-			// do nothing, we should be done
-		}
-
+		showMore(By.cssSelector("button[data-testid=show-more-events-button]"));
+		showMore(By.cssSelector("div[data-testid=show-more-events-button]"));
+		
 		int numGames = 0;
 		WebElement container = 
 				driver.findElement(By.cssSelector("div[data-testid=listview-group-" + MLB_GROUP_NUMBER + "-events-container]"));
 		List<WebElement> games = container.findElements(By.tagName("article"));
 		numGames = games.size();
-//System.out.println("Number of games: " + numGames);		
 
 		
 		
 		for(int gameNum = 0; gameNum < numGames; ++gameNum) {
 
-			// See if we have more events
-			try {
-				WebElement moreEventsLabel = driver
-						.findElement(By.cssSelector("button[data-testid=show-more-events-button]"));
-				int cnt = 0;
-				do {
-					javascriptExecutor.executeScript("javascript:window.scrollBy(0,200)"); 
-					try {
-						moreEventsLabel.click();
-						break;
-					} catch(Exception eee) {
-						try {Thread.sleep(50);} catch(Exception ee) {}
-						cnt++;
-					}
-				} while(cnt < 100);
-				try {Thread.sleep(1000);} catch(Exception ee) {}
-			} catch(Exception e) {
-				// do nothing, we should be done
-			}
-
+			showMore(By.cssSelector("button[data-testid=show-more-events-button]"));
+			showMore(By.cssSelector("div[data-testid=show-more-events-button]"));
+			
 			javascriptExecutor.executeScript("javascript:window.scrollBy(0,-5000)"); 
 			try {Thread.sleep(1000);} catch(Exception ee) {}
 			javascriptExecutor.executeScript("javascript:window.scrollBy(0," + gameNum*200 + ")"); 
@@ -496,14 +458,14 @@ public class BetRivers extends Book {
 						container = driver.findElement(By.cssSelector("div[data-testid=listview-group-" + MLB_GROUP_NUMBER + "-events-container]"));
 						break;
 					} catch(Exception e) {
-						System.out.println("Failed to get container: cnt: " + c);
-						try {Thread.sleep(10L);} catch (InterruptedException e4) {}
+						//System.out.println("Failed to get container: cnt: " + c);
+						try {Thread.sleep(100L);} catch (InterruptedException e4) {}
 						c++;
 					}
-				} while(c < 500);
+				} while(c < 50);
 
 				if(container == null) {
-					System.out.println("failed to get the container");
+					System.out.println("failed to get the container for game number " + gameNum);
 					continue;
 				}
 	// this delay might be important to allow the game list to populate
@@ -512,9 +474,7 @@ public class BetRivers extends Book {
 				c = 0;
 				games = null;
 				do {
-	//System.out.println("Attempting to get games list again ...");
 					games = container.findElements(By.tagName("article"));
-	//System.out.println("Number of games: " + games.size() + ", cnt: " + c);
 					c++;
 				} while(games.size() == 0);
 
@@ -532,7 +492,29 @@ public class BetRivers extends Book {
 				// Get the two teams
 				List<WebElement> parts = games.get(gameNum).findElements(By.cssSelector("div[data-testid=participant-row]"));
 				String awayTeam = parts.get(0).getText();
+				String awayPitcher = null; 
+				try {
+					WebElement pitcher = parts.get(0).findElement(By.cssSelector("div[data-testid=pitcher-stat-line]"));
+					awayPitcher = pitcher.getText().trim();
+				} catch(Exception e) {
+					
+				}
+				
 				String homeTeam = parts.get(1).getText();
+				String homePitcher = null; 
+				try {
+					WebElement pitcher = parts.get(1).findElement(By.cssSelector("div[data-testid=pitcher-stat-line]"));
+					homePitcher = pitcher.getText().trim();
+				} catch(Exception e) {
+					
+				}
+				if(awayPitcher != null) {
+					awayTeam = awayTeam.replace(awayPitcher, "").trim();
+				}
+				if(homePitcher != null) {
+					homeTeam = homeTeam.replace(homePitcher, "").trim();
+				}
+				
 				Team aTeam = null;
 				Team hTeam = null;
 				boolean foundBoth = true;
@@ -550,17 +532,23 @@ public class BetRivers extends Book {
 				if(foundBoth == false) {
 					continue;
 				}
-	System.out.println("Home: " + hTeam.getCommonName());
-	System.out.println("Away: " + aTeam.getCommonName());
 
-	try {Thread.sleep(1000L);} catch (InterruptedException e) {}
+				try {Thread.sleep(1000L);} catch (InterruptedException e) {}
+
 				if(waitForClick(games.get(gameNum)) == false) {
 					System.out.println("Failed to click the game");
 					continue;
 				}
 
-				processMLBGame(oddsList, aTeam, hTeam);
-	//System.out.println("OddsList has " + oddsList.size() + " items");			
+				processMLBGame(oddsList, aTeam, hTeam, gameTime);
+				
+				if(oddsList != null) {
+					for(Odds odds : oddsList) {
+						persistOdds(odds, "odds" + "_" + Sport.MLB_STATS);
+					}
+				}
+				oddsList.clear();
+				
 				driver.navigate().back();
 				try {Thread.sleep(2000L);} catch (InterruptedException e) {}
 
@@ -575,6 +563,28 @@ public class BetRivers extends Book {
 		return oddsList;
 	}
 
+	private void showMore(By by) {
+		
+		// See if we have more events
+		try {
+			WebElement moreEventsLabel = driver.findElement(by);
+			int cnt = 0;
+			do {
+				javascriptExecutor.executeScript("javascript:window.scrollBy(0,200)"); 
+				try {
+					moreEventsLabel.click();
+					break;
+				} catch(Exception eee) {
+					try {Thread.sleep(50);} catch(Exception ee) {}
+					cnt++;
+				}
+			} while(cnt < 100);
+			try {Thread.sleep(1000);} catch(Exception ee) {}
+		} catch(Exception e) {
+			// do nothing, we should be done
+		}
+	}
+	
 	private boolean elementContains(WebElement element, String string) {
 
 		@SuppressWarnings("deprecation")
@@ -594,7 +604,7 @@ public class BetRivers extends Book {
         }
 	}
 
-	private void processMLBGame(List<Odds> oddsList, Team awayTeam, Team homeTeam) {
+	private void processMLBGame(List<Odds> oddsList, Team awayTeam, Team homeTeam, Date gameTime) {
 		
 		WebElement container = waitForElement(By.cssSelector("div.KambiBC-event-page-component__column--1"));
 		if(container == null) {
@@ -604,13 +614,10 @@ public class BetRivers extends Book {
 
 		try {Thread.sleep(2000L);} catch (InterruptedException e) {}
 		
-		List<WebElement> selections = container.findElements(By.cssSelector("li.KambiBC-bet-offer-category"));
-		for(WebElement section : selections) {
+		List<WebElement> sections = container.findElements(By.cssSelector("li.KambiBC-bet-offer-category"));
+		for(int sectionNum = 0; sectionNum < sections.size(); ++sectionNum) {
 
-//			if(elementContains(section, "KambiBC-expanded") == false) {
-//				WebElement h2 = section.findElement(By.tagName("h2"));
-//				waitForClick(h2);
-//			}
+			WebElement section = sections.get(sectionNum);
 
 			// Get the section name
 			WebElement button = section.findElement(By.cssSelector("button[id^=bet-offer-category-header]"));
@@ -618,35 +625,329 @@ public class BetRivers extends Book {
 			String sectionName = label.getText().trim();
 
 			placeElementInView(label);
-			
+
 			switch(sectionName) {
 			
 				case "Most Popular":
-					processMostPopular(section, oddsList, homeTeam, awayTeam);
-					return;
-//					break;
+					processMostPopular(section, oddsList, homeTeam, awayTeam, gameTime);
+					break;
+
 				case "Batter HRs":
-				case "Inning 1":
 				case "Batter Hits":
-				case "Pitcher Props":
 				case "Total Bases":
 				case "Batter RBIs":
 				case "Batter Runs":
 				case "Stolen Bases":
-				case "Innings":
+
+					// Expand the section
+					if(elementContains(section, "KambiBC-expanded") == false) {
+						WebElement h2 = section.findElement(By.tagName("h2"));
+						waitForClick(h2);
+					}
+
+					// Refresh the objects
+					int tries = 0;
+					boolean success = false;
+					do {
+						try {
+							container = waitForElement(By.cssSelector("div.KambiBC-event-page-component__column--1"));
+							sections = container.findElements(By.cssSelector("li.KambiBC-bet-offer-category"));
+							section = sections.get(sectionNum);
+							processBatter(section, oddsList, awayTeam, homeTeam);
+							success = true;
+						} catch(Exception ewok) {
+							System.out.println(
+									"Exception processing " + awayTeam.getCommonName() + " at " + homeTeam.getCommonName() + 
+									" for " + sectionName + ": cnt is " + tries);
+							tries++;
+						}
+					} while((tries < 5) && (success == false));
+					break;
+
 				case "Team Totals":
+					break;
+
+				case "Inning 1":
+				case "Pitcher Props":
+				case "Innings":
 				case "Listed Pitcher":
 				case "Game Props":
-					//break;
-					continue;
+					break;
+				
 				default:
 					System.out.println("Unknown section label: " + sectionName);
-			}			
+			}		
 		}
 		
 		return;
 	}
 	
+	private void processBatter(WebElement section, List<Odds> oddsList, Team awayTeam, Team homeTeam) {
+		
+		MLB_STAT mlbStat = null;
+
+		WebElement button = section.findElement(By.cssSelector("button[id^=bet-offer-category-header]"));
+		WebElement label  = button.findElement(By.tagName("h2"));
+		String sectionName = label.getText().trim();
+
+		placeElementInView(label);
+		
+		switch(sectionName) {
+			case "Batter HRs":   mlbStat = MLB_STAT.HR;    break;
+			case "Batter Hits":  mlbStat = MLB_STAT.HITS;  break;
+			case "Total Bases":  mlbStat = MLB_STAT.BASES; break;
+			case "Batter RBIs":  mlbStat = MLB_STAT.RBI;   break;
+			case "Batter Runs":  mlbStat = MLB_STAT.RUNS;  break;
+			case "Stolen Bases": mlbStat = MLB_STAT.SB;    break;
+		}
+
+		// Get all the subcategories
+		// subcat would represent the grouping for the category (ex: for Batter Hits category
+		//  the two subcats would be one for singles and one for doubles)
+		List<WebElement> subCats = section.findElements(By.cssSelector("li.KambiBC-bet-offer-subcategory"));
+		for(WebElement subCat : subCats) {
+			
+			// This will have the description of what's here
+			// ex: Total Hits by the Player - Including Extra Innings (Listed player must 
+			//       be in starting lineup for bets to stand) (Over)
+			WebElement hdr  = subCat.findElement(By.cssSelector("div.KambiBC-bet-offer-subcategory__header"));
+			
+			Double overUnder = getOUFromHeader(hdr);
+			mlbStat = updateMlbStatFromHeader(hdr, mlbStat);
+			
+			// This is the list of offers for it
+			// We need to determine the type of offers listing here
+			// Seem to come in two flavors - one column and two
+			WebElement offers = subCat.findElement(By.cssSelector("div.KambiBC-bet-offer-subcategory__outcomes-list"));
+			WebElement outList = offers.findElement(By.cssSelector("div.KambiBC-outcomes-list"));
+			@SuppressWarnings("deprecation")
+			String classes = outList.getAttribute("class");
+			boolean oneColumn = Arrays.asList(classes.split(" ")).contains("KambiBC-outcomes-list--columns-1");
+			boolean twoColumn = Arrays.asList(classes.split(" ")).contains("KambiBC-outcomes-list--columns-2");
+
+			if((oneColumn == false) && (twoColumn == false)) {
+				System.out.println("Did not determine if subcategory was one or two columns: SectionName: " + sectionName);
+				continue;
+			}
+			if(oneColumn && twoColumn) {
+				System.out.println("Subcategory marked as both one and two columns: SectionName: " + sectionName);
+				continue;
+			}
+
+			List<OuRecord> records = getRecords(offers, oneColumn, overUnder);
+				
+			for(OuRecord record : records) {
+					
+				// Convert to Odds struct
+				Odds odds = new Odds();
+
+				Player pl = null;
+				Team theTeam = null;
+
+				try {
+					Object res = getPlayer(Arrays.asList(awayTeam, homeTeam), record.getName());
+					if(res != null) {
+						if(res instanceof Player) {
+							odds.setPlayer1((Player)res);
+							odds.setPlayer2((Player)res);
+							theTeam = ((Player)res).getTeam();
+						} else if(res instanceof Team) {
+							try {
+								theTeam = (Team)res;
+								Team t = null;
+								if(homeTeam.getCommonName().contentEquals(theTeam.getCommonName())) {
+									t = homeTeam;
+								} else if(awayTeam.getCommonName().contentEquals(theTeam.getCommonName())) {
+									t = awayTeam;
+								} else {
+									System.out.println("Team returned isn't either team, this shouldn't happen");
+									continue;
+								}
+								pl = getPlayer(t, record.getName());
+								odds.setPlayer1(pl);
+								odds.setPlayer2(pl);
+							} catch(Exception e2) {
+								System.out.println("Failed to find player: " + record.getName());
+								continue;
+							}
+						}
+					}
+				} catch(Exception ee) {
+					System.out.println("Failed to find player: " + record.getName());
+					continue;
+				}
+					
+				odds.setTimeStamp(new Date());
+				odds.setBook(this.sportsbook);
+				odds.setSport(Sport.MLB_STATS);
+				odds.setPeriod(Period.GAME); 
+				odds.setStatus(Status.SCHEDULED);
+				odds.setMlbStat(mlbStat);
+				odds.setOu(record.getOu());
+				odds.setHome(theTeam);
+				odds.setAway(theTeam);
+						
+				oddsList.add(odds);
+			}
+		}
+	}
+
+	private List<OuRecord> getRecords(WebElement columnContainer, boolean oneColumn, Double overUnder) {
+
+		List<OuRecord> records = new ArrayList<>();
+
+		List<WebElement> columns = columnContainer.findElements(By.cssSelector("div.KambiBC-outcomes-list__column"));
+		if(oneColumn && (columns.size() != 1)) {
+			System.out.println("Wrong number of columns: should have one but found " + columns.size());
+			return records;
+		}
+		if(!oneColumn && (columns.size() != 2)) {
+			System.out.println("Wrong number of columns: should have two but found " + columns.size());
+			return records;
+		}
+
+		if(oneColumn) {
+			
+			String currentName = null;
+			String points = null;
+			String ml = null;
+			Double pts = null;
+			Integer moneyLine = null;
+			
+			// Get all the first descendants and process that way
+			List<WebElement> descendants = null;
+			descendants = columns.get(0).findElements(By.xpath("./*"));
+			for(int index = 0; index < descendants.size(); ++index) {
+				descendants = columns.get(0).findElements(By.xpath("./*"));
+				WebElement desc = descendants.get(index);
+				if(desc.getTagName().contentEquals("div")) {
+					@SuppressWarnings("deprecation")
+					String classes = desc.getAttribute("class");
+					boolean participant = Arrays.asList(classes.split(" ")).contains("KambiBC-outcomes-list__row-header--participant");
+					if(participant) {
+						currentName = desc.getText().trim().toUpperCase();
+					} else {
+						currentName = null;
+					}
+				} else if(desc.getTagName().contentEquals("button")) {
+					WebElement firstDiv = desc.findElement(By.xpath("./*"));
+					List<WebElement> nextTwoDivs = firstDiv.findElements(By.xpath("./*"));
+					List<WebElement> nextNextTwoDivs = nextTwoDivs.get(0).findElements(By.xpath("./*"));
+					points = nextNextTwoDivs.get(1).getText();
+					ml = nextTwoDivs.get(1).getText();
+
+					try {
+						pts = Double.parseDouble(points);
+						moneyLine = Integer.parseInt(ml);
+					} catch(Exception e) {
+						System.out.println("Exception parsing either points or moneyline: Points: " + points + ", ML: " + ml); 
+						continue;
+					}
+
+					// Create a new record
+					OuRecord r = new OuRecord();
+					r.setName(currentName);
+					OU ou = new OU();
+					ou.setOver(moneyLine);
+					ou.setPeriod(Period.GAME);
+					ou.setPoints(pts);
+					r.setOu(ou);
+					records.add(r);
+				}
+			} // for all descendants
+			
+		} else { // two column
+
+			List<WebElement> names = null;
+			List<WebElement> lines = null;
+			names = columns.get(0).findElements(By.xpath("./*"));
+			lines = columns.get(1).findElements(By.xpath("./*"));
+
+			if(names.size() != lines.size()) {
+				System.out.println("The column lengths do not match: names is " + names.size() + ", lines is " + lines.size());
+				return records;
+			}
+
+			for(int index = 1; index < names.size(); ++index) {
+				
+				names = columns.get(0).findElements(By.xpath("./*"));
+				lines = columns.get(1).findElements(By.xpath("./*"));
+
+				Integer ml = null;
+				try {
+					ml = Integer.parseInt(lines.get(index).getText());
+				} catch(Exception e) {
+					System.out.println("Failed to parse 2 column ml of " + lines.get(index).getText());
+				}
+
+				// Create a new record
+				OuRecord r = new OuRecord();
+				r.setName(names.get(index).getText().trim().toUpperCase());
+				OU ou = new OU();
+				ou.setOver(ml);
+				ou.setPeriod(Period.GAME);
+				ou.setPoints(overUnder);
+				r.setOu(ou);
+				records.add(r);
+			}
+		}
+
+		return records;
+	}
+
+	private MLB_STAT updateMlbStatFromHeader(WebElement hdr, MLB_STAT mlbStat) {
+
+		String headerString = hdr.getText();
+		switch(headerString) {
+		
+			case "Player to Hit a Home Run - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+				return mlbStat;
+			case "Player to hit 2 or more Home Runs - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+				return mlbStat;
+			case "Player to hit 3 or more Home Runs - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+				return mlbStat;
+			case "Total Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+				return mlbStat;
+			case "Total Doubles by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+				return MLB_STAT.DOUBLES;
+			case "Total Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+				return mlbStat;
+			case "Total RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+				return mlbStat;
+			case "Total Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+				return mlbStat;
+			case "Total Stolen Bases by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+				return mlbStat;
+			default:
+				System.out.println("Don't have this header string registered: " + headerString);
+		}
+		return mlbStat;
+	}
+	
+	private Double getOUFromHeader(WebElement hdr) {
+
+		String headerString = hdr.getText();
+		switch(headerString) {
+		
+			case "Player to Hit a Home Run - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+				return 0.5;
+			case "Player to hit 2 or more Home Runs - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+				return 1.5;
+			case "Player to hit 3 or more Home Runs - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+				return 2.5;
+			case "Total Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+			case "Total Doubles by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+			case "Total Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+			case "Total RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+			case "Total Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+			case "Total Stolen Bases by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+				break; // fall through, return null
+			default:
+				System.out.println("Don't have this header string registered: " + headerString);
+		}
+		return null;
+	}
+
 	private void placeElementInView(WebElement element) {
 	
 		int cnt = 0;
@@ -657,16 +958,18 @@ public class BetRivers extends Book {
 				found = true;
 				break;
 			} else {
-				try {Thread.sleep(50L);} catch (InterruptedException e) {}
+				try {Thread.sleep(5L);} catch (InterruptedException e) {}
 			}
 		} while(cnt < 100);
+		
+		//System.out.println("PlaceElementInView: Cnt: " + cnt + ", Name: " + element.getText());
 		
 		if(found == false) {
 			System.out.println("Failed to get element in view: " + element.getText());
 		}
 	}
 
-	private void processMostPopular(WebElement section, List<Odds> oddsList, Team homeTeam, Team awayTeam) {
+	private void processMostPopular(WebElement section, List<Odds> oddsList, Team homeTeam, Team awayTeam, Date gameTime) {
 
 		// Expand Show Lists
 		List<WebElement> showLists = section.findElements(By.cssSelector("button[aria-label^='Show list']"));
@@ -732,6 +1035,7 @@ public class BetRivers extends Book {
 				odds.setSpread(s);
 				odds.setHome(homeTeam);
 				odds.setAway(awayTeam);
+				odds.setGameDateTime(gameTime);
 					
 				oddsList.add(odds);
 
@@ -785,6 +1089,7 @@ public class BetRivers extends Book {
 				odds.setOu(ou);
 				odds.setHome(homeTeam);
 				odds.setAway(awayTeam);
+				odds.setGameDateTime(gameTime);
 					
 				oddsList.add(odds);
 
@@ -792,58 +1097,6 @@ public class BetRivers extends Book {
 				// do nothing
 			}
 		}		
-	}
-
-	private boolean waitForClick(WebElement element) {
-
-		boolean success = false;
-		int cnt = 0;
-		do {
-			try {
-				javascriptExecutor.executeScript("javascript:window.scrollBy(0,10)"); 
-				element.click();
-				try {Thread.sleep(100);} catch(Exception ee) {}
-				success = true;
-				break;
-			} catch(Exception eee) {
-				try {Thread.sleep(20);} catch(Exception ee) {}
-				cnt++;
-			}
-		} while(cnt < 500);
-
-		return success;
-	}
-
-	private WebElement waitForElement(By by) {
-		WebElement rtn = null;
-		int cnt = 0;
-		do {
-			try {
-				rtn = driver.findElement(by);
-				break;
-			} catch(Exception e) {
-				try {Thread.sleep(100);} catch(Exception ee) {}
-				cnt++;
-			}
-		} while(cnt < 20);
-
-		return rtn;
-	}
-
-	private WebElement waitForElement(WebElement fromElement, By by) {
-		WebElement rtn = null;
-		int cnt = 0;
-		do {
-			try {
-				rtn = fromElement.findElement(by);
-				break;
-			} catch(Exception e) {
-				try {Thread.sleep(100);} catch(Exception ee) {}
-				cnt++;
-			}
-		} while(cnt < 20);
-
-		return rtn;
 	}
 
 	private List<Odds> parseTeamEvent(List<String> files, Sport sport) {
@@ -1124,9 +1377,44 @@ public class BetRivers extends Book {
 							hour = 0;
 						}
 					}
-				} else if(parts[0].contains("Starting in")) {
+				} else if(parts[0].toUpperCase().contains("STARTING")) {
 					gameTime = new Date(); // just use right now, close enough
-				} else { // date of the form m/d/y
+				} else if(Arrays.asList("SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT").contains(parts[0].toUpperCase())) {
+					String[] days = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+					int gameDow = 0;
+					for(String d : days) {
+						if(parts[0].toUpperCase().contentEquals(d)) {
+							break;
+						}
+						gameDow++;
+					}
+					if((gameDow >= 7)) {
+						System.out.println("Failed to find the day for " + parts[0]);
+					} else {
+						int currDow = c.get(Calendar.DAY_OF_WEEK) - 1;
+						if(gameDow < currDow) {
+							gameDow += 7;
+						}
+
+						c.add(Calendar.DATE, (gameDow-currDow));
+						month = c.get(Calendar.MONTH) + 1;
+						day = c.get(Calendar.DAY_OF_MONTH);
+						year = c.get(Calendar.YEAR);
+						String dateStr = parts[1];
+						String[] hm = dateStr.split(":");
+						hour = Integer.parseInt(hm[0]);
+						minute = Integer.parseInt(hm[1].replace("AM", "").replace("PM", ""));
+						if(parts[2].contains("PM")) {
+							if(hour != 12) {
+								hour +=12;
+							}
+						} else {
+							if(hour == 12) {
+								hour = 0;
+							}
+						}
+					}
+				} else { // date of the form m/d/y h:mm a/p
 					String[] mdy = parts[0].split("/");
 					month = Integer.parseInt(mdy[0]);
 					day = Integer.parseInt(mdy[1]);

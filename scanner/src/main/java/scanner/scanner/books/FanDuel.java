@@ -580,6 +580,11 @@ public class FanDuel extends Book {
 		String home = null;
 		
 		try {
+			Elements hrefs = e.select("a[href]");
+			if(hrefs != null) {
+				String url = hrefs.get(0).attr("href");
+				odds.setUrl(url);
+			}
 			Elements anchor = e.select("div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > a:nth-child(1)");
 			Elements spans = anchor.select("span[aria-label]");
 			

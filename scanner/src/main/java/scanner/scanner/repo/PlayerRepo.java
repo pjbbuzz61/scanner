@@ -6,10 +6,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Repository;
 
 import scanner.scanner.model.Player;
 import scanner.scanner.model.Team;
+import scanner.scanner.util.Sport;
 
 @Repository
 public class PlayerRepo {
@@ -28,7 +30,14 @@ public class PlayerRepo {
     	return mongoTemplate.find(q, Player.class);
     }
 
-	public void setMongoTemplate(MongoTemplate mongoTemplate) {
+    public List<Player> find(Team team) {
+    	Query q = new Query();
+    	q.addCriteria(Criteria.where("team.commonName").is(team.getCommonName()));
+    	q.addCriteria(Criteria.where("team.sport").is(team.getSport()));
+    	return mongoTemplate.find(q, Player.class);
+    }
+
+    public void setMongoTemplate(MongoTemplate mongoTemplate) {
 		this.mongoTemplate = mongoTemplate;
 	}
 
@@ -42,10 +51,21 @@ public class PlayerRepo {
 
 	public Player getExistingPlayer(Team team, String commonName) {
     	Query q = new Query();
-//    	q.addCriteria(Criteria.where("team.id").is(team.getId()));
     	q.addCriteria(Criteria.where("team.commonName").is(team.getCommonName()));
     	q.addCriteria(Criteria.where("commonName").is(commonName));
     	return mongoTemplate.findOne(q, Player.class);
+	}
+
+	public void updateTeam(Player player, Team team) {
+
+    	Query q = new Query();
+    	q.addCriteria(Criteria.where("commonName").is(player.getCommonName()));
+    	q.addCriteria(Criteria.where("team.book").is(player.getTeam().getBook()));
+    	q.addCriteria(Criteria.where("team.commonName").is(player.getTeam().getCommonName()));
+    	q.addCriteria(Criteria.where("team.sport").is(player.getTeam().getSport()));
+		Update update = new Update();
+		update.set("team", team);
+		mongoTemplate.updateFirst(q, update, Player.class);
 	}
 
 }
