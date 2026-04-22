@@ -1799,6 +1799,8 @@ public class BetMGM extends Book {
 	
 	public static void main(String args[]) {
 
+		System.out.println("Processing BETMGM");
+
 		if(args.length < 2) {
 			System.out.println("Requires two args: sport and delete odds flag, along with optional useDriver flag");
 			return;

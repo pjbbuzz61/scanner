@@ -1592,8 +1592,10 @@ private List<Odds> parseTennis(String file, Sport sport) {
 	
 	public static void main(String args[]) {
 
+		System.out.println("Processing ESPN");
+		
 		if(args.length < 2) {
-			System.out.println("Requires two args: sport and delete odds flag, alogn with optional useDriver flag");
+			System.out.println("Requires two args: sport and delete odds flag, along with optional useDriver flag");
 			return;
 		}
 		Sport sport = null;

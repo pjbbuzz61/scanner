@@ -567,6 +567,7 @@ public class FinderService {
 		String     part2    = null;
 		Integer    minSrc   = null;
 		Integer    maxSrc   = null;
+		String     host     = "localhost";
 		
 		
 		// Handle input args
@@ -679,6 +680,10 @@ public class FinderService {
 			        }
 					break;
 
+				case "host":
+					host = parts[1];
+					break;
+					
 				case "pct2":
 					try {
 						pct2 = Double.valueOf(parts[1]);
@@ -694,7 +699,7 @@ public class FinderService {
 		
 		FinderService service = new FinderService();
 		
-		MongoTemplate mongoTemplate = new MongoTemplate(MongoClients.create("mongodb://localhost:27017"), "scanner");
+		MongoTemplate mongoTemplate = new MongoTemplate(MongoClients.create("mongodb://" + host + ":27017"), "scanner");
 
 		OddsService os = new OddsService();
 		OddsRepo oRepo = new OddsRepo();

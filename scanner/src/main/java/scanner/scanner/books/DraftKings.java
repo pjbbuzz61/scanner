@@ -1189,6 +1189,8 @@ public class DraftKings extends Book {
 	
 	public static void main(String args[]) {
 
+		System.out.println("Processing DRAFTKINGS");
+
 		if(args.length < 2) {
 			System.out.println("Requires two args: sport and delete odds flag, along with optional useDriver flag");
 			return;
