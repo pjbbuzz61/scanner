@@ -33,7 +33,7 @@ FanDuel
  NOTE: you can set the to and from record fields with an up to 100 diff. So set first time to 1 to 100, 
        the next 101 to 200, etc
 
-ESPN:
+ESPN: (589)
  login, go to MyBets on the left, go to Settled and select all. The urls seem to start with something random
  each time so it has to be figured out. I ended up using Chrome to capture back from 2/14 to jan 1 because all 
  the responses after about 30 days were getting truncated in FF. Worked in chrome, but I used the RemoveRtns class 

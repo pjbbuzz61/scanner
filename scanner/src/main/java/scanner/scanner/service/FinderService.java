@@ -712,8 +712,35 @@ public class FinderService {
 				book1, amt1, pct1, part1,
 				book2, amt2, pct2, part2,
 				minSrc, maxSrc);
+
+		// If this is a scalp for MLB_STATS adjust the bet amounts to set the negative ML to 100
+		if((sport == Sport.MLB_STATS) && (pct1 != null) && (pct1 == 0)) {
+			for(Play p : bestPlays) {
+				adjustBetSizes(p);
+			}
+			bestPlays.sort(Comparator.comparing(Play::getPerformance).reversed());
+		}
+
 		for(Play p : bestPlays) {
 			System.out.println(p);
+		}
+	}
+
+	private static void adjustBetSizes(Play p) {
+		if(p.getSrcML() < 0) {
+			double multFactor = 100.0/p.getSrcBetAmt();
+			p.setSrcBetAmt(100.0);
+			p.setSrcRtnAmt(p.getSrcRtnAmt() * multFactor);
+			p.setTgtBetAmt(p.getTgtBetAmt() * multFactor);
+			p.setTgtRtnAmt(p.getTgtRtnAmt() * multFactor);
+			p.setPerformance(p.getPerformance()*multFactor);
+		} else if(p.getTgtML() < 0) {
+			double multFactor = 100.0/p.getTgtBetAmt();
+			p.setTgtBetAmt(100.0);
+			p.setTgtRtnAmt(p.getTgtRtnAmt() * multFactor);
+			p.setSrcBetAmt(p.getSrcBetAmt() * multFactor);
+			p.setSrcRtnAmt(p.getSrcRtnAmt() * multFactor);
+			p.setPerformance(p.getPerformance()*multFactor);
 		}
 	}
 

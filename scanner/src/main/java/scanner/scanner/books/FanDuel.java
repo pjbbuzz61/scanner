@@ -14,14 +14,18 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.TimeZone;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -51,6 +55,7 @@ import scanner.scanner.service.OddsService;
 import scanner.scanner.service.PlayerService;
 import scanner.scanner.service.TeamService;
 import scanner.scanner.service.UpdateService;
+import scanner.scanner.util.MLB_STAT;
 import scanner.scanner.util.Period;
 import scanner.scanner.util.Sport;
 import scanner.scanner.util.Sportsbook;
@@ -86,6 +91,11 @@ public class FanDuel extends Book {
 		if(useDriver) {
 			
 			refresh(sport);
+			if(sport == Sport.MLB_STATS) {
+				parseMlbStats();
+				quitDriver();
+				return null;
+			}
 			
 			try {
 
@@ -272,6 +282,429 @@ public class FanDuel extends Book {
 
 	}
 	
+	private void parseMlbStats() {
+		
+		List<WebElement> uls = driver.findElements(By.tagName("ul"));
+		List<WebElement> lis = null;
+		WebElement ul = null;
+
+		int ulsSize = uls.size();
+		for(int ulIndex = 0; ulIndex < ulsSize; ++ulIndex) {
+			ul = uls.get(ulIndex);
+			if(ul.getText().contains("MLB Odds")) {
+				// This (might be/is) the one we want
+				// Now grab the li with "More wagers"
+				lis = ul.findElements(By.tagName("li"));
+				int liSize = lis.size(); 
+				for(int liIndex = 0; liIndex < liSize; ++liIndex) {
+					WebElement li = lis.get(liIndex);
+					if(li.getText().contains("More wagers")) {
+						
+						// See if game is live. If so, ignore
+						try {
+							li.findElement(By.cssSelector("svg[aria-label='live event']"));
+							continue;
+						} catch(Exception e) {
+							// do nothing, event is pre-match
+						}
+
+						// Get the game time
+						WebElement time = li.findElement(By.tagName("time"));
+						@SuppressWarnings("deprecation")
+						String dt = time.getAttribute("datetime");
+						SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.sss'Z'"); 
+						sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+						Date gameDateTime = null;
+						try {
+							gameDateTime = sdf.parse(dt);
+						} catch (ParseException e) {
+							System.out.println("Failed to parse the game time: " + dt);
+							continue;
+						}
+
+						List<WebElement> anchors = li.findElements(By.tagName("a"));
+						boolean found = false;
+						for(WebElement anchor : anchors) {
+							if(anchor.getText().contentEquals("More wagers")) {
+								waitForClick(anchor);
+								found = true;
+								break;
+							}
+						}
+						if(found) {
+							
+							// process the game
+							List<Odds> oddsList = processMlbGame(gameDateTime);
+							
+							if(oddsList != null) {
+								for(Odds odds : oddsList) {
+									persistOdds(odds, "odds" + "_" + Sport.MLB_STATS);
+								}
+							}
+							oddsList.clear();
+							
+							driver.navigate().back();
+
+							// doing this just to make it look good :)
+							try {Thread.sleep(1000);} catch(Exception ee) {}
+
+							// reload all the objects from the original screen
+							uls = driver.findElements(By.tagName("ul"));
+							ul = uls.get(ulIndex);
+							lis = ul.findElements(By.tagName("li"));
+						}
+					}
+				}
+			}
+		}
+
+		
+		return;
+	}
+
+	private List<Odds> processMlbGame(Date gameDateTime) {
+
+		List<Odds> oddsList = new ArrayList<>();
+		
+		WebElement breadcrumbs = waitForElement(By.cssSelector("nav[aria-label=Breadcrumbs]"));
+
+		// Find all the nav tags so I can hit the Batter Props
+		List<WebElement> navs = driver.findElements(By.tagName("nav"));
+		boolean found = false;
+		for(WebElement nav : navs) {
+			if(nav.getText().contains("Batter Props")) {
+				List<WebElement> anchors = nav.findElements(By.tagName("a"));
+				for(WebElement anchor : anchors) {
+					if(anchor.getText().contains("Batter Props")) {
+						waitForClick(anchor);
+						found = true;
+						break;
+					}
+				}
+				if(found) {
+					// sleep a little before going back
+					try {Thread.sleep(2000);} catch(Exception ee) {}
+				}
+			}
+			if(found) {
+				break;
+			}
+		}
+
+		// Get the Teams and the date and time
+		breadcrumbs = waitForElement(By.cssSelector("nav[aria-label=Breadcrumbs]"));
+		String brd = breadcrumbs.getText();
+		String parts[] = brd.split("/");
+		String teamParts[] = parts[2].replace("Odds", "").split("@");
+		String awayTeam = teamParts[0].trim();
+		String homeTeam = teamParts[1].trim();
+		System.out.println(awayTeam + " at " + homeTeam);
+		boolean failed = false;
+		Team away = null;
+		Team home = null;
+		try {
+			away = getTeam(this.sportsbook, Sport.MLB_STATS, awayTeam, true);
+		} catch(Exception e3) {
+			failed = true;
+		}
+		try {
+			home = getTeam(this.sportsbook, Sport.MLB_STATS, homeTeam, true);
+		} catch(Exception e3) {
+			failed = true;
+		}
+		if(failed) {
+			return oddsList;
+		}
+
+		// Find all the topics I want and expand/Show More on them so I only have to read in the data once
+		WebElement main = driver.findElement(By.id("main"));
+		List<WebElement> uls = main.findElements(By.tagName("ul"));
+		for(WebElement ul : uls) {
+			if(ul.getText().contains("To Hit A Single")) {
+				List<WebElement> lis = ul.findElements(By.tagName("li"));
+				for(WebElement li : lis) {
+					try {
+						WebElement button = li.findElement(By.cssSelector("div[aria-expanded]"));
+						if(topicOfInterest(button.getText())) {
+							expandTopic(li);
+						}
+					} catch(Exception e) {} // do nothing, not an li we're looking for
+				}
+				
+			}
+		}
+		
+		// Batter props are up -- process them
+		main = driver.findElement(By.id("main"));
+		uls = main.findElements(By.tagName("ul"));
+		for(WebElement ul : uls) {
+			if(ul.getText().contains("To Hit A Single")) {
+				List<WebElement> lis = ul.findElements(By.tagName("li"));
+				for(WebElement li : lis) {
+					try {
+						li.findElement(By.cssSelector("div[aria-expanded]"));
+						processBatterProp(li, away, home, gameDateTime, oddsList);
+					} catch(Exception e) {} // do nothing, not an li we're looking for
+				}
+				
+			}
+		}
+		
+		return oddsList;
+	}
+
+	private void expandTopic(WebElement element) {
+		WebElement button = element.findElement(By.cssSelector("div[aria-expanded]"));
+		@SuppressWarnings("deprecation")
+		String expanded = button.getAttribute("aria-expanded");
+		if(expanded.contentEquals("false")) {
+			waitForClick(button);
+		}
+
+		try {
+			WebElement showMore = element.findElement(By.cssSelector("div[aria-label='Show more']"));
+			waitForClick(showMore);
+		} catch(Exception e) {}
+
+	
+	}
+
+	private boolean topicOfInterest(String title) {
+
+		switch(title) {
+			case "To Hit A Home Run":
+			case "To Record A Hit":
+			case "To Record 2+ Hits":
+			case "To Record A Stolen Base":
+			case "To Record A Run":
+			case "To Record An RBI":
+			case "Player To Record 1+ Hits + Runs + RBIs":
+			case "Player To Record 2+ Hits + Runs + RBIs":
+			case "To Record 2+ Total Bases":
+			case "To Record 3+ Total Bases":
+			case "To Hit A Single":
+			case "To Hit A Double":
+			case "To Hit A Triple":
+				return true;
+			case "Player to Hit a Home Run in First Plate Appearance":
+			case "To Hit 2+ Home Runs":
+			case "Home Run / Moneyline Parlay":
+			case "To Record 3+ Hits":
+			case "To Record 4+ Hits":
+			case "To Record 2+ Stolen Bases":
+			case "To Record 2+ Runs":
+			case "To Record 2+ RBIs":
+			case "Player To Record 3+ Hits + Runs + RBIs":
+			case "Player To Record 4+ Hits + Runs + RBIs":
+			case "To Record 4+ Total Bases":
+			case "To Record 5+ Total Bases":
+			case "To Record 3+ Runs":
+			case "To Record 3+ RBIs":
+			case "To Record 4+ RBIs":
+				return false;
+			default:
+				System.out.println("Unknown Title for section: " + title);
+				return false;
+		}
+	}
+
+	private void processBatterProp(WebElement element, Team away, Team home, Date gameDateTime, List<Odds> oddsList) {
+
+		MLB_STAT mlbStat = null;
+		Double overUnderPoints = null;
+		boolean process = true;
+		
+		WebElement button = element.findElement(By.cssSelector("div[aria-expanded]"));
+
+		String title = button.getText();
+		switch(title) {
+			
+			case "To Hit A Home Run":
+				mlbStat = MLB_STAT.HR;
+				overUnderPoints = 0.5;
+				break;
+
+			case "To Record A Hit":
+				mlbStat = MLB_STAT.HITS;
+				overUnderPoints = 0.5;
+				break;
+
+			case "To Record 2+ Hits":
+				mlbStat = MLB_STAT.HITS;
+				overUnderPoints = 1.5;
+				break;
+
+			case "To Record A Stolen Base":
+				mlbStat = MLB_STAT.SB;
+				overUnderPoints = 0.5;
+				break;
+
+			case "To Record A Run":
+				mlbStat = MLB_STAT.RUNS;
+				overUnderPoints = 0.5;
+				break;
+
+			case "To Record An RBI":
+				mlbStat = MLB_STAT.RBI;
+				overUnderPoints = 0.5;
+				break;
+
+			case "Player To Record 1+ Hits + Runs + RBIs":
+				mlbStat = MLB_STAT.H_R_RBI;
+				overUnderPoints = 0.5;
+				break;
+
+			case "Player To Record 2+ Hits + Runs + RBIs":
+				mlbStat = MLB_STAT.H_R_RBI;
+				overUnderPoints = 1.5;
+				break;
+
+			case "To Record 2+ Total Bases":
+				mlbStat = MLB_STAT.BASES;
+				overUnderPoints = 1.5;
+				break;
+
+			case "To Record 3+ Total Bases":
+				mlbStat = MLB_STAT.BASES;
+				overUnderPoints = 2.5;
+				break;
+
+			case "To Hit A Single":
+				mlbStat = MLB_STAT.SINGLES;
+				overUnderPoints = 0.5;
+				break;
+
+			case "To Hit A Double":
+				mlbStat = MLB_STAT.DOUBLES;
+				overUnderPoints = 0.5;
+				break;
+
+			case "To Hit A Triple":
+				mlbStat = MLB_STAT.TRIPLES;
+				overUnderPoints = 0.5;
+				break;
+
+			case "Player to Hit a Home Run in First Plate Appearance":
+			case "To Hit 2+ Home Runs":
+			case "Home Run / Moneyline Parlay":
+			case "To Record 3+ Hits":
+			case "To Record 4+ Hits":
+			case "To Record 2+ Stolen Bases":
+			case "To Record 2+ Runs":
+			case "To Record 3+ Runs":
+			case "To Record 2+ RBIs":
+			case "To Record 3+ RBIs":
+			case "To Record 4+ RBIs":
+			case "Player To Record 3+ Hits + Runs + RBIs":
+			case "Player To Record 4+ Hits + Runs + RBIs":
+			case "To Record 4+ Total Bases":
+			case "To Record 5+ Total Bases":
+				process = false;
+				break;
+				
+			default:
+				System.out.println("Unknown Title for section: " + title);
+				process = false;
+				break;
+		}
+
+		if(process) {
+			
+			WebElement firstDiv  = element.findElement(By.xpath("./*"));
+			WebElement secondDiv = firstDiv.findElement(By.xpath("./*"));
+			WebElement thirdDiv  = secondDiv.findElement(By.xpath("./*"));
+			List<WebElement> divList = thirdDiv.findElements(By.xpath("./*"));
+
+			for(int index = 2; index < divList.size(); ++index) {
+				WebElement currDiv = divList.get(index);
+				WebElement currDiv2 = currDiv.findElement(By.xpath("./*"));
+				WebElement currDiv3 = currDiv2.findElement(By.xpath("./*"));
+				WebElement currDiv4 = currDiv3.findElement(By.xpath("./*"));
+				WebElement currDiv5 = currDiv4.findElement(By.xpath("./*"));
+				List<WebElement> divListForLine = currDiv5.findElements(By.xpath("./*"));
+				for(WebElement theDiv : divListForLine) {
+					
+					List<WebElement> spans = theDiv.findElements(By.tagName("span"));
+					String currentPlayer = null;
+					for(int spanIndex = 0; spanIndex < spans.size(); spanIndex+=2) {
+
+						currentPlayer = spans.get(spanIndex).getText();
+
+						Player pl = null;
+						Team theTeam = null;
+							
+						// Find the player first
+						try {
+							Object res = getPlayer(Arrays.asList(away, home), currentPlayer);
+							if(res != null) {
+								if(res instanceof Player) {
+									pl = (Player)res;
+									theTeam = pl.getTeam();
+								} else if(res instanceof Team) {
+									try {
+										theTeam = (Team)res;
+										Team t = null;
+										if(home.getCommonName().contentEquals(theTeam.getCommonName())) {
+											t = home;
+										} else if(away.getCommonName().contentEquals(theTeam.getCommonName())) {
+											t = away;
+										} else {
+											System.out.println("Team returned isn't either team, this shouldn't happen");
+											continue;
+										}
+										pl = getPlayer(t, currentPlayer);
+									} catch(Exception e2) {
+										System.out.println("Failed to find player: " + currentPlayer);
+										continue;
+									}
+								}
+							}
+						} catch(Exception ee) {
+							System.out.println("Failed to find player: " + currentPlayer);
+							continue;
+						}
+
+						try {
+							Integer ml = Integer.parseInt(spans.get(spanIndex+1).getText());
+							Odds odds = new Odds();
+							odds.setTimeStamp(new Date());
+							odds.setBook(this.sportsbook);
+							odds.setSport(Sport.MLB_STATS);
+							odds.setPeriod(Period.GAME); 
+							odds.setStatus(Status.SCHEDULED);
+							odds.setMlbStat(mlbStat);
+							odds.setGameDateTime(gameDateTime);
+								
+							OU ou = new OU();
+							ou.setPoints(overUnderPoints);
+							ou.setOver(ml);
+								
+							odds.setOu(ou);
+							odds.setHome(home);
+							odds.setAway(away);
+							odds.setPlayer1(pl);
+							odds.setPlayer2(pl);
+							odds.setHome(theTeam);
+							odds.setAway(theTeam);
+
+							oddsList.add(odds);
+							
+						} catch(Exception e) {
+							System.out.println("Failed to parse ml of " + spans.get(spanIndex+1).getText());
+							currentPlayer = null; // reset
+							continue;
+						}
+
+					} // for each span in the current div
+				}
+				
+				
+			} // for all divs with player info
+
+		}
+		
+	}
+
 	private List<Odds> parseTeamEvent(String file, Sport sport) {
 
 		StringBuilder sb = new StringBuilder();
@@ -332,6 +765,7 @@ public class FanDuel extends Book {
 	}
 
 
+	@SuppressWarnings("unused")
 	private List<Odds> parseTennis(String file, Sport sport) {
 
 		StringBuilder sb = new StringBuilder();
@@ -948,6 +1382,9 @@ public class FanDuel extends Book {
 			case MLB:
 				url.add("https://sportsbook.fanduel.com/navigation/mlb");
 				break;
+			case MLB_STATS:
+				url.add("https://sportsbook.fanduel.com/navigation/mlb");
+				break;
 			case NBA:
 				url.add("https://sportsbook.fanduel.com/navigation/nba");
 				break;
@@ -967,7 +1404,6 @@ public class FanDuel extends Book {
 				url.add("https://sportsbook.fanduel.com/navigation/nhl");
 				break;
 			case TENNIS:
-//				url.add("https://sportsbook.fanduel.com/tennis");
 				url.add("https://sportsbook.fanduel.com/tennis");
 				
 				break;
@@ -1053,20 +1489,47 @@ public class FanDuel extends Book {
 	
 	public static void main(String args[]) {
 
+		// Wait at least one minute between tries
+		String filePath = System.getProperty("user.home") + "/lastFanduelAccess.txt";
+		try {
+			String content = Files.readString(Path.of(filePath));
+			Long lastAccessTime = Long.parseLong(content);
+			long diff = System.currentTimeMillis() - lastAccessTime;
+			if(diff < 60000) {
+				System.out.println("Too soon to try again: Last time was " + diff + " ms ago.");
+				System.exit(0);
+			}
+		} catch (IOException e) {
+			System.out.println("Access file does not exist. First time?");
+		}
+
+		// Write out current access time
+		Path path = Path.of(filePath);
+		String content = String.format("%d", System.currentTimeMillis());
+		try {
+			Files.writeString(path, content);
+		} catch (IOException e) {
+			System.out.println("Failed to write out access file");
+			System.exit(0);
+		}
+		
+		
+		
 		if(args.length < 2) {
 			System.out.println("Requires two args: sport and delete odds flag, along with optional useDriver flag");
 			return;
 		}
 		Sport sport = null;
 		switch(args[0].toUpperCase()) {
-			case "NHL":    sport = Sport.NHL;    break;
-			case "TENNIS": sport = Sport.TENNIS; break;
-			case "NBA":    sport = Sport.NBA;    break;
-			case "NFL":    sport = Sport.NFL;    break;
-			case "NCAAF":  sport = Sport.NCAAF;  break;
-			case "NCAAM":  sport = Sport.NCAAM;  break;
-			case "NCAAW":  sport = Sport.NCAAW;  break;
-			case "MLB":    sport = Sport.MLB;    break;
+			case "NHL":       sport = Sport.NHL;        break;
+			case "TENNIS":    sport = Sport.TENNIS;     break;
+			case "NBA":       sport = Sport.NBA;        break;
+			case "NFL":       sport = Sport.NFL;        break;
+			case "NCAAF":     sport = Sport.NCAAF;      break;
+			case "NCAAM":     sport = Sport.NCAAM;      break;
+			case "NCAAW":     sport = Sport.NCAAW;      break;
+			case "MLB":       sport = Sport.MLB;        break;
+			case "MLB_STATS": sport = Sport.MLB_STATS;  break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}
 		System.out.println("Sport is " + sport);

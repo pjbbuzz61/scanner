@@ -969,6 +969,7 @@ public class Collector {
 	        				case "WIN":        w.setResult(WAGER_RESULT.WIN);        break;
 	        				case "CASHED_OUT": w.setResult(WAGER_RESULT.CASHED_OUT); break;
 	        				case "CASH_OUT":   w.setResult(WAGER_RESULT.CASHED_OUT); break;
+	        				case "REFUND":     w.setResult(WAGER_RESULT.CASHED_OUT); break;
 	        				default: 
 	        					System.out.println("New state: " + node.getOutcome());
 	        			}

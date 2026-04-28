@@ -70,6 +70,20 @@ public abstract class Book {
 		return playerService.getPlayer(teams, sbSpecificPlayerName);
 	}
 
+	public String getNumericType(String str) {
+	    try {
+	        Integer.parseInt(str);
+	        return "Integer";
+	    } catch (NumberFormatException e1) {
+	        try {
+	            Double.parseDouble(str);
+	            return "Double";
+	        } catch (NumberFormatException e2) {
+	            return "Not a number";
+	        }
+	    }
+	}
+	
 	public WebElement waitForElement(WebElement fromElement, By by) {
 		WebElement rtn = null;
 		int cnt = 0;
@@ -86,6 +100,24 @@ public abstract class Book {
 		return rtn;
 	}
 
+	public List<WebElement> getPopulatedList(WebElement container, By by) {
+		
+		int c = 0;
+		List<WebElement> list = null;
+		do {
+			list = container.findElements(by);
+			if(list.size() == 0) {
+				try {Thread.sleep(10L);} catch (InterruptedException e4) {}
+			}
+			c++;
+			if(c > 500) {
+				break;
+			}
+		} while(list.size() == 0);
+
+		return list;
+	}
+
 	public WebElement waitForElement(By by) {
 		WebElement rtn = null;
 		int cnt = 0;
@@ -97,7 +129,7 @@ public abstract class Book {
 				try {Thread.sleep(100);} catch(Exception ee) {}
 				cnt++;
 			}
-		} while(cnt < 20);
+		} while(cnt < 50);
 
 		return rtn;
 	}
@@ -122,7 +154,7 @@ public abstract class Book {
 
 		boolean success = false;
 		int cnt = 0;
-		String name = element.getText();
+		//String name = element.getText();
 		do {
 			try {
 				javascriptExecutor.executeScript("javascript:window.scrollBy(0,100)"); 
@@ -180,6 +212,12 @@ public abstract class Book {
 		}
 	}
 	
+	public void quitDriver() {
+		if(driver != null) {
+			driver.quit();
+		}
+	}
+
 	@SuppressWarnings("deprecation")
 	public void bringUpDriver() {
 		
@@ -188,7 +226,7 @@ public abstract class Book {
 				"webdriver.gecko.driver", 
 				System.getProperty("user.dir") + "/scanner/drivers/geckodriver_34");
 
-		String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36 OPR/60.0.3255.170";
+//		String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36 OPR/60.0.3255.170";
 		FirefoxOptions options = new FirefoxOptions()
 //				.addPreference("general.useragent.override",userAgent)
 				.setAcceptInsecureCerts(true)

@@ -4,6 +4,7 @@ package scanner.scanner.model;
 public class OuRecord {
 
 	private String name;
+	private Team   team;
 	private Double points;
 	private Integer ml;
 	private OU ou;
@@ -32,6 +33,12 @@ public class OuRecord {
 	}
 	public void setMl(Integer ml) {
 		this.ml = ml;
+	}
+	public Team getTeam() {
+		return team;
+	}
+	public void setTeam(Team team) {
+		this.team = team;
 	}
 	
 }

@@ -166,6 +166,7 @@ public class DraftKings extends Book {
 			refresh(sport, url);
 			if(sport == Sport.MLB_STATS) {
 				List<Odds> list = parseMlbStats();
+				quitDriver();
 				return list;
 			}
 			
@@ -366,7 +367,7 @@ public class DraftKings extends Book {
 			}
 			
 			int len = games.size();
-			for(int i = 0; i < len; i+=3) {
+			for(int i = 0; i < len; i+=3) { // for each game
 
 				int tries = 0;
 				boolean worked = false;
@@ -381,12 +382,19 @@ public class DraftKings extends Book {
 						processEventTeamMlbStats(games.get(i+0), games.get(i+1), games.get(i+2), oddsList);
 						worked = true;
 					} catch(Exception e) {
-						System.out.println("Failed to read game, trying again. Tries is " + tries + ", Msg: " + e.getMessage());
+						System.out.println("Failed to process game at DK, trying again. Tries is " + tries + ", Msg: " + e.getMessage());
 						try {Thread.sleep(200L);} catch (InterruptedException ew) {}
 						tries++;
 					}
 
 				} while((tries < 10) && (worked == false));
+				
+				if(oddsList != null) {
+					for(Odds odds : oddsList) {
+						persistOdds(odds, "odds" + "_" + Sport.MLB_STATS);
+					}
+				}
+				oddsList.clear();
 			}
 
 		}
@@ -501,15 +509,10 @@ public class DraftKings extends Book {
 					processOu(topic, oddsList, away, home, gameTime, MLB_STAT.DOUBLES);
 					break;
 				default:
+					//System.out.println("Not processing: " + name);
 					break;
 			}
 
-			if(oddsList != null) {
-				for(Odds odds : oddsList) {
-					persistOdds(odds, "odds" + "_" + Sport.MLB_STATS);
-				}
-			}
-			oddsList.clear();
 		}
 	}
 
@@ -630,12 +633,6 @@ public class DraftKings extends Book {
 					break;
 			}
 
-			if(oddsList != null) {
-				for(Odds odds : oddsList) {
-					persistOdds(odds, "odds" + "_" + Sport.MLB_STATS);
-				}
-			}
-			oddsList.clear();
 		}
 	}
 
@@ -1189,7 +1186,7 @@ public class DraftKings extends Book {
 	
 	public static void main(String args[]) {
 
-		System.out.println("Processing DRAFTKINGS");
+		System.out.println(new Date() + ": Processing DRAFTKINGS");
 
 		if(args.length < 2) {
 			System.out.println("Requires two args: sport and delete odds flag, along with optional useDriver flag");
@@ -1267,6 +1264,8 @@ public class DraftKings extends Book {
 			System.out.println("Exception from acquire: " + e);
 			e.printStackTrace();
 		}
+
+		System.out.println(new Date() + ": Done Processing DRAFTKINGS");
 		
 	}
 

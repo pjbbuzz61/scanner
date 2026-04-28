@@ -132,6 +132,7 @@ public class BetMGM extends Book {
 		return urls;
 	}
 
+	@SuppressWarnings("unused")
 	private List<String> getMlbUrls() {
 		
 		List<String> rtn = new ArrayList<>();
@@ -153,7 +154,7 @@ public class BetMGM extends Book {
 
 		if(useDriver) {
 			
-			refresh(sport, url);
+			refresh(sport, url, false);
 			if(sport == Sport.MLB_STATS) {
 				List<Odds> list = parseMlbStats();
 				if(list != null) {
@@ -161,6 +162,7 @@ public class BetMGM extends Book {
 						persistOdds(odds, "odds" + "_" + sport);
 					}
 				}
+				quitDriver();
 				return list;
 			}
 
@@ -392,6 +394,7 @@ public class BetMGM extends Book {
 				}
 				try {
 					WebElement link = game.findElement(By.cssSelector("a.grid-info-wrapper"));
+					@SuppressWarnings("deprecation")
 					String url = link.getAttribute("href");
 					urls.add(url);
 				} catch(Exception e4) {
@@ -408,7 +411,7 @@ public class BetMGM extends Book {
 //System.out.println(new Date() + ": Url: " + url);
 			// navigate to the page with the game ..
 			try {
-				refresh(Sport.MLB_STATS, url);
+				refresh(Sport.MLB_STATS, url, true);
 			} catch(Exception e) {
 				System.out.println("Failed to get url: "+ url);
 				continue;
@@ -448,7 +451,19 @@ public class BetMGM extends Book {
 
 			// Select All first
 			try {
-				WebElement sitemap = driver.findElement(By.tagName("ms-event-details-sitemap"));
+				WebElement sitemap = null;
+				int numTries = 0;
+				do {
+					try {
+						sitemap = driver.findElement(By.tagName("ms-event-details-sitemap"));
+						//System.out.println("NumTries to get sitemap: " + numTries);
+						break;
+					} catch(Exception eee) {
+						try {Thread.sleep(10);} catch(Exception ee) {}
+						numTries++;
+					}
+				} while(numTries < 100);
+
 				if(sitemap != null) {
 					List<WebElement> lis = sitemap.findElements(By.tagName("li"));
 					if(lis != null) {
@@ -468,7 +483,7 @@ public class BetMGM extends Book {
 					}
 				}
 			} catch(Exception e) {
-				System.out.println("Failed to find the sitemap");
+				System.out.println("Failed to find the sitemap: " + e.getMessage());
 				continue;
 			}
 //System.out.println(new Date() + ": selected all the ALL buttons ");
@@ -514,24 +529,24 @@ public class BetMGM extends Book {
 			if(showMores != null) {
 				for(WebElement e : showMores) {
 					if(e.getText().contains("Show More")) {
-							
-						int cnt = 0;
-						javascriptExecutor.executeScript("javascript:window.scrollBy(0,-5000)"); 
-						do {
-							try {
-								javascriptExecutor.executeScript("javascript:window.scrollBy(0,10)"); 
-								e.click();
-								break;
-							} catch(Exception eee) {
-								System.out.println("Not view for more, try again, Count is " + cnt);
-								try {Thread.sleep(100);} catch(Exception ee) {}
-								cnt++;
-								if(cnt == 50) {
-									javascriptExecutor.executeScript("javascript:window.scrollBy(0,-5000)"); 
-								}
-							}
-								
-						} while(cnt < 100);
+						waitForClick(e);
+//						int cnt = 0;
+//						javascriptExecutor.executeScript("javascript:window.scrollBy(0,-5000)"); 
+//						do {
+//							try {
+//								javascriptExecutor.executeScript("javascript:window.scrollBy(0,10)"); 
+//								e.click();
+//								break;
+//							} catch(Exception eee) {
+//								System.out.println("Not view for more, try again, Count is " + cnt);
+//								try {Thread.sleep(100);} catch(Exception ee) {}
+//								cnt++;
+//								if(cnt == 50) {
+//									javascriptExecutor.executeScript("javascript:window.scrollBy(0,-5000)"); 
+//								}
+//							}
+//								
+//						} while(cnt < 100);
 					}
 				}
 				try {Thread.sleep(100);} catch(Exception ee) {}
@@ -548,8 +563,12 @@ public class BetMGM extends Book {
 			}
 //System.out.println(new Date() + ": got team images");
 			
+			
+			
 			List<WebElement> allPanels = driver.findElements(By.tagName("ms-option-panel"));
+
 			int numPanels = allPanels.size();
+			long timeInPanels = 0L;
 			for(int panelNum = 0; panelNum < numPanels; ++panelNum) {
 				
 				int tries = 0;
@@ -563,7 +582,11 @@ public class BetMGM extends Book {
 						allPanels = driver.findElements(By.tagName("ms-option-panel"));
 						panel = allPanels.get(panelNum);
 						name = panel.findElement(By.cssSelector("div[slot='title']"));
+						//System.out.println(new Date() + ": panel number " + panelNum + ", name: " + name.getText());
+						long start = System.currentTimeMillis();
 						processPanel(panel, oddsList, homeTeam, awayTeam, teamImages);
+						//System.out.println(new Date() + ": DONE - panel number " + panelNum + ", name: " + name.getText());
+						timeInPanels += (System.currentTimeMillis()-start);
 						success = true;
 					} catch(Exception e) {
 						System.out.println("Exception processing panel: " + awayTeam + " at " + homeTeam + 
@@ -582,6 +605,8 @@ public class BetMGM extends Book {
 				oddsList.clear();
 			} // for all panels
 
+			//System.out.println("Total time in panels: " + timeInPanels);
+			
 		} // for each url
 		
 
@@ -687,6 +712,7 @@ public class BetMGM extends Book {
 				}
 			} catch(Exception e) {
 				System.out.println("Exception processing data: " + e.getMessage());
+				e.printStackTrace();
 			}
 		}
 		
@@ -1120,11 +1146,13 @@ public class BetMGM extends Book {
 			
 	}
 
+	@SuppressWarnings({ "deprecation" })
 	private void processBatterStat(
 			WebElement panel, WebElement name, 
 			List<Odds> oddsList, MLB_STAT mlbStat, 
 			List<String> teamImages,
 			String homeTeam, String awayTeam)  throws Exception {
+
 
 		WebElement rowContainer = null;
 		try {
@@ -1135,11 +1163,11 @@ public class BetMGM extends Book {
 		}
 		
 		List<WebElement> descs = rowContainer.findElements(By.xpath("./*"));
-		//System.out.println(name.getText());
 		
 		Map<WebElement, List<WebElement>> list = new HashMap<WebElement, List<WebElement>>();
 		
 		WebElement currentPlayer = null;
+		long start = System.currentTimeMillis();
 		for(WebElement des : descs) {
 			
 			if(elementContains(des, "player-statistics")) {
@@ -1153,8 +1181,8 @@ public class BetMGM extends Book {
 	        	curr.add(des);
 	        	list.put(currentPlayer, curr);
 	        }
-
 		}
+		//System.out.println("Time to make stats map: " + (System.currentTimeMillis()-start));
 		
 		for (Map.Entry<WebElement, List<WebElement>> entry : list.entrySet()) {
 
@@ -1270,7 +1298,7 @@ public class BetMGM extends Book {
         if (classAttribute == null || classAttribute.isEmpty()) {
         	return false;
         }
-
+        
         // Split the class attribute string by spaces into a list of individual class names
         List<String> classNames = Arrays.asList(classAttribute.split("\\s+"));
 
@@ -1285,10 +1313,12 @@ public class BetMGM extends Book {
 	private boolean isTargetRow(String text, String home, String away) {
 		boolean keepIt = false;
 		if(text.contains("O/U") && text.contains("Batter"))    keepIt = true;
-		if(text.contentEquals("Spread"))                       keepIt = true;
-		if(text.contentEquals("Totals"))                       keepIt = true;
-		if(text.contains("Total runs") && text.contains(home)) keepIt = true;
-		if(text.contains("Total runs") && text.contains(away)) keepIt = true;
+// These are commented out because sometimes BM lists partial game spreads without a first 5 innings marker
+		// and I don't use them much either
+//		if(text.contentEquals("Spread"))                       keepIt = true;
+//		if(text.contentEquals("Totals"))                       keepIt = true;
+//		if(text.contains("Total runs") && text.contains(home)) keepIt = true;
+//		if(text.contains("Total runs") && text.contains(away)) keepIt = true;
 		return keepIt;
 	}
 
@@ -1646,11 +1676,15 @@ public class BetMGM extends Book {
 	     return null;
 	}
 
-	private void refresh(Sport sport, String url) {
+	private void refresh(Sport sport, String url, boolean quickUp) {
 
 		try {
 			getWindowHandle(sport, url);
 		} catch (OddsException e) {
+			return;
+		}
+		
+		if(quickUp) {
 			return;
 		}
 
@@ -1799,7 +1833,7 @@ public class BetMGM extends Book {
 	
 	public static void main(String args[]) {
 
-		System.out.println("Processing BETMGM");
+		System.out.println(new Date() + ": Processing BETMGM");
 
 		if(args.length < 2) {
 			System.out.println("Requires two args: sport and delete odds flag, along with optional useDriver flag");
@@ -1879,6 +1913,7 @@ public class BetMGM extends Book {
 		}
 		mgm.closeDriver();
 		
+		System.out.println(new Date() + ": Done Processing BETMGM");
 	}
 
 	private void setOddsService(OddsService os) {

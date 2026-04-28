@@ -194,6 +194,7 @@ public class Espn extends Book {
 			refresh(sport, url);
 			if(sport == Sport.MLB_STATS) {
 				List<Odds> list = parseMlbStats(url);
+				quitDriver();
 				return list;
 			}
 
@@ -364,7 +365,7 @@ public class Espn extends Book {
 			try {Thread.sleep(200L);} catch (InterruptedException e) {}
 
 		} while(cntr < 50);
-		System.out.println("Cntr is " + cntr);
+		//System.out.println("Cntr is " + cntr);
 		
 		int numGames = games.size();
 		
@@ -452,7 +453,8 @@ public class Espn extends Book {
 				//System.out.println("End of refresh: " + new Date());
 		
 			} catch(Exception ert) {
-				System.out.println("Exception processing game");
+				System.out.println("Exception processing game: " + ert.getMessage());
+				ert.printStackTrace();
 			}
 		}
 
@@ -476,10 +478,13 @@ public class Espn extends Book {
 		}
 
 		for(WebElement button : hdrButtons) {
-			
+			String buttonName = button.getText();
+			if((buttonName.contentEquals("Popular") == false) && (buttonName.contentEquals("Batter Props") == false)) {
+				continue;
+			}
 			button.click();
 
-			waitForSteadyList(driver, "details");
+			waitForSteadyList(driver, "details", buttonName);
 
 			// For each header get all the topics
 			List<WebElement> topics = driver.findElements(By.tagName("details"));
@@ -548,49 +553,71 @@ public class Espn extends Book {
 		}
 	}
 
-	private void waitForSteadyList(WebElement we, String tagName) {
+	private void waitForSteadyList(WebElement we, String tagName, String selector) {
 		int prevNumTopics = 0;
 		int consec = 0;
 		int cntr = 0;
 		List<WebElement> topics = null;
+//		do {
+//			topics = we.findElements(By.tagName(tagName));
+//			if(topics.size() != prevNumTopics) {
+//				consec = 0;
+//			} else {
+//				consec++;
+//			}
+//			prevNumTopics = topics.size();
+//			//System.out.println("Topics: " + topics.size() + ", Prev: " + prevNumTopics + ", consec: " + consec);
+//			try {Thread.sleep(200);} catch(Exception ee) {}
+//			cntr++;
+//		} while( ((topics.size() == 0) || (consec < 3)) && (cntr < 10));
 		do {
 			topics = we.findElements(By.tagName(tagName));
-			if(topics.size() != prevNumTopics) {
-				consec = 0;
+			if(topics.size() > 0) {
+				//System.out.println("NumTopics: " + topics.size() + " cntr is " + cntr + " for selector " + selector);
+				break;
 			} else {
-				consec++;
+				try {Thread.sleep(10);} catch(Exception ee) {}
+				//System.out.println("Waiting for topicsaaaaaa: " + selector + ", cntr is " + cntr);
+				cntr++;
 			}
-			prevNumTopics = topics.size();
-			//System.out.println("Topics: " + topics.size() + ", Prev: " + prevNumTopics + ", consec: " + consec);
-			try {Thread.sleep(200);} catch(Exception ee) {}
-			cntr++;
-		} while( ((topics.size() == 0) || (consec < 3)) && (cntr < 10));
+		} while(cntr < 200);
 
 		if(topics.size() == 0) {
-			System.out.println("Warning: No items found");
+			System.out.println("Warning: No items found for selector " + selector);
 		}
 	}
 
-	private void waitForSteadyList(WebDriver driver, String tagName) {
+	private void waitForSteadyList(WebDriver driver, String tagName, String selector) {
 		int prevNumTopics = 0;
 		int consec = 0;
 		int cntr = 0;
 		List<WebElement> topics = null;
+//		do {
+//			topics = driver.findElements(By.tagName(tagName));
+//			if(topics.size() != prevNumTopics) {
+//				consec = 0;
+//			} else {
+//				consec++;
+//			}
+//			prevNumTopics = topics.size();
+//			//System.out.println("Topics: " + topics.size() + ", Prev: " + prevNumTopics + ", consec: " + consec);
+//			try {Thread.sleep(200);} catch(Exception ee) {}
+//			cntr++;
+//		} while( ((topics.size() == 0) || (consec < 3)) && (cntr < 10));
 		do {
 			topics = driver.findElements(By.tagName(tagName));
-			if(topics.size() != prevNumTopics) {
-				consec = 0;
+			if(topics.size() > 0) {
+				//System.out.println("NumTopics-drv: " + topics.size() + " cntr is " + cntr + " for selector " + selector);
+				break;
 			} else {
-				consec++;
+				try {Thread.sleep(10);} catch(Exception ee) {}
+				//System.out.println("Waiting for topics-drv: " + selector + ", cntr is " + cntr);
+				cntr++;
 			}
-			prevNumTopics = topics.size();
-			//System.out.println("Topics: " + topics.size() + ", Prev: " + prevNumTopics + ", consec: " + consec);
-			try {Thread.sleep(200);} catch(Exception ee) {}
-			cntr++;
-		} while( ((topics.size() == 0) || (consec < 3)) && (cntr < 10));
+		} while(cntr < 200);
 
 		if(topics.size() == 0) {
-			System.out.println("Warning: No items found");
+			System.out.println("Warning-drv: No items found for selector " + selector);
 		}
 	}
 
@@ -611,7 +638,7 @@ public class Espn extends Book {
 				waitForClick(ovUnder);
 			}
 			
-			waitForSteadyList(ovUnder, "article");
+			waitForSteadyList(ovUnder, "article", selector);
 			
 			List<WebElement> articles = ovUnder.findElements(By.tagName("article"));
 			for(WebElement article : articles) {
@@ -626,7 +653,17 @@ public class Espn extends Book {
 				String o_pts = over_spans.get(1).getText().replace("O", "").trim();
 				String o_ml  = over_spans.get(2).getText().replace("Even", "+100").trim();
 				String u_ml  = under_spans.get(2).getText().replace("Even", "+100").trim();
-				
+
+				if((o_pts == null) || (o_pts.length() == 0)) {
+					continue;
+				}
+				if((o_ml == null) || (o_ml.length() == 0)) {
+					continue;
+				}
+				if((u_ml == null) || (u_ml.length() == 0)) {
+					continue;
+				}
+
 				Odds odds = new Odds();
 				odds.setTimeStamp(new Date());
 				odds.setBook(this.sportsbook);
@@ -693,7 +730,12 @@ public class Espn extends Book {
 						
 					oddsList.add(odds);
 				} catch(Exception e3) {
-					System.out.println("Exception processing spread: " + e3.getMessage());
+					System.out.println("Exception processing OU: " + e3.getMessage());
+					System.out.println("Player: " + playerAsString);
+					if(theTeam != null) {
+						System.out.println("Team: " + theTeam);
+					}
+					System.out.println("MLBStat: " + mlbStat);
 					e3.printStackTrace();
 				}
 
@@ -1509,7 +1551,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		}
 		//System.out.println("Counter is " + cntr);
 		if(popup == null) {
-			System.out.println(this.sportsbook + ": Failed to get app start up");
+			//System.out.println(this.sportsbook + ": Failed to get app start up");
 			return;
 		}
 		//System.out.println("Clicking off the popup");
@@ -1592,7 +1634,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 	
 	public static void main(String args[]) {
 
-		System.out.println("Processing ESPN");
+		System.out.println(new Date() + ": Processing ESPN");
 		
 		if(args.length < 2) {
 			System.out.println("Requires two args: sport and delete odds flag, along with optional useDriver flag");
@@ -1671,6 +1713,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 			e.printStackTrace();
 		}
 		
+		System.out.println(new Date() + ": Done Processing ESPN");
 	}
 
 	private void setOddsService(OddsService os) {
