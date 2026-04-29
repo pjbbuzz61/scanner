@@ -501,12 +501,7 @@ public class BetRivers extends Book {
 					continue;
 				}
 
-				if(oddsList != null) {
-					for(Odds odds : oddsList) {
-						persistOdds(odds, "odds" + "_" + Sport.MLB_STATS);
-					}
-				}
-				oddsList.clear();
+				persistOddsForMlbStats(oddsList);
 				
 				driver.navigate().back();
 				

@@ -1,7 +1,9 @@
 package scanner.scanner.books;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.openqa.selenium.By;
@@ -21,6 +23,7 @@ import scanner.scanner.service.PlayerService;
 import scanner.scanner.service.TeamService;
 import scanner.scanner.util.Sport;
 import scanner.scanner.util.Sportsbook;
+import scanner.scanner.util.MLB_STAT;
 
 public abstract class Book {
 
@@ -101,9 +104,14 @@ public abstract class Book {
 	}
 
 	public List<WebElement> getPopulatedList(WebElement container, By by) {
+		return getPopulatedList(container, by, 1);
+	}
+
+	public List<WebElement> getPopulatedList(WebElement container, By by, int expectedCount) {
 		
 		int c = 0;
 		List<WebElement> list = null;
+		
 		do {
 			list = container.findElements(by);
 			if(list.size() == 0) {
@@ -111,9 +119,10 @@ public abstract class Book {
 			}
 			c++;
 			if(c > 500) {
+				System.out.println("Waited the full time for a list");
 				break;
 			}
-		} while(list.size() == 0);
+		} while(list.size() < expectedCount);
 
 		return list;
 	}
@@ -171,6 +180,27 @@ public abstract class Book {
 		//System.out.println("WaitForClick: cnt: " + cnt + ", Name: " + name);
 		
 		return success;
+	}
+
+	public void persistOddsForMlbStats(List<Odds> oddsList) {
+
+		Map<MLB_STAT, Integer> counts = new HashMap<>();
+		
+		if(oddsList != null) {
+			for(Odds odds : oddsList) {
+				if(counts.get(odds.getMlbStat()) == null) {
+					counts.put(odds.getMlbStat(), 0);
+				}
+				counts.put(odds.getMlbStat(), counts.get(odds.getMlbStat()) + 1);
+				persistOdds(odds, "odds" + "_" + Sport.MLB_STATS);
+			}
+
+			System.out.println(this.sportsbook + ": Persisted " + oddsList.size() + " records");
+			for (Map.Entry<MLB_STAT, Integer> m : counts.entrySet()) {
+			    System.out.println(" " + m.getKey() + ":  " + m.getValue());
+			}
+			oddsList.clear();
+		}
 	}
 
 	public void persistOdds(Odds odds) {

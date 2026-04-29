@@ -389,12 +389,7 @@ public class DraftKings extends Book {
 
 				} while((tries < 10) && (worked == false));
 				
-				if(oddsList != null) {
-					for(Odds odds : oddsList) {
-						persistOdds(odds, "odds" + "_" + Sport.MLB_STATS);
-					}
-				}
-				oddsList.clear();
+				persistOddsForMlbStats(oddsList);
 			}
 
 		}
@@ -458,7 +453,7 @@ public class DraftKings extends Book {
 			// Get all the buttons
 			List<WebElement> buttons = buttonBar.findElements(By.tagName("a"));
 			for(WebElement button : buttons) {
-				switch(button.getText()) {
+				switch(button.getText().toUpperCase()) {
 					case "GAME LINES":
 						waitForClick(button);
 						processGameLines(oddsList, away, home, gameTime);
@@ -508,6 +503,9 @@ public class DraftKings extends Book {
 				case "Doubles O/U":
 					processOu(topic, oddsList, away, home, gameTime, MLB_STAT.DOUBLES);
 					break;
+				case "Stolen Bases O/U":
+					processOu(topic, oddsList, away, home, gameTime, MLB_STAT.SB);
+					break;
 				default:
 					//System.out.println("Not processing: " + name);
 					break;
@@ -529,7 +527,8 @@ public class DraftKings extends Book {
 			waitForClick(wrapper);
 		}
 
-		List<WebElement> rows = topic.findElements(By.cssSelector("div[data-testid=market-mapping-template-8]"));
+//		List<WebElement> rows = topic.findElements(By.cssSelector("div[data-testid=market-mapping-template-8]"));
+		List<WebElement> rows = getPopulatedList(topic, By.cssSelector("div[data-testid=market-mapping-template-8]"));
 		for(WebElement row : rows) {
 			
 			Player pl = null;

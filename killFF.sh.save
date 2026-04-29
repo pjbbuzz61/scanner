@@ -1,0 +1,2 @@
+t=`ps -ef | grep firefox | grep pat | egrep -v grep | egrep -v gnome | awk '{print($2)}'` ; kill -9 $t
+t=`ps -ef | grep firefox | grep pat | grep defunct  | egrep -v gnome | awk '{print($3)}'` ; kill -9 $t

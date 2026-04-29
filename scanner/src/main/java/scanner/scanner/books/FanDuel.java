@@ -336,12 +336,7 @@ public class FanDuel extends Book {
 							// process the game
 							List<Odds> oddsList = processMlbGame(gameDateTime);
 							
-							if(oddsList != null) {
-								for(Odds odds : oddsList) {
-									persistOdds(odds, "odds" + "_" + Sport.MLB_STATS);
-								}
-							}
-							oddsList.clear();
+							persistOddsForMlbStats(oddsList);
 							
 							driver.navigate().back();
 
@@ -564,11 +559,6 @@ public class FanDuel extends Book {
 				overUnderPoints = 1.5;
 				break;
 
-			case "To Record 3+ Total Bases":
-				mlbStat = MLB_STAT.BASES;
-				overUnderPoints = 2.5;
-				break;
-
 			case "To Hit A Single":
 				mlbStat = MLB_STAT.SINGLES;
 				overUnderPoints = 0.5;
@@ -584,6 +574,7 @@ public class FanDuel extends Book {
 				overUnderPoints = 0.5;
 				break;
 
+			case "To Record 3+ Total Bases":
 			case "Player to Hit a Home Run in First Plate Appearance":
 			case "To Hit 2+ Home Runs":
 			case "Home Run / Moneyline Parlay":
@@ -1489,6 +1480,8 @@ public class FanDuel extends Book {
 	
 	public static void main(String args[]) {
 
+		System.out.println(new Date() + ": Processing FANDUEL");
+
 		// Wait at least one minute between tries
 		String filePath = System.getProperty("user.home") + "/lastFanduelAccess.txt";
 		try {
@@ -1592,7 +1585,9 @@ public class FanDuel extends Book {
 			System.out.println("Exception from acquire: " + e);
 			e.printStackTrace();
 		}
-		
+
+		System.out.println(new Date() + ": Done Processing FANDUEL");
+
 	}
 
 	private void setOddsService(OddsService os) {
