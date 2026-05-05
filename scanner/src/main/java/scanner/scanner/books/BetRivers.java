@@ -303,8 +303,14 @@ public class BetRivers extends Book {
 					// See if we have more events
 					try {
 						
-						WebElement moreEventsLabel = driver
-								.findElement(By.cssSelector("button[data-testid=show-more-events-button]"));
+						WebElement moreEventsLabel = null;
+						try {
+							moreEventsLabel = driver
+									.findElement(By.cssSelector("button[data-testid=show-more-events-button]"));
+						} catch(Exception e3) {
+							moreEventsLabel = driver
+									.findElement(By.cssSelector("div[data-testid=show-more-events-button]"));
+						}
 
 						int cnt = 0;
 						do {

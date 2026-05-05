@@ -1086,6 +1086,8 @@ public class Collector {
 	        				w.setBetType(WAGER_TYPE.SINGLE);
 	        			} else if(fnb.getBetType().contentEquals("TBL")) {
 	        				w.setBetType(WAGER_TYPE.PARLAY);
+	        			} else if(fnb.getBetType().startsWith("ACC")) {
+	        				w.setBetType(WAGER_TYPE.PARLAY);
 	        			} else {
 	        				System.out.println("Unknown wager type for FanDuel: " + fnb.getBetType());
 	        			}

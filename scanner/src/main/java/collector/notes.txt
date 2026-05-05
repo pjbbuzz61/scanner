@@ -60,6 +60,6 @@ Hard Rock:
  Comes out as betHistory. Have to use PB -> History -> Bet History, then select the range for the pull.
  
  
- 
+ mongodump --db=scanner --collection=wagers_2026 --out=/home/pat/wagers/2026/db_backups/04_21_2026/
  
  

@@ -482,7 +482,7 @@ public class Espn extends Book {
 			if((buttonName.contentEquals("Popular") == false) && (buttonName.contentEquals("Batter Props") == false)) {
 				continue;
 			}
-			button.click();
+			waitForClick(button);
 
 			waitForSteadyList(driver, "details", buttonName);
 
@@ -554,30 +554,14 @@ public class Espn extends Book {
 	}
 
 	private void waitForSteadyList(WebElement we, String tagName, String selector) {
-		int prevNumTopics = 0;
-		int consec = 0;
 		int cntr = 0;
 		List<WebElement> topics = null;
-//		do {
-//			topics = we.findElements(By.tagName(tagName));
-//			if(topics.size() != prevNumTopics) {
-//				consec = 0;
-//			} else {
-//				consec++;
-//			}
-//			prevNumTopics = topics.size();
-//			//System.out.println("Topics: " + topics.size() + ", Prev: " + prevNumTopics + ", consec: " + consec);
-//			try {Thread.sleep(200);} catch(Exception ee) {}
-//			cntr++;
-//		} while( ((topics.size() == 0) || (consec < 3)) && (cntr < 10));
 		do {
 			topics = we.findElements(By.tagName(tagName));
 			if(topics.size() > 0) {
-				//System.out.println("NumTopics: " + topics.size() + " cntr is " + cntr + " for selector " + selector);
 				break;
 			} else {
 				try {Thread.sleep(10);} catch(Exception ee) {}
-				//System.out.println("Waiting for topicsaaaaaa: " + selector + ", cntr is " + cntr);
 				cntr++;
 			}
 		} while(cntr < 200);
@@ -588,30 +572,14 @@ public class Espn extends Book {
 	}
 
 	private void waitForSteadyList(WebDriver driver, String tagName, String selector) {
-		int prevNumTopics = 0;
-		int consec = 0;
 		int cntr = 0;
 		List<WebElement> topics = null;
-//		do {
-//			topics = driver.findElements(By.tagName(tagName));
-//			if(topics.size() != prevNumTopics) {
-//				consec = 0;
-//			} else {
-//				consec++;
-//			}
-//			prevNumTopics = topics.size();
-//			//System.out.println("Topics: " + topics.size() + ", Prev: " + prevNumTopics + ", consec: " + consec);
-//			try {Thread.sleep(200);} catch(Exception ee) {}
-//			cntr++;
-//		} while( ((topics.size() == 0) || (consec < 3)) && (cntr < 10));
 		do {
 			topics = driver.findElements(By.tagName(tagName));
 			if(topics.size() > 0) {
-				//System.out.println("NumTopics-drv: " + topics.size() + " cntr is " + cntr + " for selector " + selector);
 				break;
 			} else {
 				try {Thread.sleep(10);} catch(Exception ee) {}
-				//System.out.println("Waiting for topics-drv: " + selector + ", cntr is " + cntr);
 				cntr++;
 			}
 		} while(cntr < 200);

@@ -12,11 +12,11 @@ if [[ "$1" != "MLB_STATS" ]]; then
   ./espn_d.sh       $1 false ; killFF.sh
 else
 #  nordvpn c Ashburn
-#  ./espn_d.sh       $1 true   ; killFF.sh
-  ./betrivers_d.sh  $1 true   ; killFF.sh
+  ./draftkings_d.sh $1 true   ; killFF.sh
   ./betmgm_d.sh     $1 false  ; killFF.sh
+  ./betrivers_d.sh  $1 false  ; killFF.sh
   ./fanduel_d.sh    $1 false  ; killFF.sh
-  ./draftkings_d.sh $1 false  ; killFF.sh
+#  ./espn_d.sh       $1 false  ; killFF.sh
 #  nordvpn d
 fi
 
