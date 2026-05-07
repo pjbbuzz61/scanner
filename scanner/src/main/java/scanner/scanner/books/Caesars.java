@@ -33,13 +33,22 @@ import org.openqa.selenium.interactions.Actions;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Component;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.Strictness;
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClients;
 
 import scanner.scanner.model.OU;
 import scanner.scanner.model.Odds;
+import scanner.scanner.model.Player;
 import scanner.scanner.model.Spread;
+import scanner.scanner.model.Team;
+import scanner.scanner.model.mlbStats.caesars.Caesars_Market;
+import scanner.scanner.model.mlbStats.caesars.Caesars_MarketGroup;
+import scanner.scanner.model.mlbStats.caesars.Caesars_Selection;
+import scanner.scanner.model.mlbStats.caesars.Caesars_Wrapper;
 import scanner.scanner.exceptions.OddsException;
 import scanner.scanner.repo.OddsRepo;
 import scanner.scanner.repo.PlayerRepo;
@@ -49,9 +58,17 @@ import scanner.scanner.service.OddsService;
 import scanner.scanner.service.PlayerService;
 import scanner.scanner.service.TeamService;
 import scanner.scanner.service.UpdateService;
+import scanner.scanner.util.MLB_STAT;
 import scanner.scanner.util.Period;
 import scanner.scanner.util.Sport;
 import scanner.scanner.util.Sportsbook;
+import scanner.scanner.util.Status;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+
 
 @Component
 public class Caesars extends Book {
@@ -80,6 +97,11 @@ public class Caesars extends Book {
 	private List<Odds> getMatchups(Sport sport) throws IOException, OddsException {
 
 		List<String> files = new ArrayList<>();
+
+		if(sport == Sport.MLB_STATS) {
+			List<Odds> list = parseMlbStats();
+			return list;
+		}
 
 		if(useDriver) {
 			
@@ -283,6 +305,168 @@ public class Caesars extends Book {
 		return list;
 	}
 	
+	private List<Odds> parseMlbStats() {
+
+		// Read in all the json data. I'll put it in <home_dir>/caesars_mlb_stats.json
+        Path path = Paths.get(System.getProperty("user.home") + "/caesars_mlb_stats.json");
+        try {
+            List<String> allLines = Files.readAllLines(path);
+            for (String game : allLines) {
+            	processMlbStatsForGame(game);
+            }
+        } catch (IOException e) {
+        	System.out.println("Failed to read in the mlb stats files");
+        	e.printStackTrace();
+        }
+		
+		return null;
+	}
+
+	private void processMlbStatsForGame(String game) {
+
+        Gson gson = (new GsonBuilder()).setStrictness(Strictness.LENIENT).create();
+		Caesars_Wrapper rtn = null;
+		try {
+			rtn = gson.fromJson(game, Caesars_Wrapper.class);
+			processJson(rtn);
+		} catch(Exception e) {
+			System.out.println("Exception for game: " + e.getLocalizedMessage());
+		}
+
+
+	}
+
+	private void processJson(Caesars_Wrapper rtn) {
+		
+		// get team names
+		String eventName = rtn.getEvent().getName();
+		String parts[] = eventName.split(" at ");
+		String homeName = parts[1].trim();
+		String awayName = parts[0].trim();
+		Date gameTime = rtn.getEvent().getStartTime();
+		
+		Team away = null;
+		Team home = null;
+		
+		boolean failed = false;
+		try {
+			away = getTeam(this.sportsbook, Sport.MLB_STATS, awayName, true);
+		} catch(Exception e3) {
+			failed = true;
+		}
+		try {
+			home = getTeam(this.sportsbook, Sport.MLB_STATS, homeName, true);
+		} catch(Exception e3) {
+			failed = true;
+		}
+		if(failed) {
+			return;
+		}
+
+		for(Caesars_MarketGroup group : rtn.getEvent().getKeyMarketGroups()) {
+
+			MLB_STAT mlbStat = null;
+			switch(group.getMarketDisplayGroupDisplayName()) {
+				case "Total Bases O/U":
+					mlbStat = MLB_STAT.BASES;
+					processGroup(group, mlbStat, away, home, gameTime);
+					break;
+				case "Hits + Runs + RBI O/U":
+					mlbStat = MLB_STAT.H_R_RBI;
+					processGroup(group, mlbStat, away, home, gameTime);
+					break;
+				case "Hits O/U":
+					mlbStat = MLB_STAT.HITS;
+					processGroup(group, mlbStat, away, home, gameTime);
+					break;
+				case "Singles O/U":
+					mlbStat = MLB_STAT.SINGLES;
+					processGroup(group, mlbStat, away, home, gameTime);
+					break;
+				case "Doubles O/U":
+					mlbStat = MLB_STAT.DOUBLES;
+					processGroup(group, mlbStat, away, home, gameTime);
+					break;
+				case "RBI O/U":
+					mlbStat = MLB_STAT.RBI;
+					processGroup(group, mlbStat, away, home, gameTime);
+					break;
+				case "Batter Runs O/U":
+					mlbStat = MLB_STAT.RUNS;
+					processGroup(group, mlbStat, away, home, gameTime);
+					break;
+				default:
+					// do nothing but ignore
+					break;
+			}
+		}
+	}
+
+	private void processGroup(Caesars_MarketGroup group, MLB_STAT mlbStat, Team away, Team home, Date gameTime) {
+
+		List<Odds> oddsList = new ArrayList<>();
+		
+		for(Caesars_Market market : group.getMarkets()) {
+			
+			// get the players
+			String player = market.getMetadata().getPlayer();
+			Team team = away;
+			if(market.getMetadata().getTeam().contentEquals("HOME")) {
+				team = home;
+			}
+			Player plyr = null;
+			try {
+				plyr = getPlayer(team, player);
+			} catch(Exception e) {
+				System.out.println("Failed to find player: " + player);
+				continue;
+			}
+
+			Double line = market.getLine();
+			Integer overML = null;
+			Integer underML = null;
+			for(Caesars_Selection selection : market.getSelections()) {
+				if(selection.getType().contentEquals("over")) {
+					overML = selection.getPrice().getA();
+				} else if(selection.getType().contentEquals("under")) {
+					underML = selection.getPrice().getA();
+				} else {
+					System.out.println("Type is neither over or under: " + selection.getType());
+					break;
+				}
+				if((line != null) && (overML != null) && (underML != null)) {
+					Odds odds = new Odds();
+					odds.setTimeStamp(new Date());
+					odds.setBook(this.sportsbook);
+					odds.setSport(Sport.MLB_STATS);
+					odds.setPeriod(Period.GAME); 
+					odds.setStatus(Status.SCHEDULED);
+					odds.setMlbStat(mlbStat);
+					odds.setGameDateTime(gameTime);
+					
+					OU ou = new OU();
+					ou.setPoints(line);
+					ou.setOver(overML);
+					ou.setUnder(underML);
+					
+					odds.setOu(ou);
+					odds.setHome(home);
+					odds.setAway(away);
+					odds.setPlayer1(plyr);
+					odds.setPlayer2(plyr);
+					odds.setHome(team);
+					odds.setAway(team);
+
+					oddsList.add(odds);
+
+				}
+			}
+		}
+
+		persistOddsForMlbStats(oddsList);
+
+	}
+
 	private List<Odds> parseTeamEvent(List<String> files, Sport sport) {
 
 		StringBuilder sb = new StringBuilder();
@@ -860,14 +1044,15 @@ public class Caesars extends Book {
 		}
 		Sport sport = null;
 		switch(args[0].toUpperCase()) {
-			case "NHL":    sport = Sport.NHL;    break;
-			case "TENNIS": sport = Sport.TENNIS; break;
-			case "NBA":    sport = Sport.NBA;    break;
-			case "NFL":    sport = Sport.NFL;    break;
-			case "NCAAF":  sport = Sport.NCAAF;  break;
-			case "NCAAM":  sport = Sport.NCAAM;  break;
-			case "NCAAW":  sport = Sport.NCAAW;  break;
-			case "MLB":    sport = Sport.MLB;    break;
+			case "NHL":       sport = Sport.NHL;       break;
+			case "TENNIS":    sport = Sport.TENNIS;    break;
+			case "NBA":       sport = Sport.NBA;       break;
+			case "NFL":       sport = Sport.NFL;       break;
+			case "NCAAF":     sport = Sport.NCAAF;     break;
+			case "NCAAM":     sport = Sport.NCAAM;     break;
+			case "NCAAW":     sport = Sport.NCAAW;     break;
+			case "MLB":       sport = Sport.MLB;       break;
+			case "MLB_STATS": sport = Sport.MLB_STATS; break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}
 		System.out.println("Sport is " + sport);
