@@ -1038,6 +1038,8 @@ public class Caesars extends Book {
 	
 	public static void main(String args[]) {
 
+		String db = "localhost";
+
 		if(args.length < 2) {
 			System.out.println("Requires two args: sport and delete odds flag, along with optional useDriver flag");
 			return;
@@ -1071,11 +1073,18 @@ public class Caesars extends Book {
 		}
 		System.out.println("UseDriver is " + useTheDriver);
 
+		if(args.length == 4) {
+			if(args[3].toUpperCase().contentEquals("DB=")) {
+				String parts[] = args[3].split("=");
+				db = parts[1];
+			}
+		}
+
 		Caesars mgm = new Caesars(useTheDriver);
 		TeamService tSrv = new TeamService();
 		TeamRepo tRepo = new TeamRepo();
 		
-		ConnectionString connectionString = new ConnectionString("mongodb://localhost:27017/scanner");
+		ConnectionString connectionString = new ConnectionString("mongodb://" + db + ":27017/scanner");
 		MongoClientSettings mongoClientSettings = MongoClientSettings.builder()
 	          .applyConnectionString(connectionString)
 	          .build();
