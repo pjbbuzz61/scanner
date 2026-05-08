@@ -258,6 +258,9 @@ public class Caesars extends Book {
 				case NBA:
 					list = parseTeamEvent(files, sport);
 					break;
+				case WNBA:
+					list = parseTeamEvent(files, sport);
+					break;
 				case NCAAM:
 					list = parseTeamEvent(files, sport);
 					break;
@@ -1049,6 +1052,7 @@ public class Caesars extends Book {
 			case "NHL":       sport = Sport.NHL;       break;
 			case "TENNIS":    sport = Sport.TENNIS;    break;
 			case "NBA":       sport = Sport.NBA;       break;
+			case "WNBA":      sport = Sport.WNBA;      break;
 			case "NFL":       sport = Sport.NFL;       break;
 			case "NCAAF":     sport = Sport.NCAAF;     break;
 			case "NCAAM":     sport = Sport.NCAAM;     break;

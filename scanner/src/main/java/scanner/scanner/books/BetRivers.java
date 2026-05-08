@@ -104,6 +104,9 @@ public class BetRivers extends Book {
 			case NBA:
 				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093652&type=prematch");
 				break;
+			case WNBA:
+				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000174277&type=prematch");
+				break;
 			case NCAAM:
 				urls.add("https://md.betrivers.com/?page=sportsbook&group=1000093654&type=prematch");
 				break;
@@ -383,6 +386,7 @@ public class BetRivers extends Book {
 					list = parseTeamEvent(files, sport);
 					break;
 				case NBA:
+				case WNBA:
 					list = parseTeamEvent(files, sport);
 					break;
 				case NCAAM:
@@ -1743,6 +1747,7 @@ public class BetRivers extends Book {
 			case "NHL":       sport = Sport.NHL;       break;
 			case "TENNIS":    sport = Sport.TENNIS;    break;
 			case "NBA":       sport = Sport.NBA;       break;
+			case "WNBA":      sport = Sport.WNBA;      break;
 			case "NFL":       sport = Sport.NFL;       break;
 			case "NCAAF":     sport = Sport.NCAAF;     break;
 			case "NCAAM":     sport = Sport.NCAAM;     break;

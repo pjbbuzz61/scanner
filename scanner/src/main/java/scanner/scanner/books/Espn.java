@@ -102,6 +102,9 @@ public class Espn extends Book {
 			case NBA:
 				urls.add("https://sportsbook.thescore.bet/sport/basketball/organization/united-states/competition/nba#lines");
 				break;
+			case WNBA:
+				urls.add("https://sportsbook.thescore.bet/sport/basketball/organization/united-states/competition/wnba#lines");
+				break;
 			case NCAAM:
 				urls.add("https://sportsbook.thescore.bet/sport/basketball/organization/united-states/competition/ncaab#lines");
 				break;
@@ -306,6 +309,7 @@ public class Espn extends Book {
 					list = parseTeamEvent(filename, sport);
 					break;
 				case NBA:
+				case WNBA:
 					list = parseTeamEvent(filename, sport);
 					break;
 				case NCAAM:
@@ -1613,6 +1617,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 			case "NHL":       sport = Sport.NHL;       break;
 			case "TENNIS":    sport = Sport.TENNIS;    break;
 			case "NBA":       sport = Sport.NBA;       break;
+			case "WNBA":      sport = Sport.WNBA;      break;
 			case "NFL":       sport = Sport.NFL;       break;
 			case "NCAAF":     sport = Sport.NCAAF;     break;
 			case "NCAAM":     sport = Sport.NCAAM;     break;

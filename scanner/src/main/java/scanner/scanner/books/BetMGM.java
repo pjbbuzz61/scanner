@@ -106,6 +106,9 @@ public class BetMGM extends Book {
 			case NBA:
 				urls.add("https://www.md.betmgm.com/en/sports/basketball-7/betting/usa-9/nba-6004");
 				break;
+			case WNBA:
+				urls.add("https://www.md.betmgm.com/en/sports/basketball-7/betting/usa-9/wnba-402");
+				break;
 			case NCAAM:
 				urls.add("https://www.md.betmgm.com/en/sports/basketball-7/betting/usa-9/ncaa-264");
 				break;
@@ -323,6 +326,7 @@ public class BetMGM extends Book {
 					list = parseTeamEvent(filename, sport);
 					break;
 				case NBA:
+				case WNBA:
 					list = parseTeamEvent(filename, sport);
 					break;
 				case NCAAM:
@@ -1637,6 +1641,7 @@ public class BetMGM extends Book {
 			case "NHL":       sport = Sport.NHL;       break;
 			case "TENNIS":    sport = Sport.TENNIS;    break;
 			case "NBA":       sport = Sport.NBA;       break;
+			case "WNBA":      sport = Sport.WNBA;      break;
 			case "NFL":       sport = Sport.NFL;       break;
 			case "NCAAF":     sport = Sport.NCAAF;     break;
 			case "NCAAM":     sport = Sport.NCAAM;     break;

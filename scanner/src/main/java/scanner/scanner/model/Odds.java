@@ -94,6 +94,8 @@ public class Odds {
 		result = prime * result + ((ttAway == null) ? 0 : ttAway.hashCode());
 		result = prime * result + ((ttHome == null) ? 0 : ttHome.hashCode());
 		result = prime * result + ((mlbStat == null) ? 0 : mlbStat.hashCode());
+		result = prime * result + ((player1 == null) ? 0 : player1.hashCode());
+		result = prime * result + ((player2 == null) ? 0 : player2.hashCode());
 		return result;
 	}
     

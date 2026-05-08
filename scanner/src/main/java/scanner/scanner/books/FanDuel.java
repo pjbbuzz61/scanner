@@ -239,6 +239,7 @@ public class FanDuel extends Book {
 					list = parseTeamEvent(filename, sport);
 					break;
 				case NBA:
+				case WNBA:
 					list = parseTeamEvent(filename, sport);
 					break;
 				case NCAAM:
@@ -1379,6 +1380,9 @@ public class FanDuel extends Book {
 			case NBA:
 				url.add("https://sportsbook.fanduel.com/navigation/nba");
 				break;
+			case WNBA:
+				url.add("https://sportsbook.fanduel.com/navigation/wnba");
+				break;
 			case NCAAM:
 				url.add("https://sportsbook.fanduel.com/navigation/ncaab");
 				break;
@@ -1517,6 +1521,7 @@ public class FanDuel extends Book {
 			case "NHL":       sport = Sport.NHL;        break;
 			case "TENNIS":    sport = Sport.TENNIS;     break;
 			case "NBA":       sport = Sport.NBA;        break;
+			case "WNBA":      sport = Sport.WNBA;       break;
 			case "NFL":       sport = Sport.NFL;        break;
 			case "NCAAF":     sport = Sport.NCAAF;      break;
 			case "NCAAM":     sport = Sport.NCAAM;      break;

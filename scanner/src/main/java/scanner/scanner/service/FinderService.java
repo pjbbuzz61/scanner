@@ -15,6 +15,7 @@ import scanner.scanner.model.Play;
 import scanner.scanner.model.Spread;
 import scanner.scanner.model.Team;
 import scanner.scanner.repo.OddsRepo;
+import scanner.scanner.util.EmailSender;
 import scanner.scanner.util.MLB_STAT;
 import scanner.scanner.util.Period;
 import scanner.scanner.util.PlayType;
@@ -721,8 +722,39 @@ public class FinderService {
 			bestPlays.sort(Comparator.comparing(Play::getPerformance).reversed());
 		}
 
+		EmailSender es = new EmailSender();
+		List<Integer> sentItems = new ArrayList<>();
 		for(Play p : bestPlays) {
 			System.out.println(p);
+			if((sport == Sport.MLB_STATS) && (pct1 != null) && (pct1 == 0)) {
+				
+				if(p.getPerformance() >= 1.0) {
+
+					try {
+
+						if(sentItems.contains(p.getSrc().hashCode())) {
+							continue;
+						}
+						if(sentItems.contains(p.getTgt().hashCode())) {
+							continue;
+						}
+						sentItems.add(p.getSrc().hashCode());
+						sentItems.add(p.getTgt().hashCode());
+
+						es.sendEmailWithAttachmentToSelf(
+								p.getSrc().getPlayer1() != null 
+								   ?
+									p.getSrc().getPlayer1().getCommonName()
+										   :
+									p.getSrc().getAway().getCommonName() + " at " + p.getSrc().getHome().getCommonName(), 
+									p.toString(), 
+									null,
+									false);
+					} catch(Exception e) {
+						System.out.println("Exception emailing the play: " + e.getMessage());
+					}
+				}
+			}
 		}
 	}
 
