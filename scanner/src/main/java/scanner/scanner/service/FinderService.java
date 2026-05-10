@@ -31,6 +31,7 @@ public class FinderService {
 	private List<Play> playList = new ArrayList<>();
 	private int playListLimit = 30;
 	
+	private static double betSizeMlbStats = 100.0;
 	
 	private List<Play> getBestPlays(
 			Sport sport, boolean isBonus, 
@@ -728,7 +729,7 @@ public class FinderService {
 			System.out.println(p);
 			if((sport == Sport.MLB_STATS) && (pct1 != null) && (pct1 == 0)) {
 				
-				if(p.getPerformance() >= 1.0) {
+				if(p.getPerformance() >= (betSizeMlbStats/100.0)) {
 
 					try {
 
@@ -742,14 +743,13 @@ public class FinderService {
 						sentItems.add(p.getTgt().hashCode());
 
 						es.sendEmailWithAttachmentToSelf(
-								p.getSrc().getPlayer1() != null 
-								   ?
-									p.getSrc().getPlayer1().getCommonName()
-										   :
-									p.getSrc().getAway().getCommonName() + " at " + p.getSrc().getHome().getCommonName(), 
-									p.toString(), 
-									null,
-									false);
+								p.toStringForEmailSubject(),
+								p.toStringForEmailBody(),
+								null,
+								false);
+						if(sentItems.size() > 0) {
+							
+						}
 					} catch(Exception e) {
 						System.out.println("Exception emailing the play: " + e.getMessage());
 					}
@@ -760,15 +760,15 @@ public class FinderService {
 
 	private static void adjustBetSizes(Play p) {
 		if(p.getSrcML() < 0) {
-			double multFactor = 100.0/p.getSrcBetAmt();
-			p.setSrcBetAmt(100.0);
+			double multFactor = betSizeMlbStats/p.getSrcBetAmt();
+			p.setSrcBetAmt(betSizeMlbStats);
 			p.setSrcRtnAmt(p.getSrcRtnAmt() * multFactor);
 			p.setTgtBetAmt(p.getTgtBetAmt() * multFactor);
 			p.setTgtRtnAmt(p.getTgtRtnAmt() * multFactor);
 			p.setPerformance(p.getPerformance()*multFactor);
 		} else if(p.getTgtML() < 0) {
-			double multFactor = 100.0/p.getTgtBetAmt();
-			p.setTgtBetAmt(100.0);
+			double multFactor = betSizeMlbStats/p.getTgtBetAmt();
+			p.setTgtBetAmt(betSizeMlbStats);
 			p.setTgtRtnAmt(p.getTgtRtnAmt() * multFactor);
 			p.setSrcBetAmt(p.getSrcBetAmt() * multFactor);
 			p.setSrcRtnAmt(p.getSrcRtnAmt() * multFactor);

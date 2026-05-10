@@ -66,6 +66,52 @@ public class Play {
 //				100.0*performance/(srcBetAmt+tgtBetAmt));
 	}
 
+	public String toStringForEmailSubject() {
+		return 
+				src.getPlayer1().getCommonName() + ", " +  
+				src.getAway().getCommonName();
+	}
+
+	public String toStringForEmailBody() {
+
+		String srcPlay = srcPlayType.toString()
+				.replace("HOME_SPREAD",    "H_SPD")
+				.replace("HOME_MONEYLINE", "H_ML")
+				.replace("AWAY_SPREAD",    "A_SPD")
+				.replace("AWAY_MONEYLINE", "A_ML")
+				.replace("OVER",           "OVER")
+				.replace("UNDER",          "UNDER");
+		String tgtPlay = tgtPlayType.toString()
+				.replace("HOME_SPREAD",    "H_SPD")
+				.replace("HOME_MONEYLINE", "H_ML")
+				.replace("AWAY_SPREAD",    "A_SPD")
+				.replace("AWAY_MONEYLINE", "A_ML")
+				.replace("OVER",           "OVER")
+				.replace("UNDER",          "UNDER");
+		String sBook = srcBook.toString()
+				.replace("DRAFTKINGS", "DRAFT")
+				.replace("BETMGM",     "MGM")
+				.replace("CAESARS",    "CAES")
+				.replace("FANDUEL",    "FAND")
+				.replace("ESPN",       "ESPN")
+				.replace("BETRIVERS",  "RIVERS");
+		String tBook = tgtBook.toString()
+				.replace("DRAFTKINGS", "DRAFT")
+				.replace("BETMGM",     "MGM")
+				.replace("CAESARS",    "CAES")
+				.replace("FANDUEL",    "FAND")
+				.replace("ESPN",       "ESPN")
+				.replace("BETRIVERS",  "RIVERS");
+
+		return String.format(
+				"%-6s: %-5s @ %5.1f/%-6d: $%-7.2f\n%-6s: %-5s @ %5.1f/%-6d: $%-7.2f\nTo win: %-7.2f\n%7s",  
+				sBook, srcPlay.replace("OVER", "OV").replace("UNDER", "UN"), srcPts, srcML, srcBetAmt, 
+				tBook, tgtPlay.replace("OVER", "OV").replace("UNDER", "UN"), tgtPts, tgtML, tgtBetAmt,
+				performance, 
+				src.getMlbStat()==null?" ":src.getMlbStat()
+				);
+	}
+
 	public Odds getSrc() {
 		return src;
 	}

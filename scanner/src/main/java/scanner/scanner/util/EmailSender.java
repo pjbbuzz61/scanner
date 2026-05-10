@@ -33,10 +33,9 @@ public class EmailSender {
 	public static void main(String args[]) {
 
 		EmailSender es = new EmailSender();
-				
 
 		es.sendEmailWithAttachmentToSelf(
-				"Test Subject",
+				"The player name : Baltimore Orioles : Runs",
 				"Message Body", 
 				null,
 				false);
