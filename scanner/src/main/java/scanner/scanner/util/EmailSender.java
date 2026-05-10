@@ -13,6 +13,8 @@ import jakarta.mail.internet.MimeMultipart;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Date;
 import java.util.Properties;
 
@@ -20,7 +22,7 @@ public class EmailSender {
 
 	private static final Properties PROPERTIES = new Properties();
 	private static final String USERNAME = "ddanoso2018@gmail.com";   
-	private static final String PASSWORD = "fkjo neol egrk dqwt";  
+//	private static final String PASSWORD = "fkjo neol egrk dqwt";  
 	private static final String HOST = "smtp.gmail.com";
 
 	static {
@@ -34,6 +36,8 @@ public class EmailSender {
 
 		EmailSender es = new EmailSender();
 
+		String pwd = es.getPwd();
+		
 		es.sendEmailWithAttachmentToSelf(
 				"The player name : Baltimore Orioles : Runs",
 				"Message Body", 
@@ -47,11 +51,26 @@ public class EmailSender {
 
 	}
 
+	public String getPwd() {
+		try {
+			String baseDir = System.getProperty("user.dir") + "/scanner/resources/file.txt";
+
+			String content = new String(Files.readAllBytes(Paths.get(baseDir)));
+			return content;
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	
+		return null;
+	}
+
 	public void sendPlainTextEmail(String subject, String message, boolean debug) {
 
+		String pwd = getPwd();
 		Authenticator authenticator = new Authenticator() {
 			protected PasswordAuthentication getPasswordAuthentication() {
-				return new PasswordAuthentication(USERNAME, PASSWORD);
+				return new PasswordAuthentication(USERNAME, pwd);
 			}
 		};
 
@@ -85,9 +104,10 @@ public class EmailSender {
 
 	public void sendEmailWithAttachmentToSelf(String subject, String message, String file, boolean debug) {
 
+		String pwd = getPwd();
 		Authenticator authenticator = new Authenticator() {
 			protected PasswordAuthentication getPasswordAuthentication() {
-				return new PasswordAuthentication(USERNAME, PASSWORD);
+				return new PasswordAuthentication(USERNAME, pwd);
 			}
 		};
 
