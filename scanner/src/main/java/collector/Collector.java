@@ -785,6 +785,7 @@ public class Collector {
 	    				case "Lost":        w.setResult(WAGER_RESULT.LOSS);       break;
 	    				case "Won":         w.setResult(WAGER_RESULT.WIN);        break;
 	    				case "Cancelled":   w.setResult(WAGER_RESULT.CANCELLED);  break;
+	    				case "Cashed Out":  w.setResult(WAGER_RESULT.CANCELLED);  break;
 	    				default: 
 	    					System.out.println("New state: " + status.text());
 	    					System.exit(0);

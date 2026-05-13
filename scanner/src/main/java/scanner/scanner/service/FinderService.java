@@ -570,6 +570,7 @@ public class FinderService {
 		Integer    minSrc   = null;
 		Integer    maxSrc   = null;
 		String     host     = "localhost";
+		Boolean    useEmail = false;
 		
 		
 		// Handle input args
@@ -686,6 +687,10 @@ public class FinderService {
 					host = parts[1];
 					break;
 					
+				case "email":
+					useEmail = Boolean.parseBoolean(parts[1]);
+					break;
+
 				case "pct2":
 					try {
 						pct2 = Double.valueOf(parts[1]);
@@ -727,7 +732,7 @@ public class FinderService {
 		List<Integer> sentItems = new ArrayList<>();
 		for(Play p : bestPlays) {
 			System.out.println(p);
-			if((sport == Sport.MLB_STATS) && (pct1 != null) && (pct1 == 0)) {
+			if(useEmail && (sport == Sport.MLB_STATS) && (pct1 != null) && (pct1 == 0)) {
 				
 				if(p.getPerformance() >= (betSizeMlbStats/100.0)) {
 
