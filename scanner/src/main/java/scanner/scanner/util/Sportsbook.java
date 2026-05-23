@@ -10,5 +10,6 @@ public enum Sportsbook {
 	BETMGM, 
 	BETRIVERS,
 	BET365,
-	HARDROCK;
+	HARDROCK,
+	ESPN_MLB_REF;
 }

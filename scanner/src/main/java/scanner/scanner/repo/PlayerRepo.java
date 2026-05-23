@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 import scanner.scanner.model.Player;
 import scanner.scanner.model.Team;
 import scanner.scanner.util.Sport;
+import scanner.scanner.util.Sportsbook;
 
 @Repository
 public class PlayerRepo {
@@ -49,6 +50,10 @@ public class PlayerRepo {
 		return mongoTemplate.find(new Query().addCriteria(Criteria.where("team.commonName").is(teamName)), Player.class);
 	}
 
+	public List<Player> findAllForBook(Sportsbook book) {
+		return mongoTemplate.find(new Query().addCriteria(Criteria.where("team.book").is(book)), Player.class);
+	}
+
 	public Player getExistingPlayer(Team team, String commonName) {
     	Query q = new Query();
     	q.addCriteria(Criteria.where("team.commonName").is(team.getCommonName()));
@@ -66,6 +71,19 @@ public class PlayerRepo {
 		Update update = new Update();
 		update.set("team", team);
 		mongoTemplate.updateFirst(q, update, Player.class);
+	}
+
+	public void removeExistingPlayers(Sportsbook book) {
+    	Query q = new Query();
+    	q.addCriteria(Criteria.where("team.book").is(book));
+    	mongoTemplate.remove(q, Player.class);
+		
+	}
+
+	public List<Player> getRefPlayerList() {
+    	Query q = new Query();
+    	q.addCriteria(Criteria.where("team.book").is(Sportsbook.ESPN_MLB_REF));
+    	return mongoTemplate.find(q, Player.class);
 	}
 
 }

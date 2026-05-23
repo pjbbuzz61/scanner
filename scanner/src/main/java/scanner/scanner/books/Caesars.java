@@ -988,6 +988,9 @@ public class Caesars extends Book {
 
 				try {
 					driver.get(url);
+//					javascriptExecutor
+//						.executeScript("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})");
+//					driver.navigate().refresh();
 					driver.manage().window().maximize();
 					success = true;
 				} catch(Exception e) {

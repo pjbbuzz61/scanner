@@ -20,6 +20,10 @@ import scanner.scanner.repo.PlayerRepo;
 import scanner.scanner.repo.TeamRepo;
 import scanner.scanner.util.Sport;
 import scanner.scanner.util.Sportsbook;
+import uk.ac.shef.wit.simmetrics.similaritymetrics.CosineSimilarity;
+import uk.ac.shef.wit.simmetrics.similaritymetrics.MongeElkan;
+import uk.ac.shef.wit.simmetrics.similaritymetrics.OverlapCoefficient;
+import uk.ac.shef.wit.simmetrics.similaritymetrics.SmithWaterman;
 
 @Component
 public class PlayerService {
@@ -111,6 +115,11 @@ public class PlayerService {
 		tr.setMongoTemplate(mongoTemplate);
 		service.teamRepo = tr;
 
+//		service.compareMlbStatsToEspnRef();
+//		System.exit(0);
+		
+		List<Player> refPlayerList = r.getRefPlayerList();
+		
 		List<Player> players = r.findAll();
 		Map<String, List<Player>> theMap = new HashMap<>();
 		
@@ -137,7 +146,9 @@ public class PlayerService {
 		    	} else {
 		    		if(team.getCommonName().contentEquals(p.getTeam().getCommonName()) == false) {
 		    			System.out.println(entry.getKey() + ": " + p.getTeam().getCommonName() + " and " + team.getCommonName());
-						System.out.print("Use first or second team, or 3 for neither (return will bypass): ");
+		    			Player best = service.getClosestPlayerMatch(entry.getKey(), refPlayerList);
+		    			System.out.println("Best Match from Ref: " + best);
+		    			System.out.print("Use 1 or 2, or 3 for neither (return will bypass): ");
 					    String teamName = scanner.nextLine();
 					    if(teamName.trim().length() == 0) {
 					    	continue;
@@ -234,6 +245,61 @@ public class PlayerService {
 		    	}
 		    }
 		}
+	}
+
+	public float getWeight(String specName, String commonName) {
+		CosineSimilarity cs = new CosineSimilarity();
+		OverlapCoefficient os = new OverlapCoefficient();
+		SmithWaterman sw = new SmithWaterman();
+		MongeElkan me = new MongeElkan();
+
+		float f1 = cs.getSimilarity(specName,commonName);
+		float f2 = os.getSimilarity(specName,commonName);
+		float f3 = sw.getSimilarity(specName,commonName);
+		float f4 = me.getSimilarity(specName,commonName);
+		return f1+f2+f3+f4;
+	}
+
+	private Player getClosestPlayerMatch(String pitcher, List<Player> allPlayers) {
+		
+		double bestWeight = -1;
+		Player bestPlayer = null;
+		for(Player p : allPlayers) {
+	        double w = (double)getWeight(pitcher, p.getCommonName());
+	        if(w > bestWeight) {
+	        	bestWeight = w;
+	        	bestPlayer = p;
+	        }
+		}
+
+		if(bestWeight > 2.8) {
+			return bestPlayer;
+		}
+		return null;
+	}
+
+	private void compareMlbStatsToEspnRef() {
+		
+		List<Player> refPlayers = repo.findAllForBook(Sportsbook.ESPN_MLB_REF);
+		
+		List<Player> players = repo.findAllForBook(Sportsbook.BETMGM);
+		for(Player player : players) {
+
+			// find best match in the reference data
+			Player bestPlayer = getClosestPlayerMatch(player.getCommonName(), refPlayers);
+			if(bestPlayer != null) {
+				if(bestPlayer.getTeam().getCommonName().contentEquals(player.getTeam().getCommonName()) == false) {
+					System.out.println("Existing player does not match ref: " + player);
+					System.out.println("Ref match is " + bestPlayer + "\n");
+				}
+			}
+		}
+	
+	
+	}
+
+	public void removeExistingPlayers(Sportsbook book) {
+		repo.removeExistingPlayers(book);
 	}
 	
 	

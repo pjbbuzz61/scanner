@@ -45,6 +45,7 @@ import scanner.scanner.model.Team;
 import scanner.scanner.model.OU;
 import scanner.scanner.model.Odds;
 import scanner.scanner.model.TeamTotal;
+import scanner.scanner.model.mlbStats.UpcomingGame;
 import scanner.scanner.model.Player;
 import scanner.scanner.model.Spread;
 import scanner.scanner.exceptions.OddsException;
@@ -372,6 +373,86 @@ public class BetMGM extends Book {
 
 	}
 	
+	public List<UpcomingGame> getUpcomingGames() throws Exception {
+		
+		List<UpcomingGame> listOfGames = new ArrayList<>();
+
+		WebElement outerContainer = null;
+		List<WebElement> games = null;
+		try {
+			outerContainer = waitForElement(By.tagName("ms-event-group"));
+			games = getPopulatedList(outerContainer, By.tagName("ms-six-pack-event"));
+
+		} catch(Exception e) {
+			System.out.println("Failed to find list of games, outta here");
+			return listOfGames;
+		}
+
+		for(WebElement game : games) {
+			
+			try {
+				game.findElement(By.tagName("ms-live-timer"));
+				continue;
+				
+			} catch(Exception e3) {
+				// if we're here then there's no live timer, so the contest is pre-game, which we want
+			}
+
+			// if we're here the game is pre-match
+			Date gameStart = null;
+			try {
+				WebElement preMatchTimer = game.findElement(By.tagName("ms-prematch-timer"));
+				gameStart = getGameStart(preMatchTimer.getText());
+				if(gameStart == null) {
+					System.out.println("Didn't find the start time for the game");
+					continue;
+				}
+			} catch(Exception e) {
+				System.out.println("Failed to find the time fo the game");
+				continue;
+			}
+
+			// Find the home and away teams
+			List<WebElement> participants = game.findElements(By.cssSelector("div.participant"));
+			if((participants == null) || (participants.size() != 2)) {
+				System.out.println("Failed to find the participants");
+				continue;
+			}
+
+			String awayTeam = participants.get(0).getText().trim();
+			String homeTeam = participants.get(1).getText().trim();
+			
+			boolean failed = false;
+			Team away = null;
+			Team home = null;
+			try {
+				away = getTeam(this.sportsbook, Sport.MLB_STATS, awayTeam, true);
+			} catch(Exception e3) {
+				failed = true;
+			}
+			try {
+				home = getTeam(this.sportsbook, Sport.MLB_STATS, homeTeam, true);
+			} catch(Exception e3) {
+				failed = true;
+			}
+			if(failed) {
+				continue;
+			}
+			
+			UpcomingGame upGame = new UpcomingGame();
+			upGame.setBook(this.sportsbook);
+			upGame.setAway(away);
+			upGame.setHome(home);
+			upGame.setGameTime(gameStart);
+			upGame.setLink(game.findElement(By.cssSelector("a.grid-info-wrapper")));
+
+			listOfGames.add(upGame);
+			
+		} // for all listed games
+
+		return listOfGames;
+	}
+
 	private void parseMlbStats() {
 
 		List<Odds> oddsList = new ArrayList<>();
@@ -636,6 +717,10 @@ public class BetMGM extends Book {
 					break;
 				case "Totals":
 					mlbStat = MLB_STAT.TOTALS;
+					break;
+				case "Batter strikeouts O/U":
+					// ignoring this one for now
+					nameFound = false;
 					break;
 				default:
 					System.out.println("Unknown MLB stat: " + nameOfPanel);
@@ -1228,81 +1313,11 @@ public class BetMGM extends Book {
 			if(preMatchTimer.size() > 0) {
 				odds.setPeriod(Period.GAME); 
 				odds.setStatus(Status.SCHEDULED);
-				String dateString = preMatchTimer.text().replace("\u2022", " ").replace("\u202F", " ").replaceAll("\\s+", " ").trim();
-				String[] parts = dateString.split(" ");
-				int month, day, year;
-				int hour, minute;
-				if(parts[0].contentEquals("Today")) {
-					month = c.get(Calendar.MONTH) + 1;
-					day = c.get(Calendar.DAY_OF_MONTH);
-					year = c.get(Calendar.YEAR);
-					String[] hm = parts[1].split(":");
-					hour = Integer.parseInt(hm[0]);
-					minute = Integer.parseInt(hm[1]);
-					if(parts[2].contentEquals("PM")) {
-						if(hour != 12) {
-							hour +=12;
-						}
-					} else {
-						if(hour == 12) {
-							hour = 0;
-						}
-					}
-				} else if(parts[0].contentEquals("Tomorrow")) {
-					c.add(Calendar.DATE, 1);
-					month = c.get(Calendar.MONTH) + 1;
-					day = c.get(Calendar.DAY_OF_MONTH);
-					year = c.get(Calendar.YEAR);
-					String[] hm = parts[1].split(":");
-					hour = Integer.parseInt(hm[0]);
-					minute = Integer.parseInt(hm[1]);
-					if(parts[2].contentEquals("PM")) {
-						if(hour != 12) {
-							hour +=12;
-						}
-					} else {
-						if(hour == 12) {
-							hour = 0;
-						}
-					}
-				} else if(parts[0].contentEquals("Starting")) {
-					if(parts[1].contentEquals("now") == false) {
-						c.add(Calendar.MINUTE, Integer.parseInt(parts[2]));
-					}
-					month = c.get(Calendar.MONTH) + 1;
-					day = c.get(Calendar.DAY_OF_MONTH);
-					year = c.get(Calendar.YEAR);
-					hour = c.get(Calendar.HOUR_OF_DAY);
-					minute = c.get(Calendar.MINUTE);
-				} else {
-					String[] dmy = parts[0].split("/");
-					month = Integer.parseInt(dmy[0]);
-					day   = Integer.parseInt(dmy[1]);
-					year  = Integer.parseInt(dmy[2]) + 2000;
-					String[] hm = parts[1].split(":");
-					hour = Integer.parseInt(hm[0]);
-					minute = Integer.parseInt(hm[1]);
-					if(parts[2].contentEquals("PM")) {
-						if(hour != 12) {
-							hour +=12;
-						}
-					} else {
-						if(hour == 12) {
-							hour = 0;
-						}
-					}
-				}
+				Date gameStart = getGameStart(preMatchTimer.text());
+
 				// set the starting time
-				try {
-					odds.setGameDateTime(
-							new SimpleDateFormat("yyyy-MM-dd HH:mm")
-								.parse(String.format("%04d-%02d-%02d %02d:%02d", year, month, day, hour, minute)));
-				} catch (ParseException e1) {
-					e1.printStackTrace();
-				}
+				odds.setGameDateTime(gameStart);
 			} 
-				
-			
 		} else {
 			System.out.println("Match in progress, will not process: " + url);
 			return; // don't want matches in progress
@@ -1431,6 +1446,87 @@ public class BetMGM extends Book {
 		}
 	}
 
+	private Date getGameStart(String text) {
+		
+		Calendar c = Calendar.getInstance();
+
+		String dateString = text.replace("\u2022", " ").replace("\u202F", " ").replaceAll("\\s+", " ").trim();
+		String[] parts = dateString.split(" ");
+		int month, day, year;
+		int hour, minute;
+		if(parts[0].contentEquals("Today")) {
+			month = c.get(Calendar.MONTH) + 1;
+			day = c.get(Calendar.DAY_OF_MONTH);
+			year = c.get(Calendar.YEAR);
+			String[] hm = parts[1].split(":");
+			hour = Integer.parseInt(hm[0]);
+			minute = Integer.parseInt(hm[1]);
+			if(parts[2].contentEquals("PM")) {
+				if(hour != 12) {
+					hour +=12;
+				}
+			} else {
+				if(hour == 12) {
+					hour = 0;
+				}
+			}
+		} else if(parts[0].contentEquals("Tomorrow")) {
+			c.add(Calendar.DATE, 1);
+			month = c.get(Calendar.MONTH) + 1;
+			day = c.get(Calendar.DAY_OF_MONTH);
+			year = c.get(Calendar.YEAR);
+			String[] hm = parts[1].split(":");
+			hour = Integer.parseInt(hm[0]);
+			minute = Integer.parseInt(hm[1]);
+			if(parts[2].contentEquals("PM")) {
+				if(hour != 12) {
+					hour +=12;
+				}
+			} else {
+				if(hour == 12) {
+					hour = 0;
+				}
+			}
+		} else if(parts[0].contentEquals("Starting")) {
+			if(parts[1].contentEquals("now") == false) {
+				c.add(Calendar.MINUTE, Integer.parseInt(parts[2]));
+			}
+			month = c.get(Calendar.MONTH) + 1;
+			day = c.get(Calendar.DAY_OF_MONTH);
+			year = c.get(Calendar.YEAR);
+			hour = c.get(Calendar.HOUR_OF_DAY);
+			minute = c.get(Calendar.MINUTE);
+		} else {
+			String[] dmy = parts[0].split("/");
+			month = Integer.parseInt(dmy[0]);
+			day   = Integer.parseInt(dmy[1]);
+			year  = Integer.parseInt(dmy[2]) + 2000;
+			String[] hm = parts[1].split(":");
+			hour = Integer.parseInt(hm[0]);
+			minute = Integer.parseInt(hm[1]);
+			if(parts[2].contentEquals("PM")) {
+				if(hour != 12) {
+					hour +=12;
+				}
+			} else {
+				if(hour == 12) {
+					hour = 0;
+				}
+			}
+		}
+		// set the starting time
+		Date start = null;
+		try {
+			start = new SimpleDateFormat("yyyy-MM-dd HH:mm")
+					.parse(String.format("%04d-%02d-%02d %02d:%02d", year, month, day, hour, minute));
+			
+		} catch (ParseException e1) {
+			e1.printStackTrace();
+		}
+
+		return start;
+	}
+
 	private String readClipboard (String file) {
 		
 //	     File testFile = new File(file);
@@ -1473,7 +1569,7 @@ public class BetMGM extends Book {
 	     return null;
 	}
 
-	private void refresh(Sport sport, String url, boolean quickUp) {
+	public void refresh(Sport sport, String url, boolean quickUp) {
 
 		try {
 			getWindowHandle(sport, url);
@@ -1667,6 +1763,25 @@ public class BetMGM extends Book {
 		System.out.println("UseDriver is " + useTheDriver);
 
 		BetMGM mgm = new BetMGM(useTheDriver);
+		mgm.setUpServices();
+		
+		if(deleteOdds) {
+			mgm.getOddsService().removeAll(sport);
+		}
+
+		try {
+			mgm.acquire(sport);
+		} catch(Exception e) {
+			System.out.println("Exception from acquire: " + e);
+			e.printStackTrace();
+		}
+		mgm.closeDriver();
+		
+		System.out.println(new Date() + ": Done Processing BETMGM");
+	}
+
+	public void setUpServices() {
+		
 		TeamService tSrv = new TeamService();
 		TeamRepo tRepo = new TeamRepo();
 		
@@ -1685,37 +1800,194 @@ public class BetMGM extends Book {
 		uRepo.setMongoTemplate(mt);
 		uSrv.setUpdateRepo(uRepo);
 		tSrv.setUpdateService(uSrv);
-		mgm.setTeamService(tSrv);
+		setTeamService(tSrv);
 		
 		PlayerService ps = new PlayerService();
 		PlayerRepo pRepo = new PlayerRepo();
 		pRepo.setMongoTemplate(mt);
 		ps.setRepo(pRepo);
 		ps.setUpdateService(uSrv);
-		mgm.setPlayerService(ps);
+		setPlayerService(ps);
 
 		OddsService os = new OddsService();
 		OddsRepo oRepo = new OddsRepo();
 		oRepo.setMongoTemplate(mt);
 		os.setRepo(oRepo);
-		mgm.setOddsService(os);
+		setOddsService(os);
 		
-		if(deleteOdds) {
-			os.removeAll(sport);
-		}
-		try {
-			mgm.acquire(sport);
-		} catch(Exception e) {
-			System.out.println("Exception from acquire: " + e);
-			e.printStackTrace();
-		}
-		mgm.closeDriver();
-		
-		System.out.println(new Date() + ": Done Processing BETMGM");
 	}
 
 	private void setOddsService(OddsService os) {
 		this.oddsService = os;
+	}
+	public OddsService getOddsService() {
+		return this.oddsService;
+	}
+
+	public void acquireMlbStats(UpcomingGame game) throws Exception {
+		
+		if(game == null) {
+			System.out.println(this.sportsbook + ": No game returned");
+			return;
+		}
+
+		System.out.println(this.sportsbook + ": Processing game: " + 
+				game.getAway().getCommonName() + " at " + game.getHome().getCommonName() + " " + new Date());
+
+		if(game.getLink() == null) {
+			System.out.println(this.sportsbook + ": Link is null: " + game);
+			return;
+		}
+
+		List<Odds> oddsList = new ArrayList<>();
+
+		int numTries = 0;
+		boolean success = false;
+		do {
+
+			try {
+			
+				waitForClick(game.getLink());
+				try {Thread.sleep(1000L);} catch (InterruptedException e4) {}
+	
+				// Get teams
+				String homeTeam = null;
+				String awayTeam = null;
+	
+				// Get the names for the home and away teams
+				WebElement scoreboard = null;
+				scoreboard = waitForElement(By.cssSelector("div.main-score-container"));
+				
+				List<WebElement> participants = scoreboard.findElements(By.cssSelector("div.participant"));
+				if((participants == null) || (participants.size() != 2)) {
+					System.out.println("Failed to find the participants");
+					return;
+				}
+	
+				for(int i = 0; i < 2; ++i) {
+					
+					WebElement partName = participants.get(i).findElement(By.cssSelector("div.participant-name-value"));
+					if(partName == null) {
+						System.out.println("Failed to find one of the participants");
+						return;
+					}
+					if(i == 0) awayTeam = partName.getText().trim();
+					if(i == 1) homeTeam = partName.getText().trim();
+				}
+				
+				boolean failed = false;
+				Team away = null;
+				Team home = null;
+				try {
+					away = getTeam(this.sportsbook, Sport.MLB_STATS, awayTeam, true);
+				} catch(Exception e3) {
+					failed = true;
+				}
+				try {
+					home = getTeam(this.sportsbook, Sport.MLB_STATS, homeTeam, true);
+				} catch(Exception e3) {
+					failed = true;
+				}
+				if(failed) {
+					break; // break from do loop for the game
+				}
+				
+				// Select All first
+				WebElement sitemap = waitForElement(By.tagName("ms-event-details-sitemap"));
+				if(sitemap != null) {
+					List<WebElement> lis = getPopulatedList(sitemap, By.tagName("li"));
+					if(lis != null) {
+						boolean found = false;
+						for(WebElement li : lis) {
+							if(li.getText().contentEquals("Player props")) {
+								waitForClick(li);
+								found = true;
+								break;
+							}
+						}
+						if(found == false) {
+							System.out.println("Did not find the Player props button on the sitemap, going with default");
+						}
+					} else {
+						System.out.println("Failed to pull any list items from the sitemap, will go with what's displayed");
+					}
+				}
+	
+				// Put together a sort list of the panels I want to gather ...
+				List<WebElement> panelList = new ArrayList<>();
+				WebElement scroll = driver.findElement(By.tagName("ms-event-details-main"));
+				List<WebElement> optionPanels = scroll.findElements(By.tagName("ms-option-panel"));
+				for(WebElement op : optionPanels) {
+					WebElement button = null;
+					try {
+						button = op.findElement(By.cssSelector("button[aria-label='Open Accordion']"));
+						//System.out.println("Testing topic: " + button.getText());
+						if(isTargetRow(button.getText(), homeTeam, awayTeam)) {
+							//System.out.println("Adding panel: " + button.getText());
+							panelList.add(op);
+						}
+					} catch(Exception e) {
+						// do nothing -- already accordioned open
+					}
+					
+				}
+	
+				// for each panel, find the next in order vertically, expand, Show More, and process
+				do {
+					WebElement nextOnList = getNextWebElement(panelList);
+					WebElement panelName = nextOnList.findElement(By.cssSelector("div[slot='title']"));
+					String nameOfPanel = panelName.getText();
+					
+					// Expand
+					waitForClick(panelName);
+	
+					// Hit the Show More -- should be just the one on the page
+					WebElement showMore = nextOnList.findElement(By.cssSelector("div.show-more-less-button"));
+					waitForClick(showMore);
+	
+					// Read all panels back in, find this one and process
+					List<WebElement> allPanels = driver.findElements(By.tagName("ms-option-panel"));
+					WebElement panelToProcess = null;
+					for(WebElement panel : allPanels) {
+						WebElement name = panel.findElement(By.cssSelector("div[slot='title']"));
+						if(name.getText().contentEquals(nameOfPanel)) {
+							panelToProcess = panel;
+							break;
+						}
+					}
+					if(panelToProcess == null) {
+						System.out.println("Failed to find panel: " + nameOfPanel);
+						continue;
+					}
+	
+					processPanel(panelToProcess, nameOfPanel, oddsList, home, away);
+	
+					panelList.remove(nextOnList);
+				
+				} while(panelList.size() > 0);
+				
+				success = true; // last thing we do
+	
+			} catch(Exception gameEx) {
+				System.out.println("Failed to process game, numTries is " + numTries);
+				System.out.println("Exception: " + gameEx.getMessage());
+				numTries++;
+				if(numTries >= 3) {
+					System.out.println("We've tried 3 times for game, going to bail on it");
+				}
+			}
+		} while((numTries < 3) && (success == false));
+
+
+		// Persist the odds we have for the game
+		persistOddsForMlbStats(oddsList);
+
+		driver.navigate().back();
+		waitForElement(By.tagName("ms-event-group"));
+		
+		System.out.println(this.sportsbook + ": DONE processing game: " + 
+				game.getAway().getCommonName() + " at " + game.getHome().getCommonName() + " " + new Date());
+		
 	}
 
 }

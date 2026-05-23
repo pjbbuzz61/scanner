@@ -16,7 +16,7 @@ else
   ./betmgm_d.sh     $1 false  ; killFF.sh
   ./betrivers_d.sh  $1 false  ; killFF.sh
   ./fanduel_d.sh    $1 false  ; killFF.sh
-#  ./espn_d.sh       $1 false  ; killFF.sh
+  ./espn_d.sh       $1 false  ; killFF.sh
 #  nordvpn d
 fi
 

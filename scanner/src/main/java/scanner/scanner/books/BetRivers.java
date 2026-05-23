@@ -45,6 +45,7 @@ import scanner.scanner.model.OuRecord;
 import scanner.scanner.model.Player;
 import scanner.scanner.model.Spread;
 import scanner.scanner.model.Team;
+import scanner.scanner.model.mlbStats.UpcomingGame;
 import scanner.scanner.exceptions.OddsException;
 import scanner.scanner.repo.OddsRepo;
 import scanner.scanner.repo.PlayerRepo;
@@ -649,7 +650,6 @@ public class BetRivers extends Book {
 
 	private void processMLBGame(List<Odds> oddsList, List<Team> teams, Date gameTime) {
 
-		System.out.println("Processing game: " + teams.get(0).getCommonName() + " at " + teams.get(1).getCommonName());
 		WebElement container = null;
 		List<WebElement> sections = null;
 
@@ -1097,6 +1097,7 @@ public class BetRivers extends Book {
 			case "Batter HRs":
 			case "Player to hit X or more Home Runs - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 			case "Total Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "Total RBI by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 				return mlbStat;
 			default:
 				System.out.println("Don't have this header string registered1: " + headerString);
@@ -1129,6 +1130,7 @@ public class BetRivers extends Book {
 			case "Total Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 			case "Total Stolen Bases by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 			case "Total Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "Total RBI by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 				break; // fall through, return null
 			default:
 				System.out.println("Don't have this header string registered2: " + headerString);
@@ -1673,7 +1675,7 @@ public class BetRivers extends Book {
 	     return null;
 	}
 
-	private void refresh(Sport sport, String url) {
+	public void refresh(Sport sport, String url) {
 
 		try {
 			getWindowHandle(sport, url);
@@ -1772,7 +1774,25 @@ public class BetRivers extends Book {
 		}
 		System.out.println("UseDriver is " + useTheDriver);
 
-		BetRivers mgm = new BetRivers(useTheDriver);
+		BetRivers br = new BetRivers(useTheDriver);
+		br.setUpServices();
+		
+		if(deleteOdds) {
+			br.getOddsService().removeAll(sport);
+		}
+		try {
+			br.acquire(sport);
+		} catch(Exception e) {
+			System.out.println("Exception from acquire: " + e);
+			e.printStackTrace();
+		}
+
+		System.out.println(new Date() + ": Done Processing BETRIVERS");
+
+	}
+
+	public void setUpServices() {
+
 		TeamService tSrv = new TeamService();
 		TeamRepo tRepo = new TeamRepo();
 		
@@ -1791,37 +1811,170 @@ public class BetRivers extends Book {
 		uRepo.setMongoTemplate(mt);
 		uSrv.setUpdateRepo(uRepo);
 		tSrv.setUpdateService(uSrv);
-		mgm.setTeamService(tSrv);
+		setTeamService(tSrv);
 		
 		PlayerService ps = new PlayerService();
 		PlayerRepo pRepo = new PlayerRepo();
 		pRepo.setMongoTemplate(mt);
 		ps.setRepo(pRepo);
 		ps.setUpdateService(uSrv);
-		mgm.setPlayerService(ps);
+		setPlayerService(ps);
 
 		OddsService os = new OddsService();
 		OddsRepo oRepo = new OddsRepo();
 		oRepo.setMongoTemplate(mt);
 		os.setRepo(oRepo);
-		mgm.setOddsService(os);
-		
-		if(deleteOdds) {
-			os.removeAll(sport);
-		}
-		try {
-			mgm.acquire(sport);
-		} catch(Exception e) {
-			System.out.println("Exception from acquire: " + e);
-			e.printStackTrace();
-		}
-
-		System.out.println(new Date() + ": Done Processing BETRIVERS");
-
+		setOddsService(os);
 	}
-
+	
 	private void setOddsService(OddsService os) {
 		this.oddsService = os;
+	}
+	private OddsService getOddsService() {
+		return this.oddsService;
+	}
+	public List<UpcomingGame> getUpcomingGames() throws Exception {
+
+		List<UpcomingGame> listOfGames = new ArrayList<>();
+
+		showMore(By.cssSelector("button[data-testid=show-more-events-button]"));
+		showMore(By.cssSelector("div[data-testid=show-more-events-button]"));
+		
+		int numGames = 0;
+		WebElement container = 
+				driver.findElement(By.cssSelector("div[data-testid=listview-group-" + MLB_GROUP_NUMBER + "-events-container]"));
+		List<WebElement> games = container.findElements(By.tagName("article"));
+		numGames = games.size();
+
+		for(int gameNum = 0; gameNum < numGames; ++gameNum) {
+
+			javascriptExecutor.executeScript("javascript:window.scrollTo(0," + gameNum*200 + ")"); 
+
+			try {
+				
+				// Refresh list of games
+				games = refreshListOfGames();
+				if(games.size() < gameNum) {
+					System.out.println("Game list is too short");
+					continue;
+				}
+
+				// See if game is live
+				WebElement liveIndicator = games.get(gameNum).findElement(By.cssSelector("div[data-testid^='default-header'"));
+				if(liveIndicator.getText().contains("LIVE")) {
+					continue;
+				}
+
+				// Get the game time
+				Date gameTime = getGameTime(games.get(gameNum));
+				
+				// Get the two teams
+				List<Team> teams = getTeams(games.get(gameNum));
+				if(teams.size() != 2) {
+					System.out.println("Did not get two teams for game " + gameNum);
+					continue;
+				}
+				
+				WebElement link = games.get(gameNum);
+				
+				UpcomingGame upGame = new UpcomingGame();
+				upGame.setBook(this.sportsbook);
+				upGame.setAway(teams.get(0));
+				upGame.setHome(teams.get(1));
+				upGame.setGameTime(gameTime);
+				upGame.setLink(link);
+				upGame.setGameNum(gameNum);
+
+				listOfGames.add(upGame);
+
+			} catch(Exception e) {
+				System.out.println("Exception processing BetRivers games: " + e.getMessage());
+			}
+
+		} // for all games
+
+		
+		return listOfGames;
+	}
+	
+	public void acquireMlbStats(UpcomingGame game) throws Exception {
+
+		if(game == null) {
+			System.out.println(this.sportsbook + ": No game returned");
+			return;
+		}
+
+		System.out.println(this.sportsbook + ": Processing game: " + 
+				game.getAway().getCommonName() + " at " + game.getHome().getCommonName() + " " + new Date());
+
+		// have to reload the page info and scroll to the game we want (given by gameNum in the game object)
+		showMore(By.cssSelector("button[data-testid=show-more-events-button]"));
+		showMore(By.cssSelector("div[data-testid=show-more-events-button]"));
+		
+		WebElement container = 
+				driver.findElement(By.cssSelector("div[data-testid=listview-group-" + MLB_GROUP_NUMBER + "-events-container]"));
+		List<WebElement> games = container.findElements(By.tagName("article"));
+
+		javascriptExecutor.executeScript("javascript:window.scrollTo(0," + game.getGameNum()*200 + ")"); 
+
+		try {
+				
+			// Refresh list of games
+			games = refreshListOfGames();
+			if(games.size() < game.getGameNum()) {
+				System.out.println("Game list is too short");
+				return;
+			}
+
+			// See if game is live
+			WebElement liveIndicator = games.get(game.getGameNum()).findElement(By.cssSelector("div[data-testid^='default-header'"));
+			if(liveIndicator.getText().contains("LIVE")) {
+				System.out.println("Game appears to be live now");
+				return;
+			}
+
+			if(waitForClick(games.get(game.getGameNum())) == false) {
+				System.out.println("Failed to click the game");
+				return;
+			}
+
+		} catch(Exception e) {
+			System.out.println("Exception in BETRIVERS: " + e.getMessage());
+			return;
+		}
+		
+		int numTries = 0;
+		boolean success = false;
+		WebElement page = null;
+		do {
+			page = waitForElement(By.cssSelector("main.KambiBC-event-page-microfrontend"));
+			if(page == null) {
+				System.out.println("Event page didn't show up. NumTries: " + numTries);
+				try {Thread.sleep(1000L);} catch (InterruptedException e4) {}
+				numTries++;
+			} else {
+				success = true;
+			}
+			
+		} while((numTries < 3) && (success == false));
+
+		List<Odds> oddsList = new ArrayList<>();
+		if(success) {
+			processMLBGame(oddsList, Arrays.asList(game.getAway(), game.getHome()), game.getGameTime());
+		} else {
+			System.out.println("Failed to load game ");
+			return;
+		}
+
+		persistOddsForMlbStats(oddsList);
+		
+//		driver.navigate().back();
+
+		WebElement backButton = driver.findElement(By.cssSelector("button[aria-label='Navigate to MLB']"));
+		waitForClick(backButton);
+		
+		System.out.println(this.sportsbook + ": DONE processing game: " + 
+				game.getAway().getCommonName() + " at " + game.getHome().getCommonName() + " " + new Date());
 	}
 
 }

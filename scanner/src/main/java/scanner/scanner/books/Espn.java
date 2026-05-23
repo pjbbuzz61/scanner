@@ -40,6 +40,7 @@ import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClients;
 
 import scanner.scanner.model.Team;
+import scanner.scanner.model.mlbStats.UpcomingGame;
 import scanner.scanner.model.OU;
 import scanner.scanner.model.Odds;
 import scanner.scanner.model.Player;
@@ -444,13 +445,8 @@ public class Espn extends Book {
 				
 				processMLBGame(awayTeam, aTeam, homeTeam, hTeam, oddsList, startingTime);
 
-				if(oddsList != null) {
-					for(Odds odds : oddsList) {
-						persistOdds(odds, "odds" + "_" + Sport.MLB_STATS);
-					}
-				}
-				
-				oddsList.clear();
+				// Persist the odds we have for the game
+				persistOddsForMlbStats(oddsList);
 
 				//System.out.println("Start of refresh: " + new Date());
 				refresh(Sport.MLB_STATS, url);
@@ -474,7 +470,7 @@ public class Espn extends Book {
 		WebElement buttonBar = null;
 		List<WebElement> hdrButtons = null;
 		try {
-			buttonBar = driver.findElement(By.cssSelector("div.ao--carousel-slide-container"));
+			buttonBar = driver.findElement(By.cssSelector("div.ao\\:carousel-slide-container"));
 			hdrButtons = buttonBar.findElements(By.tagName("a"));
 		} catch(Exception e) {
 			System.out.println("Failed to get header buttons for " + awayTeam + " at " + homeTeam);
@@ -1497,15 +1493,21 @@ private List<Odds> parseTennis(String file, Sport sport) {
 	     return null;
 	}
 
-	private void refresh(Sport sport, String url) {
+	public void refresh(Sport sport, String url) {
+		refresh(sport, url, false);
+	}
+
+	public void refresh(Sport sport, String url, boolean quickUp) {
 
 		//System.out.println("Start of refresh: " + new Date());
 		try {
-			getWindowHandle(sport, url);
+			getWindowHandle(sport, url, quickUp);
 		} catch (OddsException e) {
 			return;
 		}
 
+		if(quickUp) return;
+		
 		//System.out.println("After window handle: " + new Date());
 		
 		WebElement popup = null;
@@ -1540,7 +1542,7 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		
 	}
 
-	private void getWindowHandle(Sport sport, String url) throws OddsException {
+	private void getWindowHandle(Sport sport, String url, boolean quickUp) throws OddsException {
 
 		int tries = 0;
 		boolean success = false;
@@ -1559,7 +1561,9 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		if(success == false) {
 			throw new OddsException("Failed to get url for " + this.sportsbook);
 		}
-					
+		
+		if(quickUp) return;
+		
 		try {
 			Robot robot2 = new Robot();
 			robot2.keyPress(KeyEvent.VK_ALT);
@@ -1642,7 +1646,24 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		}
 		System.out.println("UseDriver is " + useTheDriver);
 
-		Espn mgm = new Espn(useTheDriver);
+		Espn espn = new Espn(useTheDriver);
+		espn.setUpServices();
+				
+		if(deleteOdds) {
+			espn.getOddsService().removeAll(sport);
+		}
+		try {
+			espn.acquire(sport);
+		} catch(Exception e) {
+			System.out.println("Exception from acquire: " + e);
+			e.printStackTrace();
+		}
+		
+		System.out.println(new Date() + ": Done Processing ESPN");
+	}
+
+	public void setUpServices() {
+
 		TeamService tSrv = new TeamService();
 		TeamRepo tRepo = new TeamRepo();
 		
@@ -1661,36 +1682,142 @@ private List<Odds> parseTennis(String file, Sport sport) {
 		uRepo.setMongoTemplate(mt);
 		uSrv.setUpdateRepo(uRepo);
 		tSrv.setUpdateService(uSrv);
-		mgm.setTeamService(tSrv);
+		setTeamService(tSrv);
 		
 		PlayerService ps = new PlayerService();
 		PlayerRepo pRepo = new PlayerRepo();
 		pRepo.setMongoTemplate(mt);
 		ps.setRepo(pRepo);
 		ps.setUpdateService(uSrv);
-		mgm.setPlayerService(ps);
+		setPlayerService(ps);
 
 		OddsService os = new OddsService();
 		OddsRepo oRepo = new OddsRepo();
 		oRepo.setMongoTemplate(mt);
 		os.setRepo(oRepo);
-		mgm.setOddsService(os);
-		
-		if(deleteOdds) {
-			os.removeAll(sport);
-		}
-		try {
-			mgm.acquire(sport);
-		} catch(Exception e) {
-			System.out.println("Exception from acquire: " + e);
-			e.printStackTrace();
-		}
-		
-		System.out.println(new Date() + ": Done Processing ESPN");
+		setOddsService(os);
 	}
 
 	private void setOddsService(OddsService os) {
 		this.oddsService = os;
+	}
+	private OddsService getOddsService() {
+		return this.oddsService;
+	}
+
+	public List<UpcomingGame> getUpcomingGames() throws Exception {
+
+		List<UpcomingGame> listOfGames = new ArrayList<>();
+
+		WebElement container = driver.findElement(By.tagName("main"));
+		
+		List<WebElement> games = getPopulatedList(container, By.tagName("article"));
+		for(WebElement game : games) {
+		
+			try {
+				
+				List<WebElement> dateTimeOfGame = game.findElements(By.cssSelector("div.flex-wrap"));
+				List<WebElement> participants   = game.findElements(By.cssSelector("div.flex-row"));
+				if((dateTimeOfGame == null) || (dateTimeOfGame.size() != 1)) {
+					continue;
+				}
+				if((participants == null) || (participants.size() != 2)) {
+					continue;
+				}
+				WebElement awayEl = participants.get(0).findElement(By.cssSelector("div.text-primary"));
+				String awayTeam = removeParens(awayEl.getText().toUpperCase());
+
+				WebElement homeEl = participants.get(1).findElement(By.cssSelector("div.text-primary"));
+				String homeTeam = removeParens(homeEl.getText().toUpperCase());
+
+				Team away = null;
+				Team home = null;
+				
+				boolean failed = false;
+				try {
+					away = getTeam(this.sportsbook, Sport.MLB_STATS, awayTeam, true);
+				} catch(Exception e3) {
+					failed = true;
+				}
+				try {
+					home = getTeam(this.sportsbook, Sport.MLB_STATS, homeTeam, true);
+				} catch(Exception e3) {
+					failed = true;
+				}
+
+				if(failed) {
+					continue;
+				}
+
+				// Look for LIVE indicator
+				try {
+					dateTimeOfGame.get(0).findElement(By.cssSelector("div[data-testid='live-indicator']"));
+					continue; // if we're here the game is live, so skip it
+				} catch(Exception e) {
+					// Exception indications no live block, so it's pregame and we want those. Drop through
+				}
+
+				WebElement dateTime = dateTimeOfGame.get(0).findElement(By.tagName("span"));
+				Date startingTime = getStartingDate(dateTime.getText());
+				
+				// click on the game to get the stats
+				WebElement link = awayEl;
+				
+				UpcomingGame upGame = new UpcomingGame();
+				upGame.setBook(this.sportsbook);
+				upGame.setAway(away);
+				upGame.setHome(home);
+				upGame.setGameTime(startingTime);
+				upGame.setLink(link);
+
+				listOfGames.add(upGame);
+
+			} catch(Exception outer) {
+				System.out.println("Exception: " + outer.getLocalizedMessage());
+			}
+		}
+		
+		return listOfGames;
+	}
+
+	public void acquireMlbStats(UpcomingGame game) throws Exception {
+
+		if(game == null) {
+			System.out.println(this.sportsbook + ": No game returned");
+			return;
+		}
+
+		System.out.println(this.sportsbook + ": Processing game: " + 
+				game.getAway().getCommonName() + " at " + game.getHome().getCommonName() + " " + new Date());
+
+		if(game.getLink() == null) {
+			System.out.println(this.sportsbook + ": Link is null: " + game);
+			return;
+		}
+
+		boolean clickResult = waitForClick(game.getLink());
+		if(clickResult == false) {
+			System.out.println("Failed to click on game " + 
+					game.getAway().getCommonName() + " at " + 
+					game.getHome().getCommonName());
+			return;
+		}
+		try {Thread.sleep(1000L);} catch (InterruptedException e) {}
+		
+		List<Odds> oddsList = new ArrayList<>();
+		processMLBGame(
+				game.getAway().getNameSbSpecific(), game.getAway(), 
+				game.getHome().getNameSbSpecific(), game.getHome(), 
+				oddsList, 
+				game.getGameTime());
+
+		// Persist the odds we have for the game
+		persistOddsForMlbStats(oddsList);
+
+		refresh(Sport.MLB_STATS, getUrls(Sport.MLB_STATS).get(0), true);
+
+		System.out.println(this.sportsbook + ": DONE processing game: " + 
+				game.getAway().getCommonName() + " at " + game.getHome().getCommonName() + " " + new Date());
 	}
 
 }

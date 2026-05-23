@@ -195,10 +195,11 @@ public abstract class Book {
 				persistOdds(odds, "odds" + "_" + Sport.MLB_STATS);
 			}
 
-			System.out.println(this.sportsbook + ": Persisted " + oddsList.size() + " records");
+			System.out.print(this.sportsbook + ": Persisted " + oddsList.size() + " records - ");
 			for (Map.Entry<MLB_STAT, Integer> m : counts.entrySet()) {
-			    System.out.println(" " + m.getKey() + ":  " + m.getValue());
+			    System.out.print(" " + m.getKey() + ":  " + m.getValue());
 			}
+			System.out.println(); // add line break at the end
 			oddsList.clear();
 		}
 	}

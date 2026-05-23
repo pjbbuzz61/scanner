@@ -31,9 +31,9 @@ public class FinderService {
 	private List<Play> playList = new ArrayList<>();
 	private int playListLimit = 30;
 	
-	private static double betSizeMlbStats = 100.0;
+	public static double betSizeMlbStats = 100.0;
 	
-	private List<Play> getBestPlays(
+	public List<Play> getBestPlays(
 			Sport sport, boolean isBonus, 
 			Sportsbook book1, double amt1, Double pct1, String part1,
 			Sportsbook book2, double amt2, Double pct2, String part2,
@@ -705,14 +705,8 @@ public class FinderService {
 		
 		
 		FinderService service = new FinderService();
-		
-		MongoTemplate mongoTemplate = new MongoTemplate(MongoClients.create("mongodb://" + host + ":27017"), "scanner");
+		service.setUpServices(host);
 
-		OddsService os = new OddsService();
-		OddsRepo oRepo = new OddsRepo();
-		oRepo.setMongoTemplate(mongoTemplate);
-		os.setRepo(oRepo);
-		service.setOddsService(os);
 		
 		List<Play> bestPlays = service.getBestPlays(
 				sport, isBonus,
@@ -763,7 +757,19 @@ public class FinderService {
 		}
 	}
 
-	private static void adjustBetSizes(Play p) {
+	public void setUpServices(String host) {
+		
+		MongoTemplate mongoTemplate = new MongoTemplate(MongoClients.create("mongodb://" + host + ":27017"), "scanner");
+
+		OddsService os = new OddsService();
+		OddsRepo oRepo = new OddsRepo();
+		oRepo.setMongoTemplate(mongoTemplate);
+		os.setRepo(oRepo);
+		setOddsService(os);
+		
+	}
+
+	public static void adjustBetSizes(Play p) {
 		if(p.getSrcML() < 0) {
 			double multFactor = betSizeMlbStats/p.getSrcBetAmt();
 			p.setSrcBetAmt(betSizeMlbStats);

@@ -44,6 +44,7 @@ import scanner.scanner.model.OuRecord;
 import scanner.scanner.model.Player;
 import scanner.scanner.model.Spread;
 import scanner.scanner.model.Team;
+import scanner.scanner.model.mlbStats.UpcomingGame;
 import scanner.scanner.exceptions.OddsException;
 import scanner.scanner.repo.OddsRepo;
 import scanner.scanner.repo.PlayerRepo;
@@ -1117,7 +1118,7 @@ public class DraftKings extends Book {
 	     return null;
 	}
 
-	private void refresh(Sport sport, String url) {
+	public void refresh(Sport sport, String url) {
 
 		try {
 			getWindowHandle(sport, url);
@@ -1225,7 +1226,25 @@ public class DraftKings extends Book {
 		}
 		System.out.println("UseDriver is " + useTheDriver);
 
-		DraftKings mgm = new DraftKings(useTheDriver);
+		DraftKings dk = new DraftKings(useTheDriver);
+		dk.setUpServices();
+		
+		if(deleteOdds) {
+			dk.getOddsService().removeAll(sport);
+		}
+		try {
+			dk.acquire(sport);
+		} catch(Exception e) {
+			System.out.println("Exception from acquire: " + e);
+			e.printStackTrace();
+		}
+
+		System.out.println(new Date() + ": Done Processing DRAFTKINGS");
+		
+	}
+
+	public void setUpServices() {
+		
 		TeamService tSrv = new TeamService();
 		TeamRepo tRepo = new TeamRepo();
 		
@@ -1244,37 +1263,155 @@ public class DraftKings extends Book {
 		uRepo.setMongoTemplate(mt);
 		uSrv.setUpdateRepo(uRepo);
 		tSrv.setUpdateService(uSrv);
-		mgm.setTeamService(tSrv);
+		setTeamService(tSrv);
 		
 		PlayerService ps = new PlayerService();
 		PlayerRepo pRepo = new PlayerRepo();
 		pRepo.setMongoTemplate(mt);
 		ps.setRepo(pRepo);
 		ps.setUpdateService(uSrv);
-		mgm.setPlayerService(ps);
+		setPlayerService(ps);
 
 		OddsService os = new OddsService();
 		OddsRepo oRepo = new OddsRepo();
 		oRepo.setMongoTemplate(mt);
 		os.setRepo(oRepo);
-		mgm.setOddsService(os);
-		
-		if(deleteOdds) {
-			os.removeAll(sport);
-		}
-		try {
-			mgm.acquire(sport);
-		} catch(Exception e) {
-			System.out.println("Exception from acquire: " + e);
-			e.printStackTrace();
-		}
-
-		System.out.println(new Date() + ": Done Processing DRAFTKINGS");
+		setOddsService(os);
 		
 	}
 
 	private void setOddsService(OddsService os) {
 		this.oddsService = os;
+	}
+	private OddsService getOddsService() {
+		return this.oddsService;
+	}
+
+	public List<UpcomingGame> getUpcomingGames() throws Exception {
+
+		List<UpcomingGame> listOfGames = new ArrayList<>();
+		
+		List<WebElement> containers = driver.findElements(By.cssSelector("div[data-testid=marketboard]"));
+
+		for(WebElement container : containers) {
+			
+			List<WebElement> games = container.findElements(By.cssSelector("div.cb-static-parlay__content--inner"));
+			if((games.size() % 3) != 0) {
+				System.out.println("Problem: Should be three containers for each game");
+				return listOfGames;
+			}
+			
+			for(int i = 0; i < games.size(); i+=3) { // for each game
+
+				WebElement match = games.get(i+0);
+				WebElement time = games.get(i+1);
+
+				Team away = null;
+				Team home = null;
+				String awayName = null;
+				String homeName = null;
+				
+				List<WebElement> teams = match.findElements(By.cssSelector("div.cb-market__label-team-wrapper--col"));
+				List<WebElement> spans_away = teams.get(0).findElements(By.tagName("span"));
+				List<WebElement> spans_home = teams.get(1).findElements(By.tagName("span"));
+				
+				boolean failed = false;
+				try {
+					awayName = spans_away.get(0).getText();
+					away = getTeam(this.sportsbook, Sport.MLB_STATS, awayName, true);
+				} catch(Exception e3) {
+					failed = true;
+				}
+				try {
+					homeName = spans_home.get(0).getText();
+					home = getTeam(this.sportsbook, Sport.MLB_STATS, homeName, true);
+				} catch(Exception e3) {
+					failed = true;
+				}
+				if(failed) {
+					continue;
+				}
+
+				// See if game is live -- if so, skip it
+				List<WebElement> live = time.findElements(By.cssSelector("svg[data-testid=live-badge]"));
+				if(live.size() > 0) {
+					continue;
+				}
+
+				WebElement startTime = time.findElement(By.cssSelector("span.cb-event-cell__start-time"));
+				Date gameTime = null;
+				if(startTime != null) {
+					gameTime = getGameTime(startTime.getText());
+				}
+
+				// click on the game
+				WebElement link = match.findElement(By.cssSelector("div.cb-market__label-wrapper"));
+
+				UpcomingGame upGame = new UpcomingGame();
+				upGame.setBook(this.sportsbook);
+				upGame.setAway(away);
+				upGame.setHome(home);
+				upGame.setGameTime(gameTime);
+				upGame.setLink(link);
+
+				listOfGames.add(upGame);
+			}
+		}
+		
+		return listOfGames;
+	}
+
+	public void acquireMlbStats(UpcomingGame game) throws Exception {
+		
+		if(game == null) {
+			System.out.println(this.sportsbook + ": No game returned");
+			return;
+		}
+
+		System.out.println(this.sportsbook + ": Processing game: " + 
+				game.getAway().getCommonName() + " at " + game.getHome().getCommonName() + " " + new Date());
+
+		if(game.getLink() == null) {
+			System.out.println(this.sportsbook + ": Link is null: " + game);
+			return;
+		}
+
+		if(waitForClick(game.getLink()) == false) {
+			System.out.println("Unable to click the game");
+			return;
+		}
+		try {Thread.sleep(2000L);} catch (InterruptedException e) {}
+
+		List<Odds> oddsList = new ArrayList<>();
+
+		WebElement buttonBar = waitForElement(By.cssSelector("div.tab-switcher-tabs-wrapper"));
+		if(buttonBar == null) {
+			System.out.println("Failed to get the button bar, outta here");
+		} else {
+			// Get all the buttons
+			List<WebElement> buttons = buttonBar.findElements(By.tagName("a"));
+			for(WebElement button : buttons) {
+				switch(button.getText().toUpperCase()) {
+					case "GAME LINES":
+						waitForClick(button);
+						processGameLines(oddsList, game.getAway(), game.getHome(), game.getGameTime());
+						break;
+					case "BATTER PROPS":
+						waitForClick(button);
+						processBatterProps(oddsList, game.getAway(), game.getHome(), game.getGameTime());
+						break;
+					default:
+						// do nothing
+				}
+			}
+		}
+				
+		persistOddsForMlbStats(oddsList);
+
+		driver.navigate().back();
+
+		System.out.println(this.sportsbook + ": DONE processing game: " + 
+				game.getAway().getCommonName() + " at " + game.getHome().getCommonName() + " " + new Date());
 	}
 
 }

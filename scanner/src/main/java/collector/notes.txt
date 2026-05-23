@@ -8,7 +8,7 @@ Unfortunately it looks like I'll have to scrape DK from html. I can't see how th
 Bet365 also has the goofy format for data, so that might have to be scraped also.
 
 
-directoy structure to use
+directory structure to use
 ~/wagers/2026/<book>/files - for new files to process
 ~/wagers/2026/<book>/processed for files that have been processed
 

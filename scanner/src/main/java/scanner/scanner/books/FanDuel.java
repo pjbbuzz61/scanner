@@ -42,6 +42,7 @@ import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClients;
 
 import scanner.scanner.model.Team;
+import scanner.scanner.model.mlbStats.UpcomingGame;
 import scanner.scanner.model.OU;
 import scanner.scanner.model.Odds;
 import scanner.scanner.model.Player;
@@ -394,7 +395,6 @@ public class FanDuel extends Book {
 		String teamParts[] = parts[2].replace("Odds", "").split("@");
 		String awayTeam = teamParts[0].trim();
 		String homeTeam = teamParts[1].trim();
-		System.out.println(awayTeam + " at " + homeTeam);
 		boolean failed = false;
 		Team away = null;
 		Team home = null;
@@ -497,6 +497,7 @@ public class FanDuel extends Book {
 			case "To Record 3+ Runs":
 			case "To Record 3+ RBIs":
 			case "To Record 4+ RBIs":
+			case "To Hit a Laser (110+ MPH)":
 				return false;
 			default:
 				System.out.println("Unknown Title for section: " + title);
@@ -591,6 +592,7 @@ public class FanDuel extends Book {
 			case "Player To Record 4+ Hits + Runs + RBIs":
 			case "To Record 4+ Total Bases":
 			case "To Record 5+ Total Bases":
+			case "To Hit a Laser (110+ MPH)":
 				process = false;
 				break;
 				
@@ -1367,7 +1369,7 @@ public class FanDuel extends Book {
 	     return null;
 	}
 
-	private void refresh(Sport sport) {
+	public void refresh(Sport sport) {
 
 		List<String> url = new ArrayList<>();
 		switch(sport) {
@@ -1547,7 +1549,25 @@ public class FanDuel extends Book {
 		System.out.println("UseDriver is " + useTheDriver);
 		
 		
-		FanDuel mgm = new FanDuel(useTheDriver);
+		FanDuel fd = new FanDuel(useTheDriver);
+		fd.setUpServices();
+		
+		if(deleteOdds) {
+			fd.getOddsService().removeAll(sport);
+		}
+		try {
+			fd.acquire(sport);
+		} catch(Exception e) {
+			System.out.println("Exception from acquire: " + e);
+			e.printStackTrace();
+		}
+
+		System.out.println(new Date() + ": Done Processing FANDUEL");
+
+	}
+
+	public void setUpServices() {
+
 		TeamService tSrv = new TeamService();
 		TeamRepo tRepo = new TeamRepo();
 		
@@ -1566,37 +1586,151 @@ public class FanDuel extends Book {
 		uRepo.setMongoTemplate(mt);
 		uSrv.setUpdateRepo(uRepo);
 		tSrv.setUpdateService(uSrv);
-		mgm.setTeamService(tSrv);
+		setTeamService(tSrv);
 		
 		PlayerService ps = new PlayerService();
 		PlayerRepo pRepo = new PlayerRepo();
 		pRepo.setMongoTemplate(mt);
 		ps.setRepo(pRepo);
 		ps.setUpdateService(uSrv);
-		mgm.setPlayerService(ps);
+		setPlayerService(ps);
 
 		OddsService os = new OddsService();
 		OddsRepo oRepo = new OddsRepo();
 		oRepo.setMongoTemplate(mt);
 		os.setRepo(oRepo);
-		mgm.setOddsService(os);
-		
-		if(deleteOdds) {
-			os.removeAll(sport);
-		}
-		try {
-			mgm.acquire(sport);
-		} catch(Exception e) {
-			System.out.println("Exception from acquire: " + e);
-			e.printStackTrace();
-		}
-
-		System.out.println(new Date() + ": Done Processing FANDUEL");
-
+		setOddsService(os);
 	}
 
 	private void setOddsService(OddsService os) {
 		this.oddsService = os;
+	}
+	private OddsService getOddsService() {
+		return this.oddsService;
+	}
+
+	public List<UpcomingGame> getUpcomingGames() throws Exception {
+		
+		List<UpcomingGame> listOfGames = new ArrayList<>();
+
+		List<WebElement> uls = driver.findElements(By.tagName("ul"));
+		List<WebElement> lis = null;
+		WebElement ul = null;
+
+		int ulsSize = uls.size();
+		for(int ulIndex = 0; ulIndex < ulsSize; ++ulIndex) {
+			ul = uls.get(ulIndex);
+			if(ul.getText().contains("MLB Odds")) {
+				// This (might be/is) the one we want
+				// Now grab the li with "More wagers"
+				lis = ul.findElements(By.tagName("li"));
+				int liSize = lis.size(); 
+				for(int liIndex = 0; liIndex < liSize; ++liIndex) {
+					WebElement li = lis.get(liIndex);
+					if(li.getText().contains("More wagers")) {
+						
+						// See if game is live. If so, ignore
+						try {
+							li.findElement(By.cssSelector("svg[aria-label='live event']"));
+							continue;
+						} catch(Exception e) {
+							// do nothing, event is pre-match
+						}
+
+						// Get the game time
+						WebElement time = li.findElement(By.tagName("time"));
+						@SuppressWarnings("deprecation")
+						String dt = time.getAttribute("datetime");
+						SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.sss'Z'"); 
+						sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+						Date gameDateTime = null;
+						try {
+							gameDateTime = sdf.parse(dt);
+						} catch (ParseException e) {
+							System.out.println("Failed to parse the game time: " + dt);
+							continue;
+						}
+
+						List<WebElement> anchors = li.findElements(By.tagName("a"));
+						WebElement link = null;
+						boolean found = false;
+						for(WebElement anchor : anchors) {
+							if(anchor.getText().contentEquals("More wagers")) {
+								link = anchor;
+								found = true;
+								break;
+							}
+						}
+						
+						if(found) {
+							List<WebElement> teams = li.findElements(By.cssSelector("span[aria-label][role='text']"));
+							if(teams.size() != 2) {
+								System.out.println("Failed to find two teams");
+								continue;
+							}
+							
+							boolean failed = false;
+							Team away = null;
+							Team home = null;
+							try {
+								away = getTeam(this.sportsbook, Sport.MLB_STATS, teams.get(0).getText(), true);
+							} catch(Exception e3) {
+								failed = true;
+							}
+							try {
+								home = getTeam(this.sportsbook, Sport.MLB_STATS, teams.get(1).getText(), true);
+							} catch(Exception e3) {
+								failed = true;
+							}
+							if(failed) {
+								continue;
+							}
+							
+							UpcomingGame upGame = new UpcomingGame();
+							upGame.setBook(this.sportsbook);
+							upGame.setAway(away);
+							upGame.setHome(home);
+							upGame.setGameTime(gameDateTime);
+							upGame.setLink(link);
+
+							listOfGames.add(upGame);
+
+						}
+					}
+				}
+			}
+		}
+
+		return listOfGames;
+	}
+
+	public void acquireMlbStats(UpcomingGame game) throws Exception {
+		
+		if(game == null) {
+			System.out.println(this.sportsbook + ": No game returned");
+			return;
+		}
+
+		System.out.println(this.sportsbook + ": Processing game: " + 
+				game.getAway().getCommonName() + " at " + game.getHome().getCommonName() + " " + new Date());
+
+		if(game.getLink() == null) {
+			System.out.println(this.sportsbook + ": Link is null: " + game);
+			return;
+		}
+
+		waitForClick(game.getLink());
+
+		// process the game
+		List<Odds> oddsList = processMlbGame(game.getGameTime());
+	
+		persistOddsForMlbStats(oddsList);
+	
+		driver.navigate().back();
+		
+		System.out.println(this.sportsbook + ": DONE processing game: " + 
+				game.getAway().getCommonName() + " at " + game.getHome().getCommonName() + " " + new Date());
+
 	}
 
 }

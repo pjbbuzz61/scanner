@@ -786,6 +786,7 @@ public class Collector {
 	    				case "Won":         w.setResult(WAGER_RESULT.WIN);        break;
 	    				case "Cancelled":   w.setResult(WAGER_RESULT.CANCELLED);  break;
 	    				case "Cashed Out":  w.setResult(WAGER_RESULT.CANCELLED);  break;
+	    				case "Voided":      w.setResult(WAGER_RESULT.CANCELLED);  break;
 	    				default: 
 	    					System.out.println("New state: " + status.text());
 	    					System.exit(0);
@@ -1087,7 +1088,7 @@ public class Collector {
 	        				w.setBetType(WAGER_TYPE.SINGLE);
 	        			} else if(fnb.getBetType().contentEquals("TBL")) {
 	        				w.setBetType(WAGER_TYPE.PARLAY);
-	        			} else if(fnb.getBetType().startsWith("ACC")) {
+	        			} else if(fnb.getBetType().startsWith("AC")) {
 	        				w.setBetType(WAGER_TYPE.PARLAY);
 	        			} else {
 	        				System.out.println("Unknown wager type for FanDuel: " + fnb.getBetType());
