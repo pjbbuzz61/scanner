@@ -245,6 +245,7 @@ public class PlayerService {
 		    	}
 		    }
 		}
+		scanner.close();
 	}
 
 	public float getWeight(String specName, String commonName) {

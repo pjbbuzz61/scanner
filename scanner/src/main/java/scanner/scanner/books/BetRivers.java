@@ -485,6 +485,10 @@ public class BetRivers extends Book {
 				}
 				System.out.println(teams.get(0).getCommonName() + " at " + teams.get(1).getCommonName());
 				
+//				if(teams.get(1).getCommonName().contentEquals("SF_GIANTS") == false) {
+//					continue;
+//				}
+				
 				if(waitForClick(games.get(gameNum)) == false) {
 					System.out.println("Failed to click the game");
 					continue;
@@ -514,7 +518,9 @@ public class BetRivers extends Book {
 
 				persistOddsForMlbStats(oddsList);
 				
-				driver.navigate().back();
+				WebElement back = driver.findElement(By.cssSelector("button[aria-label='Navigate to MLB']"));
+				waitForClick(back);
+				//				driver.navigate().back();
 				
 				// Wait for Main Page to show up again
 				WebElement mainPage = 
@@ -546,7 +552,7 @@ public class BetRivers extends Book {
 		String awayTeam = parts.get(0).getText();
 		String awayPitcher = null; 
 		try {
-			WebElement pitcher = parts.get(0).findElement(By.cssSelector("div[data-testid=pitcher-stat-line]"));
+			WebElement pitcher = parts.get(0).findElement(By.cssSelector("div[data-testid=participant-stat-line]"));
 			awayPitcher = pitcher.getText().trim();
 		} catch(Exception e) {
 			
@@ -555,7 +561,7 @@ public class BetRivers extends Book {
 		String homeTeam = parts.get(1).getText();
 		String homePitcher = null; 
 		try {
-			WebElement pitcher = parts.get(1).findElement(By.cssSelector("div[data-testid=pitcher-stat-line]"));
+			WebElement pitcher = parts.get(1).findElement(By.cssSelector("div[data-testid=participant-stat-line]"));
 			homePitcher = pitcher.getText().trim();
 		} catch(Exception e) {
 			
@@ -776,10 +782,28 @@ public class BetRivers extends Book {
 			Double overUnder = getOUFromHeader(hdr);
 			mlbStat = updateMlbStatFromHeader(hdr, mlbStat);
 			
+			WebElement offers = subCat.findElement(By.cssSelector("div.KambiBC-bet-offer-subcategory__outcomes-list"));
+
+			// look for header descriptions
+			try {
+				List<WebElement> hdrDecs  = offers.findElements(By.cssSelector("h4.KambiBC-outcomes-list__column-header--column"));
+				for(WebElement d : hdrDecs) {
+					String note = d.getText();
+					//System.out.println("Note: " + note);
+					if(note != null) {
+						if(note.trim().length() > 0) {
+							mlbStat = updateMlbStatFromHeader(d, mlbStat);
+						}
+					}
+				}
+			} catch(Exception e) {
+				//e.printStackTrace();
+				// do nothing - just means there isn't a header note
+			}
+			
 			// This is the list of offers for it
 			// We need to determine the type of offers listing here
 			// Seem to come in two flavors - one column and two
-			WebElement offers = subCat.findElement(By.cssSelector("div.KambiBC-bet-offer-subcategory__outcomes-list"));
 			WebElement outList = offers.findElement(By.cssSelector("div.KambiBC-outcomes-list"));
 			@SuppressWarnings("deprecation")
 			String classes = outList.getAttribute("class");
@@ -1008,6 +1032,9 @@ public class BetRivers extends Book {
 				}
 				for(WebElement but : buts) {
 					String t = but.getText();
+					if((t == null) || (t.length() == 0)) {
+						continue;
+					}
 					OU ou = getOU(t.replace("\n", " ").split(" "));
 					if(ou != null) {
 						
@@ -1076,17 +1103,44 @@ public class BetRivers extends Book {
 		switch(headerString) {
 		
 			case "Player to Hit a Home Run - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "1+ Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "1+ RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "1+ Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 				return mlbStat;
 			case "Player to hit 2 or more Home Runs - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "2+ Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "2+ Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "2+ RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "2+ Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 				return mlbStat;
 			case "Player to hit 3 or more Home Runs - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "3+ Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "3+ Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "3+ RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "3+ Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+				return mlbStat;
+			case "4+ Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "4+ Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "4+ RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "4+ Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+				return mlbStat;
+			case "5+ Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "5+ Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "5+ RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "5+ Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 				return mlbStat;
 			case "Total Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
 			case "Total Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 				return mlbStat;
 			case "Total Doubles by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
 			case "Total Doubles by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "1+ Doubles by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 				return MLB_STAT.DOUBLES;
+			case "Player Total Bases (Must Start)":
+			case "Total RBI by the Player (Must Start)":
+			case "Total Hits by the Player (Must Start)":
+			case "Stolen Bases by the Player - (Must Start)":
+			case "Player to Hit a HR (Must Start)":
 			case "Total Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
 			case "Total RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
 			case "Total Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
@@ -1098,6 +1152,14 @@ public class BetRivers extends Book {
 			case "Player to hit X or more Home Runs - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 			case "Total Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 			case "Total RBI by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "Batter Hits":
+			case "Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "O 1.5":
+			case "O 0.5":
+			case "O 2.5":
 				return mlbStat;
 			default:
 				System.out.println("Don't have this header string registered1: " + headerString);
@@ -1111,14 +1173,40 @@ public class BetRivers extends Book {
 		switch(headerString) {
 		
 			case "Player to Hit a Home Run - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "1+ Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "1+ RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "1+ Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 				return 0.5;
 			case "Player to hit 2 or more Home Runs - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "2+ Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "2+ Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "2+ RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "2+ Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 				return 1.5;
 			case "Player to hit 3 or more Home Runs - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "3+ Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "3+ Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "3+ RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "3+ Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 				return 2.5;
+			case "4+ Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "4+ Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "4+ RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "4+ Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+				return 3.5;
+			case "5+ Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "5+ Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "5+ RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "5+ Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+				return 4.5;
 			case "Total Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
 			case "Total Doubles by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
 			case "Total Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+			case "Player Total Bases (Must Start)":
+			case "Total RBI by the Player (Must Start)":
+			case "Total Hits by the Player (Must Start)":
+			case "Stolen Bases by the Player - (Must Start)":
+			case "Player to Hit a HR (Must Start)":
 			case "Total RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
 			case "Total Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
 			case "Total Stolen Bases by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
@@ -1131,6 +1219,12 @@ public class BetRivers extends Book {
 			case "Total Stolen Bases by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 			case "Total Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 			case "Total RBI by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "Hits by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "Batter Hits":
+			case "Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
+			case "1+ Doubles by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 				break; // fall through, return null
 			default:
 				System.out.println("Don't have this header string registered2: " + headerString);
@@ -1357,13 +1451,33 @@ public class BetRivers extends Book {
 		if(homeTeamContainer == null) {
 			return false;
 		}
-		String awayTeam = awayTeamContainer.text();
-		String homeTeam = homeTeamContainer.text();
-		if(awayTeamContainer.text().contains(")")) {
-			awayTeam = awayTeamContainer.text().substring(awayTeamContainer.text().indexOf(")")+1).trim();
+		
+		Element awayPitcherStatLine = awayTeamContainer.select("div[data-testid=pitcher-stat-line]").first();
+		String awayPitcher = null;
+		if(awayPitcherStatLine != null) {
+			awayPitcher = awayPitcherStatLine.text().trim();
 		}
-		if(homeTeamContainer.text().contains(")")) {
-			homeTeam = homeTeamContainer.text().substring(homeTeamContainer.text().indexOf(")")+1).trim();
+		Element homePitcherStatLine = homeTeamContainer.select("div[data-testid=pitcher-stat-line]").first();
+		String homePitcher = null;
+		if(homePitcherStatLine != null) {
+			homePitcher = homePitcherStatLine.text().trim();
+		}
+		
+		String awayTeam = awayTeamContainer.text().trim();
+		String homeTeam = homeTeamContainer.text().trim();
+		
+		if(awayPitcherStatLine != null) {
+			awayTeam = awayTeam.replace(awayPitcher, "").trim();
+		}
+		if(homePitcherStatLine != null) {
+			homeTeam = homeTeam.replace(homePitcher, "").trim();
+		}
+
+		if(awayTeam.contains(")")) {
+			awayTeam = awayTeam.substring(awayTeam.indexOf(")")+1).trim();
+		}
+		if(homeTeam.contains(")")) {
+			homeTeam = homeTeam.substring(homeTeam.indexOf(")")+1).trim();
 		}
 		if(homeTeam != null)  {
 			if(sport == Sport.TENNIS) {

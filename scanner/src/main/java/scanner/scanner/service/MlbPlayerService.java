@@ -8,7 +8,6 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
 import com.mongodb.ConnectionString;
@@ -17,7 +16,6 @@ import com.mongodb.client.MongoClients;
 
 import scanner.scanner.exceptions.OddsException;
 import scanner.scanner.model.Team;
-import scanner.scanner.repo.OddsRepo;
 import scanner.scanner.repo.PlayerRepo;
 import scanner.scanner.repo.TeamRepo;
 import scanner.scanner.repo.UpdateRepo;
@@ -45,6 +43,7 @@ public class MlbPlayerService {
 		service.getTeams(url);
 	}
 	
+	@SuppressWarnings("unused")
 	private PlayerService getPlayerService() {
 		return playerService;
 	}

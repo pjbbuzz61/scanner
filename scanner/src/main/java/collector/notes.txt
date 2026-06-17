@@ -28,7 +28,7 @@ Caesars
  
  
 FanDuel
- login, go to My Bets, go to Settled Bets. json comes back with 'fetch-my-bets' urls. Each state will have to be
+ login, go to My Bets, go to Settled Bets. json comes back with 'search-bets' urls. Each state will have to be
  pulled separately, so add the state in lower case to the file name (with an underscore at the start)
  NOTE: you can set the to and from record fields with an up to 100 diff. So set first time to 1 to 100, 
        the next 101 to 200, etc

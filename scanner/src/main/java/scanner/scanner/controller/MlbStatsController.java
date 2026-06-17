@@ -1,6 +1,9 @@
 package scanner.scanner.controller;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -50,22 +53,12 @@ public class MlbStatsController {
 		// Map will use a key of AwayTeam_HomeTeam_gameTimeAsMs, and a value of the Date the game was last checked
 		Map<String, Date> currMap = new HashMap<>();
 		
-		int numCycles = 0;
 		List<Integer> sentItems = new ArrayList<>();
 		bm.getOddsService().removeAll(Sport.MLB_STATS);
 		
 		// forever loop - set a counter to zero that will one up for each loop
 		while(true) {
 	
-//			if(numCycles++ > 10) {
-//				bm.quitDriver();
-//				dk.quitDriver();
-//				espn.quitDriver();
-//				fd.quitDriver();
-//				br.quitDriver();
-//				System.exit(0);
-//			}
-
 			// TODO - check consec fails at this point, restart if necessary
 			
 			
@@ -106,6 +99,9 @@ public class MlbStatsController {
 				System.out.println("No games on the list");
 				break;
 			}
+			
+			// Remove any games not being played today
+			upcomingGames = removeGamesNotToday(upcomingGames);
 			
 			// remove any map entries that don't have an upcomingGames entry
 			cleanUpTable(currMap, upcomingGames);
@@ -205,7 +201,8 @@ public class MlbStatsController {
 			EmailSender es = new EmailSender();
 			for(Play p : bestPlays) {
 				System.out.println(p);
-				if(p.getPerformance() >= (FinderService.betSizeMlbStats/100.0)) {
+//				if(p.getPerformance() >= (FinderService.betSizeMlbStats/100.0)) {
+				if(p.getPerformance() >= 0.5) {
 
 					try {
 
@@ -238,6 +235,27 @@ public class MlbStatsController {
 		} // for ever loop
 	}
 		
+	private static List<UpcomingGame> removeGamesNotToday(List<UpcomingGame> upcomingGames) {
+
+		List<UpcomingGame> rtn = new ArrayList<>();
+		int day = LocalDate.now().getDayOfMonth();
+		
+		for(UpcomingGame game : upcomingGames) {
+	
+			if(game.getGameTime() != null) {
+				int dayOfGame = game.getGameTime().toInstant()
+			              .atZone(ZoneId.systemDefault())
+			              .toLocalDate()
+			              .getDayOfMonth();			
+				if(dayOfGame == day) {
+					rtn.add(game);
+				}
+			}
+		}
+		
+		return rtn;
+	}
+
 	private static void printMap(Map<String, Date> currMap) {
 		
         List<Entry<String, Date>> list = new ArrayList<>(currMap.entrySet());

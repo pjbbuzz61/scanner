@@ -117,6 +117,8 @@ public class FanDuel extends Book {
 							((sport == Sport.NCAAW) && link.getText().contains("College Basketball"))
 								||
 							((sport == Sport.TENNIS) && link.getText().contains("Matches"))
+								||
+							((sport == Sport.TENNIS) && link.getText().contains("French Open"))
 							
 							) {
 						System.out.println(link.getText());
@@ -1496,7 +1498,7 @@ public class FanDuel extends Book {
 			long diff = System.currentTimeMillis() - lastAccessTime;
 			if(diff < 60000) {
 				System.out.println("Too soon to try again: Last time was " + diff + " ms ago.");
-				System.exit(0);
+				//System.exit(0);
 			}
 		} catch (IOException e) {
 			System.out.println("Access file does not exist. First time?");

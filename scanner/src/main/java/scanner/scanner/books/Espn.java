@@ -170,8 +170,9 @@ public class Espn extends Book {
 					//System.out.println(link.attr("href"));
 					
 					String l = link.attr("href");
-					if(l.contains("/atp-") || l.contains("/wta-")) {
+					if(l.contains("/atp-") || l.contains("/wta-")  || l.contains("french-open")) {
 						if(!l.contains("doubles") && (!l.contains("specials")) && (!l.contains("challenger"))) {
+							//System.out.println(" found " + link.attr("href"));
 							rtn.add("https://sportsbook.thescore.bet" + l);
 						}
 					}

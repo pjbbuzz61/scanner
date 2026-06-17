@@ -128,6 +128,7 @@ public class BetMGM extends Book {
 			case TENNIS:
 				urls.add("https://www.md.betmgm.com/en/sports/tennis-5/betting/atp-6");
 				urls.add("https://www.md.betmgm.com/en/sports/tennis-5/betting/wta-7");
+				urls.add("https://www.md.betmgm.com/en/sports/tennis-5/betting/grand-slam-tournaments-5");
 				break;
 			default:
 				break;
@@ -625,6 +626,7 @@ public class BetMGM extends Book {
 				} catch(Exception gameEx) {
 					System.out.println("Failed to process game number " + gameNum + ", numTries is " + numTries);
 					System.out.println("Exception: " + gameEx.getMessage());
+					gameEx.printStackTrace();
 					numTries++;
 					if(numTries >= 3) {
 						System.out.println("We've tried 3 times for game " + gameNum + ", going to bail on it");
@@ -1070,6 +1072,17 @@ public class BetMGM extends Book {
 	        	List<WebElement> curr = list.get(currentPlayer);
 	        	curr.add(des);
 	        	list.put(currentPlayer, curr);
+	        } else if(elementContains(des, "option-group-row")) {
+	    		List<WebElement> divs = des.findElements(By.xpath("./*"));
+				WebElement img = divs.get(0).findElement(By.cssSelector("img[srcset]"));
+				List<WebElement> elementList = new ArrayList<>();
+				elementList.add(img);
+	        	list.put(divs.get(0), elementList);
+	        	currentPlayer = divs.get(0);
+	    		List<WebElement> options = des.findElements(By.tagName("ms-option"));
+	        	List<WebElement> curr = list.get(currentPlayer);
+	        	curr.addAll(options);
+	        	list.put(currentPlayer, curr);
 	        }
 		}
 		//System.out.println("Time to make stats map: " + (System.currentTimeMillis()-start));
@@ -1096,9 +1109,14 @@ public class BetMGM extends Book {
 			String playerName = null;
 
 			// get the player name
-			WebElement pName = player.findElement(By.cssSelector("span.title"));
+//			WebElement pName = player.findElement(By.cssSelector("span.title"));
+			WebElement pName = player;
 			if(pName != null) {
 				playerName = pName.getText().trim();
+				if(playerName.contains("Avg:")) {
+					String temp = playerName.substring(0, playerName.indexOf("Avg:")).trim();
+					playerName = temp;
+				}
 				if(playerName.length() == 0) {
 					//System.out.println("Player doesn't exist");
 					continue;
@@ -1146,8 +1164,15 @@ public class BetMGM extends Book {
 					continue; // ignore the image element I shoved on this list
 				}
 
-				WebElement pts = op.findElement(By.cssSelector("div.name"));
-				WebElement ml  = op.findElement(By.cssSelector("div.value"));
+				WebElement pts = null;
+				WebElement ml  = null;
+				try {
+					pts = op.findElement(By.cssSelector("div.name"));
+					ml  = op.findElement(By.cssSelector("div.value"));
+				} catch(Exception ee) {
+//					System.out.println("Name of Panel: " + nameOfPanel);
+					continue; // probably a locked odds set (off the board), so just move on
+				}
 				points = pts.getText();
 				ML     = ml.getText();
 
@@ -1971,6 +1996,7 @@ public class BetMGM extends Book {
 			} catch(Exception gameEx) {
 				System.out.println("Failed to process game, numTries is " + numTries);
 				System.out.println("Exception: " + gameEx.getMessage());
+				gameEx.printStackTrace();
 				numTries++;
 				if(numTries >= 3) {
 					System.out.println("We've tried 3 times for game, going to bail on it");

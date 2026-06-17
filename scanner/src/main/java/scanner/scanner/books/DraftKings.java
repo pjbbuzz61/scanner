@@ -153,9 +153,13 @@ public class DraftKings extends Book {
 		Elements links = doc.select("a[href]");
 		for(Element link : links) {
 			String l = link.attr("href");
-			if(l.contains("/atp-") || l.contains("/wta-")) { // || l.contains("/itf-") || l.contains("/challenger-")) {
+			if(l.contains("/atp-") || l.contains("/wta-") || l.contains("/french-open")) { // || l.contains("/itf-") || l.contains("/challenger-")) {
 				if(!l.contains("doubles")) {
-					rtn.add("https://sportsbook.draftkings.com" + l);
+					if(l.contains("/french-open")) {
+						rtn.add("https://sportsbook.draftkings.com" + l + "?category=match-lines&subcategory=moneyline");
+					} else {
+						rtn.add("https://sportsbook.draftkings.com" + l);
+					}
 				}
 			}
 		}
@@ -487,6 +491,9 @@ public class DraftKings extends Book {
 			WebElement label = topic.findElement(By.tagName("h2"));
 			String name = label.getText();
 			switch(name) {
+				case "Home Runs":
+//					processOu(topic, oddsList, away, home, gameTime, MLB_STAT.HR);
+					break;
 				case "Hits O/U":
 					processOu(topic, oddsList, away, home, gameTime, MLB_STAT.HITS);
 					break;
@@ -533,7 +540,23 @@ public class DraftKings extends Book {
 		}
 
 //		List<WebElement> rows = topic.findElements(By.cssSelector("div[data-testid=market-mapping-template-8]"));
-		List<WebElement> rows = getPopulatedList(topic, By.cssSelector("div[data-testid=market-mapping-template-8]"));
+		// -331 for HRs
+		List<WebElement> rows = null;
+		try {
+			rows = getPopulatedList(topic, By.cssSelector("div[data-testid=market-mapping-template-8]"));
+		} catch(Exception e) {			
+		}
+//		if((rows == null) || (rows.size() == 0)) {
+//			try {
+//				rows = getPopulatedList(topic, By.cssSelector("div[data-testid=market-mapping-template-331]"));
+//			} catch(Exception e) {			
+//			}
+//		}
+		if(rows == null) {
+			System.out.println("No rows found");
+			return;
+		}
+
 		for(WebElement row : rows) {
 			
 			Player pl = null;
@@ -575,33 +598,37 @@ public class DraftKings extends Book {
 				}
 
 				List<WebElement> buttons = row.findElements(By.tagName("button"));
-				OuRecord recOver = getRecord(buttons.get(0));
-				OuRecord recUnder = getRecord(buttons.get(1));
-
-				// Build the odds structure
-				Odds odds = new Odds();
-				odds.setTimeStamp(new Date());
-				odds.setBook(this.sportsbook);
-				odds.setSport(Sport.MLB_STATS);
-				odds.setPeriod(Period.GAME); 
-				odds.setStatus(Status.SCHEDULED);
-				odds.setMlbStat(mlbStat);
-				odds.setGameDateTime(gameTime);
+				List<OuRecord> records = new ArrayList<>();
+				for(WebElement button : buttons) {
+					OuRecord r = getRecord(button);
+					if(r != null) {
+						records.add(r);
+					}
+				}
+				List<OU> ouList = combineRecords(records);
 				
-				OU ou = new OU();
-				ou.setPoints(recOver.getPoints());
-				ou.setOver(recOver.getMl());
-				ou.setUnder(recUnder.getMl());
-				
-				odds.setOu(ou);
-				odds.setHome(home);
-				odds.setAway(away);
-				odds.setPlayer1(pl);
-				odds.setPlayer2(pl);
-				odds.setHome(theTeam);
-				odds.setAway(theTeam);
+				for( OU ou : ouList) {
+					
+					// Build the odds structure
+					Odds odds = new Odds();
+					odds.setTimeStamp(new Date());
+					odds.setBook(this.sportsbook);
+					odds.setSport(Sport.MLB_STATS);
+					odds.setPeriod(Period.GAME); 
+					odds.setStatus(Status.SCHEDULED);
+					odds.setMlbStat(mlbStat);
+					odds.setGameDateTime(gameTime);
+					
+					odds.setOu(ou);
+					odds.setHome(home);
+					odds.setAway(away);
+					odds.setPlayer1(pl);
+					odds.setPlayer2(pl);
+					odds.setHome(theTeam);
+					odds.setAway(theTeam);
 
-				oddsList.add(odds);
+					oddsList.add(odds);
+				}
 
 				
 			} catch(Exception e) {
@@ -609,6 +636,43 @@ public class DraftKings extends Book {
 			}
 
 		}
+	}
+
+	private List<OU> combineRecords(List<OuRecord> records) {
+
+		List<OU> rtn = new ArrayList<>();
+		List<String> points = new ArrayList<>();
+		
+		for(OuRecord record : records) {
+			boolean found = false;
+			String currPoints = String.format("%f", record.getPoints());
+			for(String pts : points) {
+				if(pts.contentEquals(currPoints)) {
+					found = true;
+					break;
+				}
+			}
+			if(found == false) {
+				points.add(currPoints);
+			}
+		} // for all records
+
+		// Make an OU from each point value
+		for(String pts : points) {
+			OU ou = new OU();
+			ou.setPeriod(Period.GAME);
+			ou.setPoints(Double.parseDouble(pts));
+			rtn.add(ou);
+			for(OuRecord record : records) {
+				if(record.getName().contentEquals("O")) {
+					ou.setOver(record.getMl());
+				} else {
+					ou.setUnder(record.getMl());
+				}
+			}
+		} // for all different ou point values
+
+		return rtn;
 	}
 
 	private void processGameLines(List<Odds> oddsList, Team away, Team home, Date gameTime) {
@@ -719,23 +783,55 @@ public class DraftKings extends Book {
 
 		OuRecord rec = new OuRecord();
 
-		String name = element.findElement(By.cssSelector("span[data-testid=button-title-market-board]")).getText();
-		String points = fixIt(
-				element.findElement(
-						By.cssSelector(
-								"span[data-testid=button-points-market-board]"
-								)
-				).getText().replace("pk", "0.0"));
-		String ml = fixIt(
-				element.findElement(
-						By.cssSelector("span[data-testid=button-odds-market-board]")
-				).getText());
-		
-		rec.setName(name);
-		rec.setPoints(Double.parseDouble(points));
-		rec.setMl(Integer.parseInt(ml));
-		
-		return rec;
+		// See if this is an OU listing or just the overs (like for HRs)
+		boolean ouComplete = true;
+		try {
+			element.findElement(By.cssSelector("span[data-testid=button-title-market-board]")).getText();
+		} catch(Exception e) {
+			ouComplete = false;
+		}
+
+		if(ouComplete) {
+			String name = element.findElement(By.cssSelector("span[data-testid=button-title-market-board]")).getText();
+			String points = fixIt(
+					element.findElement(
+							By.cssSelector(
+									"span[data-testid=button-points-market-board]"
+									)
+					).getText().replace("pk", "0.0"));
+			String ml = fixIt(
+					element.findElement(
+							By.cssSelector("span[data-testid=button-odds-market-board]")
+					).getText());
+			
+			rec.setName(name);
+			rec.setPoints(Double.parseDouble(points));
+			rec.setMl(Integer.parseInt(ml));
+			
+			return rec;
+		} else {
+			try {
+				element.findElement(By.cssSelector("span.cb-selection-picker__selection-label"));
+				element.findElement(By.cssSelector("span.cb-selection-picker__selection-odds"));
+			} catch(Exception e) {
+				return null;
+			}
+			rec.setName("O");
+			String label = fixIt(
+					element.findElement(
+							By.cssSelector("span.cb-selection-picker__selection-label")
+							).getText()
+					);
+			Integer value = Integer.parseInt(label.replace("+", "").trim());
+			Double ovUn = value - 0.5;
+			rec.setPoints(ovUn);
+			String ml = fixIt(
+					element.findElement(
+							By.cssSelector("span.cb-selection-picker__selection-odds")
+					).getText());
+			rec.setMl(Integer.parseInt(ml));
+			return rec;
+		}
 	}
 
 	private List<Odds> parseTeamEvent(String file, Sport sport) {

@@ -722,6 +722,8 @@ public class Collector {
 					List<Element> team1        = play.select("span[data-test-id^=event-team-name-1]");
 					List<Element> team2        = play.select("span[data-test-id^=event-team-name-2]");
 					List<Element> event        = play.select("div[data-test-id^=event-displayName]");
+					
+					//System.out.println("Teams: " + team1.get(0).text() + " " + team2.get(0).text());
 
 					List<Element> eventRefs    = play.select("span[data-test-id^=event-reference]");
 					List<Element> betRefs      = play.select("span[data-test-id^=bet-reference]");
@@ -750,15 +752,20 @@ public class Collector {
 					}
 
 					int indexForDate = 0;
+					String theDate = null;
 					try {
-						String theDate = eventRefs.get(0).text();
-						if(theDate.contains("Final Score")) {
-							indexForDate = 1;
-						} else if(theDate.contains("Bet Ended")) {
-							indexForDate = 1;
+						theDate = eventRefs.get(0).text();
+						if(theDate.trim().length() == 0) {
+							w.setEventTimestamp(w.getBetTimestamp());
+						} else {
+							if(theDate.contains("Final Score")) {
+								indexForDate = 1;
+							} else if(theDate.contains("Bet Ended")) {
+								indexForDate = 1;
+							}
+							Date d = sdf.parse(eventRefs.get(indexForDate).text());
+							w.setEventTimestamp(d);
 						}
-						Date d = sdf.parse(eventRefs.get(indexForDate).text());
-						w.setEventTimestamp(d);
 					} catch (Exception e) {
 						System.out.println("Exception parsing event date: " + e.getMessage());
 						System.out.println("Error parsing date: " + eventRefs.get(indexForDate).text());
@@ -1067,7 +1074,14 @@ public class Collector {
 
 	        			w.setBetNumber(fnb.getBetId());
 
-	        			FanDuel_Part firstPart = fnb.getLegs().get(0).getParts().get(0);
+	        			FanDuel_Part firstPart = null;
+	        			//System.out.println("trying");
+	        			try {
+	        				firstPart = fnb.getLegs().get(0).getParts().get(0);
+	        			} catch(Exception e) {
+	        				System.out.println("Exception getting first part: " + e.getMessage());
+	        				System.exit(0);
+	        			}
 	        			
 	        			w.setBetTimestamp(fnb.getPlacedDate());
 	        			w.setEventTimestamp(firstPart.getStartTime());

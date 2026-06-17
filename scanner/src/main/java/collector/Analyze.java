@@ -93,7 +93,9 @@ public class Analyze {
 			
 		}
 
+		@SuppressWarnings("unused")
 		double totalWinnings = 0.0;
+		@SuppressWarnings("unused")
 		double totalLosses = 0.0;
 		
 		do {
