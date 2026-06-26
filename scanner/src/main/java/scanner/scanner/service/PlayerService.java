@@ -137,15 +137,23 @@ public class PlayerService {
 		
 		List<Team> allTeams = service.teamRepo.findAllForSport(Sport.MLB_STATS, Sportsbook.BETMGM);
 		
+		int repeatsRemoved = 0;
 		for (Map.Entry<String, List<Player>> entry : theMap.entrySet()) {
 //		    System.out.println(entry.getKey() + " = " + entry.getValue());
-			Team team = null;
-			for(Player p : entry.getValue()) {
-		    	if(team == null) {
-		    		team = p.getTeam();
+			Player pLeft = null;
+			int index = 0;
+			while(index < entry.getValue().size()) {
+				Player pRight = entry.getValue().get(index);
+				if(pLeft == null) {
+		    		pLeft = pRight;
+		    		index++;
 		    	} else {
-		    		if(team.getCommonName().contentEquals(p.getTeam().getCommonName()) == false) {
-		    			System.out.println(entry.getKey() + ": " + p.getTeam().getCommonName() + " and " + team.getCommonName());
+		    		if(pLeft.getTeam().getCommonName().contentEquals(pRight.getTeam().getCommonName()) == false) {
+		    			System.out.println(
+		    					entry.getKey() + ": " + 
+		    							pLeft.getTeam().getCommonName() + " (" + pLeft.getTeam().getBook() + ")" +  
+		    							" and " + 
+		    							pRight.getTeam().getCommonName() + " (" + pRight.getTeam().getBook() + ")");
 		    			Player best = service.getClosestPlayerMatch(entry.getKey(), refPlayerList);
 		    			System.out.println("Best Match from Ref: " + best);
 		    			System.out.print("Use 1 or 2, or 3 for neither (return will bypass): ");
@@ -161,91 +169,130 @@ public class PlayerService {
 				    			System.out.println("Choice must be 1,2, or 3");
 				    			continue;
 				    		}
-				    			if(choice == 1) { // replace team with the team from p.team
-				    				
-						    		for(Player player : players) {
-					    				if(player.getCommonName().contentEquals(p.getCommonName()) && 
-				    					  (player.getTeam().getCommonName().contentEquals(team.getCommonName()))) {
-					    						
-					    					// find the team for the sport with the common name
-					    					// use that for the team
-					    					Team t = service.teamRepo.getTeam(
-					    							team.getBook(), 
-					    							p.getTeam().getSport(), 
-					    							p.getTeam().getCommonName());
-					    					if(t == null) {
-					    						System.out.println("Failed to find the team " + p.getTeam());
-					    						continue;
-					    					}
-					    					service.repo.updateTeam(player, t);
-					    					break;
-					    				}
+				    		if(choice == 1) { // left team -> right team
+
+				    			Team teamToUse = pLeft.getTeam();
+				    			List<Team> allTeamsForBookRight = 
+				    					service.teamRepo.findAllForSport(Sport.MLB_STATS, pRight.getTeam().getBook());
+
+				    			Team teamForRight = null;
+				    			for(Team t : allTeamsForBookRight) {
+				    				if(t.getCommonName().contentEquals(teamToUse.getCommonName())) {
+				    					teamForRight = t;
+				    					break;
 				    				}
-				    			} else if(choice == 2) { // choice is 2 -- 
-				    				
-						    		for(Player player : players) {
-					    				if(player.getCommonName().contentEquals(p.getCommonName()) && 
-						    			  (player.getTeam().getCommonName().contentEquals(p.getTeam().getCommonName()))) {
-	
-					    					Team t = service.teamRepo.getTeam(
-					    							p.getTeam().getBook(), 
-					    							team.getSport(), 
-					    							team.getCommonName());
-					    					if(t == null) {
-					    						System.out.println("Failed to find the team " + team);
-					    						continue;
-					    					}
-					    					service.repo.updateTeam(player, t);
-					    					break;
-					    				}
-				    				}
-				    			} else {
-				    				System.out.println("Select a team from the list: ");
-				    				for(int index = 0; index <  allTeams.size(); ++ index) {
-				    					System.out.println(index + ". " + allTeams.get(index).getCommonName());
-				    				}
-								    String teamNum = scanner.nextLine();
-								    if(teamNum.trim().length() == 0) {
-								    	continue;
-								    }
-						    		choice = Integer.parseInt(teamNum);
-						    		System.out.println("Choice is " + choice);
-						    		Team teamToUse = allTeams.get(choice);
-						    		System.out.println("Team to use is " + teamToUse.getCommonName());
-						    		for(Player player : players) {
-						    			if(
-						    					(player.getCommonName().contentEquals(p.getCommonName()) 
-						    							&& 
-						    					   (
-						    							 (player.getTeam().getCommonName().contentEquals(p.getTeam().getCommonName()))
-						    							 	||
-						    							 (player.getTeam().getCommonName().contentEquals(team.getCommonName()))
-						    					   )
-						    					)
-						    			  ) {
-						    				
-						    				// need to find the team for this book
-					    					Team t = service.teamRepo.getTeam(
-					    							player.getTeam().getBook(), 
-					    							player.getTeam().getSport(), 
-					    							teamToUse.getCommonName());
-					    					if(t == null) {
-					    						System.out.println("Failed to find the team " + team);
-					    						continue;
-					    					}
-						    				
-							    			service.repo.updateTeam(player, t);
-						    			}
-						    		}
 				    			}
+				    			if(teamForRight == null) {
+				    				System.out.println("Failed to find team to replace for Right side");
+				    				index++;
+				    				continue;
+				    			}
+
+				    			service.repo.updateTeam(pRight, teamForRight);
+				    			pRight.setTeam(teamForRight);
+
+				    			// go to the next node to check on the list
+				    			index++;
+
+				    		} else if(choice == 2) { // right team -> left Team
+
+				    			Team teamToUse = pRight.getTeam();
+				    			List<Team> allTeamsForBookLeft = 
+				    					service.teamRepo.findAllForSport(Sport.MLB_STATS, pLeft.getTeam().getBook());
+				    			Team teamForLeft = null;
+				    			for(Team t : allTeamsForBookLeft) {
+				    				if(t.getCommonName().contentEquals(teamToUse.getCommonName())) {
+				    					teamForLeft = t;
+				    					break;
+				    				}
+				    			}
+				    			if(teamForLeft == null) {
+				    				System.out.println("Failed to find team to replace for Left side");
+				    				continue;
+				    			}
+
+				    			service.repo.updateTeam(pLeft, teamForLeft);
+				    			pLeft.setTeam(teamForLeft);
+
+				    			// Since I updated the left node I have to compare all in the list to it
+				    			index = 0;
+				    			pLeft = null;
+				    		} else {
+				    			System.out.println("Select a team from the list: ");
+				    			for(int index2 = 0; index2 <  allTeams.size(); ++index2) {
+				    				System.out.println(index2 + ". " + allTeams.get(index2).getCommonName());
+				    			}
+				    			String teamNum = scanner.nextLine();
+				    			if(teamNum.trim().length() == 0) {
+				    				continue;
+				    			}
+				    			choice = Integer.parseInt(teamNum);
+				    			System.out.println("Choice is " + choice);
+				    			Team teamToUse = allTeams.get(choice);
+				    			System.out.println("Team to use is " + teamToUse.getCommonName());
+
+				    			List<Team> allTeamsForBookLeft = 
+				    					service.teamRepo.findAllForSport(Sport.MLB_STATS, pLeft.getTeam().getBook());
+
+				    			Team teamForLeft = null;
+				    			for(Team t : allTeamsForBookLeft) {
+				    				if(t.getCommonName().contentEquals(teamToUse.getCommonName())) {
+				    					teamForLeft = t;
+				    					break;
+				    				}
+				    			}
+				    			if(teamForLeft == null) {
+				    				System.out.println("Failed to find team to replace for left side");
+				    				continue;
+				    			}
+				    			service.repo.updateTeam(pLeft, teamForLeft);
+				    			pLeft.setTeam(teamForLeft);
+
+				    			List<Team> allTeamsForBookRight = 
+				    					service.teamRepo.findAllForSport(Sport.MLB_STATS, pRight.getTeam().getBook());
+				    			Team teamForRight = null;
+				    			for(Team t : allTeamsForBookRight) {
+				    				if(t.getCommonName().contentEquals(teamToUse.getCommonName())) {
+				    					teamForRight = t;
+				    					break;
+				    				}
+				    			}
+				    			if(teamForRight == null) {
+				    				System.out.println("Failed to find team to replace for right side");
+				    				continue;
+				    			}
+				    			service.repo.updateTeam(pRight, teamForRight);
+				    			pRight.setTeam(teamForRight);
+
+				    			// Since I updated the left node I have to compare all in the list to it
+				    			index = 0;
+				    			pLeft = null;
+				    		}
 				    	} catch(Exception e) {
 				    		System.out.println("Exception updating player team: " + e.getMessage());
 				    	}
+		    		} else {
+		    			index++;
 		    		}
 		    	}
 		    }
+			
+			// Check for repeats
+			List<String> bookPlusSpecificName = new ArrayList<>();
+			for(Player player : entry.getValue()) {
+				String key = player.getTeam().getBook().toString() + "_"  + player.getNameSbSpecific();
+				if(bookPlusSpecificName.contains(key)) {
+					System.out.println("Repeat to be removed: " + player);
+	    			service.repo.removePlayer(player);
+	    			repeatsRemoved++;
+				} else {
+					bookPlusSpecificName.add(key);
+				}
+			}
+
 		}
 		scanner.close();
+		System.out.println("Repeats Removed: " + repeatsRemoved);
 	}
 
 	public float getWeight(String specName, String commonName) {

@@ -492,7 +492,7 @@ public class DraftKings extends Book {
 			String name = label.getText();
 			switch(name) {
 				case "Home Runs":
-//					processOu(topic, oddsList, away, home, gameTime, MLB_STAT.HR);
+				//	processOu(topic, oddsList, away, home, gameTime, MLB_STAT.HR);
 					break;
 				case "Hits O/U":
 					processOu(topic, oddsList, away, home, gameTime, MLB_STAT.HITS);
@@ -1376,10 +1376,10 @@ public class DraftKings extends Book {
 		
 	}
 
-	private void setOddsService(OddsService os) {
+	public void setOddsService(OddsService os) {
 		this.oddsService = os;
 	}
-	private OddsService getOddsService() {
+	public OddsService getOddsService() {
 		return this.oddsService;
 	}
 

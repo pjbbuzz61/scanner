@@ -12,13 +12,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.springframework.data.mongodb.core.MongoTemplate;
+
+import com.mongodb.client.MongoClients;
+
 import scanner.scanner.books.BetMGM;
 import scanner.scanner.books.BetRivers;
 import scanner.scanner.books.DraftKings;
 import scanner.scanner.books.Espn;
 import scanner.scanner.books.FanDuel;
 import scanner.scanner.model.Play;
+import scanner.scanner.model.PlayMade;
 import scanner.scanner.model.mlbStats.UpcomingGame;
+import scanner.scanner.repo.PlayMadeRepo;
 import scanner.scanner.service.FinderService;
 import scanner.scanner.util.EmailSender;
 import scanner.scanner.util.Sport;
@@ -28,9 +34,22 @@ public class MlbStatsController {
 
 	public static void main(String[] args) {
 
-		BetMGM bm = new BetMGM();
-		bm.setUpServices();
-		bm.refresh(Sport.MLB_STATS, "https://www.md.betmgm.com/en/sports/baseball-23/betting/usa-9/mlb-75", false);
+		EmailSender es = new EmailSender();
+		PlayMadeRepo repo = new PlayMadeRepo();
+		MongoTemplate mongoTemplate = new MongoTemplate(MongoClients.create("mongodb://localhost:27017"), "scanner");
+
+		repo = new PlayMadeRepo();
+		repo.setMongoTemplate(mongoTemplate);
+
+		es.sendEmailWithAttachmentToSelf(
+				"Survey Started",
+				"Survey Started at " + new Date(),
+				null,
+				false);
+
+//		BetMGM bm = new BetMGM();
+//		bm.setUpServices();
+//		bm.refresh(Sport.MLB_STATS, "https://www.md.betmgm.com/en/sports/baseball-23/betting/usa-9/mlb-75", false);
 
 		DraftKings dk = new DraftKings();
 		dk.setUpServices();
@@ -44,9 +63,9 @@ public class MlbStatsController {
 		fd.setUpServices();
 		fd.refresh(Sport.MLB_STATS);
 
-		Espn espn = new Espn();
-		espn.setUpServices();
-		espn.refresh(Sport.MLB_STATS, "https://sportsbook.thescore.bet/sport/baseball/organization/united-states/competition/mlb#lines");
+//		Espn espn = new Espn();
+//		espn.setUpServices();
+//		espn.refresh(Sport.MLB_STATS, "https://sportsbook.thescore.bet/sport/baseball/organization/united-states/competition/mlb#lines");
 
 		System.out.println("Done with set up");
 		
@@ -54,9 +73,11 @@ public class MlbStatsController {
 		Map<String, Date> currMap = new HashMap<>();
 		
 		List<Integer> sentItems = new ArrayList<>();
-		bm.getOddsService().removeAll(Sport.MLB_STATS);
+		
+		dk.getOddsService().removeAll(Sport.MLB_STATS);
 		
 		// forever loop - set a counter to zero that will one up for each loop
+		List<Play> bestPlays = null;
 		while(true) {
 	
 			// TODO - check consec fails at this point, restart if necessary
@@ -65,11 +86,11 @@ public class MlbStatsController {
 			List<UpcomingGame> upcomingGames = new ArrayList<>();
 
 			// get list of current prematch games
-			try {
-				upcomingGames.addAll(bm.getUpcomingGames());
-			} catch (Exception e) {
-				System.out.println("Exception getting upcoming games from BM: " + e.getMessage());
-			}
+//			try {
+//				upcomingGames.addAll(bm.getUpcomingGames());
+//			} catch (Exception e) {
+//				System.out.println("Exception getting upcoming games from BM: " + e.getMessage());
+//			}
 
 			try {
 				upcomingGames.addAll(fd.getUpcomingGames());
@@ -77,11 +98,11 @@ public class MlbStatsController {
 				System.out.println("Exception getting upcoming games from FD: " + e.getMessage());
 			}
 
-			try {
-				upcomingGames.addAll(espn.getUpcomingGames());
-			} catch (Exception e) {
-				System.out.println("Exception getting upcoming games from ESPN: " + e.getMessage());
-			}
+//			try {
+//				upcomingGames.addAll(espn.getUpcomingGames());
+//			} catch (Exception e) {
+//				System.out.println("Exception getting upcoming games from ESPN: " + e.getMessage());
+//			}
 
 			try {
 				upcomingGames.addAll(dk.getUpcomingGames());
@@ -119,11 +140,24 @@ public class MlbStatsController {
 				System.out.println("Time the oldest was last checked: " + currMap.get(oldest));
 				if(currMap.get(oldest).after(new Date(System.currentTimeMillis() - 1000L * 60L * 60L))) {
 					System.out.println("All games have been checked, going to exit");
-					bm.quitDriver();
-					dk.quitDriver();
-					espn.quitDriver();
-					fd.quitDriver();
-					br.quitDriver();
+					try {
+//						bm.quitDriver();
+						dk.quitDriver();
+//						espn.quitDriver();
+						fd.quitDriver();
+						br.quitDriver();
+					} catch(Exception e) {
+						System.out.println("Exception trying to quit drivers: " + e.getMessage());
+						e.printStackTrace();
+					}
+					
+					es.sendEmailWithAttachmentToSelf(
+							"Completed Survey",
+							"Survey Completed at " + new Date() + "\n" + 
+							((bestPlays != null && bestPlays.get(0) != null) ? (bestPlays.get(0)) : ("Best Plays list is empty")),
+							null,
+							false);
+
 					System.exit(0);
 				}
 			}
@@ -143,11 +177,11 @@ public class MlbStatsController {
 //			bm.getOddsService().removeAll(Sport.MLB_STATS);
 
 			// for each site, find the game I want on the list and pass in the link
-			try {
-				bm.acquireMlbStats(getUpcomingGame(  upcomingGames, Sportsbook.BETMGM,     away, home, gameTime));
-			} catch(Exception e) {
-				System.out.println("Exception processing game for BETMGM: " + e.getMessage());
-			}
+//			try {
+//				bm.acquireMlbStats(getUpcomingGame(  upcomingGames, Sportsbook.BETMGM,     away, home, gameTime));
+//			} catch(Exception e) {
+//				System.out.println("Exception processing game for BETMGM: " + e.getMessage());
+//			}
 			
 			try {
 				fd.acquireMlbStats(getUpcomingGame(  upcomingGames, Sportsbook.FANDUEL,    away, home, gameTime));
@@ -155,11 +189,11 @@ public class MlbStatsController {
 				System.out.println("Exception processing game for FANDUEL: " + e.getMessage());
 			}
 
-			try {
-				espn.acquireMlbStats(getUpcomingGame(upcomingGames, Sportsbook.ESPN,       away, home, gameTime));
-			} catch(Exception e) {
-				System.out.println("Exception processing game for ESPN: " + e.getMessage());
-			}
+//			try {
+//				espn.acquireMlbStats(getUpcomingGame(upcomingGames, Sportsbook.ESPN,       away, home, gameTime));
+//			} catch(Exception e) {
+//				System.out.println("Exception processing game for ESPN: " + e.getMessage());
+//			}
 
 			try {
 				dk.acquireMlbStats(getUpcomingGame(  upcomingGames, Sportsbook.DRAFTKINGS, away, home, gameTime));
@@ -178,7 +212,7 @@ public class MlbStatsController {
 
 			FinderService fs = new FinderService();
 			fs.setUpServices("localhost");
-			List<Play> bestPlays = fs.getBestPlays(
+			bestPlays = fs.getBestPlays(
 					Sport.MLB_STATS, 
 					false, // isBonus,
 					Sportsbook.ANY, // book1, 
@@ -198,11 +232,10 @@ public class MlbStatsController {
 			}
 			bestPlays.sort(Comparator.comparing(Play::getPerformance).reversed());
 
-			EmailSender es = new EmailSender();
 			for(Play p : bestPlays) {
 				System.out.println(p);
 //				if(p.getPerformance() >= (FinderService.betSizeMlbStats/100.0)) {
-				if(p.getPerformance() >= 0.5) {
+				if(p.getPerformance() >= 0.25) {
 
 					try {
 
@@ -215,14 +248,30 @@ public class MlbStatsController {
 						sentItems.add(p.getSrc().hashCode());
 						sentItems.add(p.getTgt().hashCode());
 
-						es.sendEmailWithAttachmentToSelf(
-								p.toStringForEmailSubject(),
-								p.toStringForEmailBody(),
-								null,
-								false);
-						if(sentItems.size() > 0) {
-								
+
+						PlayMade pm = new PlayMade();
+						Calendar c = Calendar.getInstance();
+						c.setTime(new Date());
+						pm.setJulianDate(c.get(Calendar.DAY_OF_YEAR));
+						pm.setMlbStat(p.getSrc().getMlbStat());
+						pm.setPlayer(p.getSrc().getPlayer1().getCommonName());
+						List<PlayMade> plays = repo.find(pm);
+						if((plays == null) || (plays.size() == 0)) {
+							repo.save(pm);
+							es.sendEmailWithAttachmentToSelf(
+									p.toStringForEmailSubject(),
+									p.toStringForEmailBody(),
+									null,
+									false);
+							es.sendPlainTextEmail(
+									p.toStringForEmailSubject(), 
+									p.toStringForEmailBody(),
+									false);
+
+						} else {
+							System.out.println("Play already recorded!");
 						}
+						
 					} catch(Exception e) {
 						System.out.println("Exception emailing the play: " + e.getMessage());
 					}

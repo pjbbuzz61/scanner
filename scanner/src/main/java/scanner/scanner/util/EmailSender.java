@@ -44,10 +44,10 @@ public class EmailSender {
 				null,
 				false);
 
-//		es.sendPlainTextEmail(
-//				"Test Message", 
-//				" ",
-//				false);
+		es.sendPlainTextEmail(
+				"Test Message", 
+				"This is the body of the message",
+				false);
 
 	}
 

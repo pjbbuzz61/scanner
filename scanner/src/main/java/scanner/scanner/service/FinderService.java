@@ -242,6 +242,17 @@ public class FinderService {
 		if((maxSrc != null) && (play.getSrcML() > maxSrc)) {
 			return;
 		}
+		
+		if(play.getPerformance() > 10) {
+			return; // play return is too high, indicates 
+		}
+		if((play.getSrcML() >= 100) && ((play.getTgtML() >= 100))) {
+			return;
+		}
+		int tots = play.getSrcML() + play.getTgtML();
+		if(tots > 50) {
+			return; // bad line 
+		}
 		if(playList.size() < playListLimit) {
 			playList.add(play);
 		} else {

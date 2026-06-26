@@ -11,7 +11,6 @@ import org.springframework.stereotype.Repository;
 
 import scanner.scanner.model.Player;
 import scanner.scanner.model.Team;
-import scanner.scanner.util.Sport;
 import scanner.scanner.util.Sportsbook;
 
 @Repository
@@ -70,7 +69,7 @@ public class PlayerRepo {
     	q.addCriteria(Criteria.where("team.sport").is(player.getTeam().getSport()));
 		Update update = new Update();
 		update.set("team", team);
-		mongoTemplate.updateFirst(q, update, Player.class);
+		mongoTemplate.updateMulti(q, update, Player.class);
 	}
 
 	public void removeExistingPlayers(Sportsbook book) {
@@ -78,6 +77,12 @@ public class PlayerRepo {
     	q.addCriteria(Criteria.where("team.book").is(book));
     	mongoTemplate.remove(q, Player.class);
 		
+	}
+
+	public void removePlayer(Player p) {
+    	Query q = new Query();
+    	q.addCriteria(Criteria.where("id").is(p.getId()));
+    	mongoTemplate.remove(q, Player.class);
 	}
 
 	public List<Player> getRefPlayerList() {
