@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import scanner.scanner.util.Sportsbook;
 import scanner.scanner.util.Status;
+import scanner.scanner.util.WNBA_STAT;
 import scanner.scanner.util.MLB_STAT;
 import scanner.scanner.util.Period;
 import scanner.scanner.util.Sport;
@@ -36,6 +37,7 @@ public class Odds {
 	private TeamTotal  ttHome;
 	private boolean    inGame;
 	private MLB_STAT   mlbStat;
+	private WNBA_STAT  wnbaStat;
 	
 	
 	private String     url;
@@ -69,7 +71,8 @@ public class Odds {
 		sb.append("ttHome: " + ttHome + "\n");
 		sb.append("ttAway: " + ttAway + "\n");
 		sb.append("underway: " + inGame + "\n");
-		sb.append("MlbStat: " + mlbStat + "\n\n");
+		sb.append("MlbStat: " + mlbStat + "\n");
+		sb.append("WnbaStat: " + wnbaStat + "\n\n");
 		return sb.toString();
 	}
 
@@ -94,6 +97,7 @@ public class Odds {
 		result = prime * result + ((ttAway == null) ? 0 : ttAway.hashCode());
 		result = prime * result + ((ttHome == null) ? 0 : ttHome.hashCode());
 		result = prime * result + ((mlbStat == null) ? 0 : mlbStat.hashCode());
+		result = prime * result + ((wnbaStat == null) ? 0 : wnbaStat.hashCode());
 		result = prime * result + ((player1 == null) ? 0 : player1.hashCode());
 		result = prime * result + ((player2 == null) ? 0 : player2.hashCode());
 		return result;
@@ -103,6 +107,14 @@ public class Odds {
 		inGame = false;
 	}
 	
+	public WNBA_STAT getWnbaStat() {
+		return wnbaStat;
+	}
+
+	public void setWnbaStat(WNBA_STAT wnbaStat) {
+		this.wnbaStat = wnbaStat;
+	}
+
 	public Sportsbook getBook() {
 		return book;
 	}

@@ -89,22 +89,62 @@ public class Play {
 				.replace("OVER",           "OVER")
 				.replace("UNDER",          "UNDER");
 		String sBook = srcBook.toString()
-				.replace("DRAFTKINGS", "DRAFT")
-				.replace("BETMGM",     "MGM")
+				.replace("DRAFTKINGS", "DK")
+				.replace("BETMGM",     "BM")
 				.replace("CAESARS",    "CAES")
-				.replace("FANDUEL",    "FAND")
+				.replace("FANDUEL",    "FD")
 				.replace("ESPN",       "ESPN")
-				.replace("BETRIVERS",  "RIVERS");
+				.replace("BETRIVERS",  "BR");
 		String tBook = tgtBook.toString()
-				.replace("DRAFTKINGS", "DRAFT")
-				.replace("BETMGM",     "MGM")
+				.replace("DRAFTKINGS", "DK")
+				.replace("BETMGM",     "BM")
 				.replace("CAESARS",    "CAES")
-				.replace("FANDUEL",    "FAND")
+				.replace("FANDUEL",    "FD")
 				.replace("ESPN",       "ESPN")
-				.replace("BETRIVERS",  "RIVERS");
+				.replace("BETRIVERS",  "BR");
 
 		return String.format(
-				"%-6s: %-5s @ %5.1f/%-6d: $%-7.2f\n%-6s: %-5s @ %5.1f/%-6d: $%-7.2f\nTo win: %-7.2f\n%7s",  
+				"%-6s: %-5s @ %5.1f/%-6d: $%-7.2f\n%-6s: %-5s @ %5.1f/%-6d: $%-7.2f\nWin: %-7.2f\n%7s",  
+				sBook, srcPlay.replace("OVER", "OV").replace("UNDER", "UN"), srcPts, srcML, srcBetAmt, 
+				tBook, tgtPlay.replace("OVER", "OV").replace("UNDER", "UN"), tgtPts, tgtML, tgtBetAmt,
+				performance, 
+				src.getMlbStat()==null?" ":src.getMlbStat()
+				);
+	}
+
+	public String toStringForTextBody() {
+
+		String srcPlay = srcPlayType.toString()
+				.replace("HOME_SPREAD",    "H_SPD")
+				.replace("HOME_MONEYLINE", "H_ML")
+				.replace("AWAY_SPREAD",    "A_SPD")
+				.replace("AWAY_MONEYLINE", "A_ML")
+				.replace("OVER",           "OVER")
+				.replace("UNDER",          "UNDER");
+		String tgtPlay = tgtPlayType.toString()
+				.replace("HOME_SPREAD",    "H_SPD")
+				.replace("HOME_MONEYLINE", "H_ML")
+				.replace("AWAY_SPREAD",    "A_SPD")
+				.replace("AWAY_MONEYLINE", "A_ML")
+				.replace("OVER",           "OVER")
+				.replace("UNDER",          "UNDER");
+		String sBook = srcBook.toString()
+				.replace("DRAFTKINGS", "DK")
+				.replace("BETMGM",     "BM")
+				.replace("CAESARS",    "CAES")
+				.replace("FANDUEL",    "FD")
+				.replace("ESPN",       "ESPN")
+				.replace("BETRIVERS",  "BR");
+		String tBook = tgtBook.toString()
+				.replace("DRAFTKINGS", "DK")
+				.replace("BETMGM",     "BM")
+				.replace("CAESARS",    "CAES")
+				.replace("FANDUEL",    "FD")
+				.replace("ESPN",       "ESPN")
+				.replace("BETRIVERS",  "BR");
+
+		return String.format(
+				"%s:%s@%.1f/%d:$%.2f%s:%s@%.1f/%d:$%.2f::Win:%.2f%s",  
 				sBook, srcPlay.replace("OVER", "OV").replace("UNDER", "UN"), srcPts, srcML, srcBetAmt, 
 				tBook, tgtPlay.replace("OVER", "OV").replace("UNDER", "UN"), tgtPts, tgtML, tgtBetAmt,
 				performance, 

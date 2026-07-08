@@ -549,7 +549,7 @@ public class BetRivers extends Book {
 		List<Team> rtn = new ArrayList<>();
 		
 		List<WebElement> parts = game.findElements(By.cssSelector("div[data-testid=participant-row]"));
-		String awayTeam = parts.get(0).getText();
+		String awayTeam = parts.get(0).getText().trim();
 		String awayPitcher = null; 
 		try {
 			WebElement pitcher = parts.get(0).findElement(By.cssSelector("div[data-testid=participant-stat-line]"));
@@ -558,7 +558,7 @@ public class BetRivers extends Book {
 			
 		}
 		
-		String homeTeam = parts.get(1).getText();
+		String homeTeam = parts.get(1).getText().trim();
 		String homePitcher = null; 
 		try {
 			WebElement pitcher = parts.get(1).findElement(By.cssSelector("div[data-testid=participant-stat-line]"));
@@ -1144,6 +1144,7 @@ public class BetRivers extends Book {
 			case "Total Bases Recorded by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
 			case "Total RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
 			case "Total Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+			case "Total Runs Scored by the Player - (Must Start)":
 			case "Total Stolen Bases by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
 			case "Total Stolen Bases by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
 			case "Total RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
@@ -1209,6 +1210,7 @@ public class BetRivers extends Book {
 			case "Player to Hit a HR (Must Start)":
 			case "Total RBIs by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
 			case "Total Runs Scored by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
+			case "Total Runs Scored by the Player - (Must Start)":
 			case "Total Stolen Bases by the Player - Including Extra Innings (Listed player must be in starting lineup for bets to stand) (Over)":
 			case "Batter HRs":
 			case "Player to hit X or more Home Runs - Including Extra Innings (Listed player must be in starting lineup for bets to stand)":
@@ -1974,9 +1976,13 @@ public class BetRivers extends Book {
 				}
 
 				// See if game is live
-				WebElement liveIndicator = games.get(gameNum).findElement(By.cssSelector("div[data-testid^='default-header'"));
-				if(liveIndicator.getText().contains("LIVE")) {
-					continue;
+				try {
+					WebElement liveIndicator = games.get(gameNum).findElement(By.cssSelector("div[data-testid^='default-header'"));
+					if(liveIndicator.getText().contains("LIVE")) {
+						continue;
+					}
+				} catch(Exception e) {
+					System.out.println("No default header!");
 				}
 
 				// Get the game time
@@ -2040,8 +2046,16 @@ public class BetRivers extends Book {
 				return;
 			}
 
+			
 			// See if game is live
-			WebElement liveIndicator = games.get(game.getGameNum()).findElement(By.cssSelector("div[data-testid^='default-header'"));
+//			WebElement liveIndicator = games.get(game.getGameNum()).findElement(By.cssSelector("div[data-testid^='default-header'"));
+			WebElement liveIndicator = waitForElement(
+					games.get(game.getGameNum()),
+					By.cssSelector("div[data-testid^='default-header'"));
+			if(liveIndicator == null) {
+				System.out.println("Failed to find the default header, skipping");
+				return;
+			}
 			if(liveIndicator.getText().contains("LIVE")) {
 				System.out.println("Game appears to be live now");
 				return;

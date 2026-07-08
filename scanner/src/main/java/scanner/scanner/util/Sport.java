@@ -11,6 +11,7 @@ public enum Sport {
 	SOCCER_EPL,
 	TENNIS,
 	WNBA,
-	MLB_STATS
+	MLB_STATS,
+	WNBA_STATS
 
 }

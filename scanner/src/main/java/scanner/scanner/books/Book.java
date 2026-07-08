@@ -23,6 +23,7 @@ import scanner.scanner.service.PlayerService;
 import scanner.scanner.service.TeamService;
 import scanner.scanner.util.Sport;
 import scanner.scanner.util.Sportsbook;
+import scanner.scanner.util.WNBA_STAT;
 import scanner.scanner.util.MLB_STAT;
 
 public abstract class Book {
@@ -182,6 +183,28 @@ public abstract class Book {
 		return success;
 	}
 
+	public void persistOddsForWnbaStats(List<Odds> oddsList) {
+		
+		Map<WNBA_STAT, Integer> counts = new HashMap<>();
+		
+		if(oddsList != null) {
+			for(Odds odds : oddsList) {
+				if(counts.get(odds.getWnbaStat()) == null) {
+					counts.put(odds.getWnbaStat(), 0);
+				}
+				counts.put(odds.getWnbaStat(), counts.get(odds.getWnbaStat()) + 1);
+				persistOdds(odds, "odds" + "_" + Sport.WNBA_STATS);
+			}
+
+			System.out.print(this.sportsbook + ": Persisted " + oddsList.size() + " records - ");
+			for (Map.Entry<WNBA_STAT, Integer> m : counts.entrySet()) {
+			    System.out.print(" " + m.getKey() + ":  " + m.getValue());
+			}
+			System.out.println(); // add line break at the end
+			oddsList.clear();
+		}
+	}
+	
 	public void persistOddsForMlbStats(List<Odds> oddsList) {
 
 		Map<MLB_STAT, Integer> counts = new HashMap<>();

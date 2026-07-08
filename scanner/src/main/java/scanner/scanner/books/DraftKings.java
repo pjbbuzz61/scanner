@@ -104,6 +104,7 @@ public class DraftKings extends Book {
 				urls.add("https://sportsbook.draftkings.com/leagues/basketball/nba");
 				break;
 			case WNBA:
+			case WNBA_STATS:
 				urls.add("https://sportsbook.draftkings.com/leagues/basketball/wnba");
 				break;
 			case NCAAM:
@@ -153,9 +154,9 @@ public class DraftKings extends Book {
 		Elements links = doc.select("a[href]");
 		for(Element link : links) {
 			String l = link.attr("href");
-			if(l.contains("/atp-") || l.contains("/wta-") || l.contains("/french-open")) { // || l.contains("/itf-") || l.contains("/challenger-")) {
+			if(l.contains("/atp-") || l.contains("/wta-") || l.contains("/wimbledon")) { // || l.contains("/itf-") || l.contains("/challenger-")) {
 				if(!l.contains("doubles")) {
-					if(l.contains("/french-open")) {
+					if(l.contains("/wimbledon")) {
 						rtn.add("https://sportsbook.draftkings.com" + l + "?category=match-lines&subcategory=moneyline");
 					} else {
 						rtn.add("https://sportsbook.draftkings.com" + l);
@@ -174,6 +175,11 @@ public class DraftKings extends Book {
 			refresh(sport, url);
 			if(sport == Sport.MLB_STATS) {
 				List<Odds> list = parseMlbStats();
+				quitDriver();
+				return list;
+			}
+			if(sport == Sport.WNBA_STATS) {
+				List<Odds> list = parseWnbaStats();
 				quitDriver();
 				return list;
 			}
@@ -338,6 +344,74 @@ public class DraftKings extends Book {
 		return list;
 	}
 	
+	private List<Odds> parseWnbaStats() {
+		
+		List<Odds> oddsList = new ArrayList<>();
+
+		List<WebElement> containers = null;
+		WebElement container = null;;
+		List<WebElement> games = null;
+		
+		containers = driver.findElements(By.cssSelector("div[data-testid=marketboard]"));
+		int numContainers = containers.size();
+
+		for(int cont = 0; cont < numContainers; ++cont) {
+
+			int numAttempts = 0;
+			boolean success = false;
+			do {
+				try {
+					containers = driver.findElements(By.cssSelector("div[data-testid=marketboard]"));
+					container = containers.get(cont);
+					games = container.findElements(By.cssSelector("div.cb-static-parlay__content--inner"));
+					success = true;
+				} catch(Exception eee) {
+					try {Thread.sleep(200L);} catch (InterruptedException ew) {}
+					numAttempts++;
+				}
+				
+			} while((numAttempts < 5) && (success == false));
+			
+			if(success == false) {
+				System.out.println("Failed to load page: Cont: " + cont);
+				continue;
+			}
+			if((games.size() % 3) != 0) {
+				System.out.println("Problem: Should be three containers for each game");
+				return oddsList;
+			}
+			
+			int len = games.size();
+			for(int i = 0; i < len; i+=3) { // for each game
+
+				int tries = 0;
+				boolean worked = false;
+				do {
+					
+					try {
+						// reload the pages -- do this because we will have reloaded the page below
+						containers = driver.findElements(By.cssSelector("div[data-testid=marketboard]"));
+						container = containers.get(cont);
+						games = container.findElements(By.cssSelector("div.cb-static-parlay__content--inner"));
+
+						processEventTeamWnbaStats(games.get(i+0), games.get(i+1), games.get(i+2), oddsList);
+						worked = true;
+					} catch(Exception e) {
+						System.out.println("Failed to process game at DK, trying again. Tries is " + tries + ", Msg: " + e.getMessage());
+						try {Thread.sleep(200L);} catch (InterruptedException ew) {}
+						tries++;
+					}
+
+				} while((tries < 10) && (worked == false));
+				
+				persistOddsForWnbaStats(oddsList);
+			}
+
+		}
+
+		return oddsList;
+	}
+
 	private List<Odds> parseMlbStats() {
 		
 		List<Odds> oddsList = new ArrayList<>();
@@ -406,6 +480,10 @@ public class DraftKings extends Book {
 		return oddsList;
 	}
 
+	private void processEventTeamWnbaStats(WebElement match, WebElement time, WebElement unused, List<Odds> oddsList) {
+		
+	}
+	
 	private void processEventTeamMlbStats(WebElement match, WebElement time, WebElement unused, List<Odds> oddsList) {
 		
 		Team away = null;
@@ -462,12 +540,14 @@ public class DraftKings extends Book {
 			// Get all the buttons
 			List<WebElement> buttons = buttonBar.findElements(By.tagName("a"));
 			for(WebElement button : buttons) {
+				System.out.println("Button: " + button.getText().toUpperCase());
 				switch(button.getText().toUpperCase()) {
 					case "GAME LINES":
 						waitForClick(button);
 						processGameLines(oddsList, away, home, gameTime);
 						break;
 					case "BATTER PROPS":
+					case "BATTER":
 						waitForClick(button);
 						processBatterProps(oddsList, away, home, gameTime);
 						break;
@@ -1294,16 +1374,17 @@ public class DraftKings extends Book {
 		}
 		Sport sport = null;
 		switch(args[0].toUpperCase()) {
-			case "NHL":       sport = Sport.NHL;       break;
-			case "TENNIS":    sport = Sport.TENNIS;    break;
-			case "NBA":       sport = Sport.NBA;       break;
-			case "WNBA":      sport = Sport.WNBA;      break;
-			case "NFL":       sport = Sport.NFL;       break;
-			case "NCAAF":     sport = Sport.NCAAF;     break;
-			case "NCAAM":     sport = Sport.NCAAM;     break;
-			case "NCAAW":     sport = Sport.NCAAW;     break;
-			case "MLB":       sport = Sport.MLB;       break;
-			case "MLB_STATS": sport = Sport.MLB_STATS; break;
+			case "NHL":        sport = Sport.NHL;        break;
+			case "TENNIS":     sport = Sport.TENNIS;     break;
+			case "NBA":        sport = Sport.NBA;        break;
+			case "WNBA":       sport = Sport.WNBA;       break;
+			case "NFL":        sport = Sport.NFL;        break;
+			case "NCAAF":      sport = Sport.NCAAF;      break;
+			case "NCAAM":      sport = Sport.NCAAM;      break;
+			case "NCAAW":      sport = Sport.NCAAW;      break;
+			case "MLB":        sport = Sport.MLB;        break;
+			case "MLB_STATS":  sport = Sport.MLB_STATS;  break;
+			case "WNBA_STATS": sport = Sport.WNBA_STATS; break;
 			default: System.out.println("Unknown sport: " + args[0]); return;
 		}
 		System.out.println("Sport is " + sport);
@@ -1493,6 +1574,7 @@ public class DraftKings extends Book {
 						processGameLines(oddsList, game.getAway(), game.getHome(), game.getGameTime());
 						break;
 					case "BATTER PROPS":
+					case "BATTER":
 						waitForClick(button);
 						processBatterProps(oddsList, game.getAway(), game.getHome(), game.getGameTime());
 						break;

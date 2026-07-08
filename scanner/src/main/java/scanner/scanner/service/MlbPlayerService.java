@@ -41,6 +41,8 @@ public class MlbPlayerService {
 		service.downloadPage(url);
 
 		service.getTeams(url);
+		
+		service.quitDriver();
 	}
 	
 	@SuppressWarnings("unused")
@@ -120,7 +122,7 @@ public class MlbPlayerService {
 			String name = player.getText().trim();
 			if(name.length() > 0) {
 				playerCount++;
-				System.out.println(" " + name);
+				//System.out.println(" " + name);
 				try {
 					playerService.getPlayer(team, name);
 				} catch (OddsException e) {
@@ -143,6 +145,12 @@ public class MlbPlayerService {
 	public void closeDriver() {
 		if(driver != null) {
 			driver = null;
+		}
+	}
+
+	public void quitDriver() {
+		if(driver != null) {
+			driver.quit();
 		}
 	}
 

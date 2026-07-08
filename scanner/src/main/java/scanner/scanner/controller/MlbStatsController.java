@@ -3,6 +3,7 @@ package scanner.scanner.controller;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
@@ -38,6 +39,7 @@ public class MlbStatsController {
 		PlayMadeRepo repo = new PlayMadeRepo();
 		MongoTemplate mongoTemplate = new MongoTemplate(MongoClients.create("mongodb://localhost:27017"), "scanner");
 
+		double MIN_WIN_AMT = 0.75;
 		repo = new PlayMadeRepo();
 		repo.setMongoTemplate(mongoTemplate);
 
@@ -46,26 +48,49 @@ public class MlbStatsController {
 				"Survey Started at " + new Date(),
 				null,
 				false);
-
-//		BetMGM bm = new BetMGM();
-//		bm.setUpServices();
-//		bm.refresh(Sport.MLB_STATS, "https://www.md.betmgm.com/en/sports/baseball-23/betting/usa-9/mlb-75", false);
-
-		DraftKings dk = new DraftKings();
-		dk.setUpServices();
-		dk.refresh(Sport.MLB_STATS, "https://sportsbook.draftkings.com/leagues/baseball/mlb");
-
-		BetRivers br = new BetRivers();
-		br.setUpServices();
-		br.refresh(Sport.MLB_STATS, "https://md.betrivers.com/?page=sportsbook&group=1000093616&type=prematch");
 		
-		FanDuel fd = new FanDuel();
-		fd.setUpServices();
-		fd.refresh(Sport.MLB_STATS);
+		List<Sportsbook> books = Arrays.asList(
+//				Sportsbook.BETMGM,
+//				Sportsbook.ESPN,
+				Sportsbook.FANDUEL,
+				Sportsbook.DRAFTKINGS
+//				Sportsbook.BETRIVERS
+				);
+		BetMGM bm = null;
+		DraftKings dk = null;
+		BetRivers br = null;
+		FanDuel fd = null;
+		Espn espn = null;
 
-//		Espn espn = new Espn();
-//		espn.setUpServices();
-//		espn.refresh(Sport.MLB_STATS, "https://sportsbook.thescore.bet/sport/baseball/organization/united-states/competition/mlb#lines");
+		if(books.contains(Sportsbook.BETMGM)) {
+			bm = new BetMGM();
+			bm.setUpServices();
+			bm.refresh(Sport.MLB_STATS, "https://www.md.betmgm.com/en/sports/baseball-23/betting/usa-9/mlb-75", false);
+		}
+
+		if(books.contains(Sportsbook.DRAFTKINGS)) {
+			dk = new DraftKings();
+			dk.setUpServices();
+			dk.refresh(Sport.MLB_STATS, "https://sportsbook.draftkings.com/leagues/baseball/mlb");
+		}
+
+		if(books.contains(Sportsbook.BETRIVERS)) {
+			br = new BetRivers();
+			br.setUpServices();
+			br.refresh(Sport.MLB_STATS, "https://md.betrivers.com/?page=sportsbook&group=1000093616&type=prematch");
+		}
+		
+		if(books.contains(Sportsbook.FANDUEL)) {
+			fd = new FanDuel();
+			fd.setUpServices();
+			fd.refresh(Sport.MLB_STATS);
+		}
+
+		if(books.contains(Sportsbook.ESPN)) {
+			espn = new Espn();
+			espn.setUpServices();
+			espn.refresh(Sport.MLB_STATS, "https://sportsbook.thescore.bet/sport/baseball/organization/united-states/competition/mlb#lines");
+		}
 
 		System.out.println("Done with set up");
 		
@@ -74,7 +99,9 @@ public class MlbStatsController {
 		
 		List<Integer> sentItems = new ArrayList<>();
 		
-		dk.getOddsService().removeAll(Sport.MLB_STATS);
+		if(dk != null) {
+			dk.getOddsService().removeAll(Sport.MLB_STATS);
+		}
 		
 		// forever loop - set a counter to zero that will one up for each loop
 		List<Play> bestPlays = null;
@@ -86,34 +113,44 @@ public class MlbStatsController {
 			List<UpcomingGame> upcomingGames = new ArrayList<>();
 
 			// get list of current prematch games
-//			try {
-//				upcomingGames.addAll(bm.getUpcomingGames());
-//			} catch (Exception e) {
-//				System.out.println("Exception getting upcoming games from BM: " + e.getMessage());
-//			}
-
-			try {
-				upcomingGames.addAll(fd.getUpcomingGames());
-			} catch (Exception e) {
-				System.out.println("Exception getting upcoming games from FD: " + e.getMessage());
+			if(books.contains(Sportsbook.BETMGM)) {
+				try {
+					upcomingGames.addAll(bm.getUpcomingGames());
+				} catch (Exception e) {
+					System.out.println("Exception getting upcoming games from BM: " + e.getMessage());
+				}
 			}
 
-//			try {
-//				upcomingGames.addAll(espn.getUpcomingGames());
-//			} catch (Exception e) {
-//				System.out.println("Exception getting upcoming games from ESPN: " + e.getMessage());
-//			}
-
-			try {
-				upcomingGames.addAll(dk.getUpcomingGames());
-			} catch (Exception e) {
-				System.out.println("Exception getting upcoming games from DK: " + e.getMessage());
+			if(books.contains(Sportsbook.FANDUEL)) {
+				try {
+					upcomingGames.addAll(fd.getUpcomingGames());
+				} catch (Exception e) {
+					System.out.println("Exception getting upcoming games from FD: " + e.getMessage());
+				}
 			}
 
-			try {
-				upcomingGames.addAll(br.getUpcomingGames());
-			} catch (Exception e) {
-				System.out.println("Exception getting upcoming games from BR: " + e.getMessage());
+			if(books.contains(Sportsbook.ESPN)) {
+				try {
+					upcomingGames.addAll(espn.getUpcomingGames());
+				} catch (Exception e) {
+					System.out.println("Exception getting upcoming games from ESPN: " + e.getMessage());
+				}
+			}
+
+			if(books.contains(Sportsbook.DRAFTKINGS)) {
+				try {
+					upcomingGames.addAll(dk.getUpcomingGames());
+				} catch (Exception e) {
+					System.out.println("Exception getting upcoming games from DK: " + e.getMessage());
+				}
+			}
+
+			if(books.contains(Sportsbook.BETRIVERS)) {
+				try {
+					upcomingGames.addAll(br.getUpcomingGames());
+				} catch (Exception e) {
+					System.out.println("Exception getting upcoming games from BR: " + e.getMessage());
+				}
 			}
 
 			if(upcomingGames.size() == 0) {
@@ -141,11 +178,22 @@ public class MlbStatsController {
 				if(currMap.get(oldest).after(new Date(System.currentTimeMillis() - 1000L * 60L * 60L))) {
 					System.out.println("All games have been checked, going to exit");
 					try {
-//						bm.quitDriver();
-						dk.quitDriver();
-//						espn.quitDriver();
-						fd.quitDriver();
-						br.quitDriver();
+						if(books.contains(Sportsbook.BETMGM)) {
+							bm.quitDriver();
+						}
+						if(books.contains(Sportsbook.DRAFTKINGS)) {
+							dk.quitDriver();
+						}
+						if(books.contains(Sportsbook.ESPN)) {
+							espn.quitDriver();
+						}
+						if(books.contains(Sportsbook.FANDUEL)) {
+							fd.quitDriver();
+						}
+						if(books.contains(Sportsbook.BETRIVERS)) {
+							br.quitDriver();
+						}
+
 					} catch(Exception e) {
 						System.out.println("Exception trying to quit drivers: " + e.getMessage());
 						e.printStackTrace();
@@ -153,8 +201,14 @@ public class MlbStatsController {
 					
 					es.sendEmailWithAttachmentToSelf(
 							"Completed Survey",
-							"Survey Completed at " + new Date() + "\n" + 
-							((bestPlays != null && bestPlays.get(0) != null) ? (bestPlays.get(0)) : ("Best Plays list is empty")),
+							"Survey Completed at " + new Date() + 
+							"\n" + 
+							((bestPlays != null && bestPlays.get(0) != null) ? (bestPlays.get(0)) : ("Best Plays list is empty"))
+							+ "\n" + 
+							((bestPlays != null && bestPlays.get(2) != null) ? (bestPlays.get(2)) : ("Best Plays list is empty"))
+							+ "\n" + 
+							((bestPlays != null && bestPlays.get(4) != null) ? (bestPlays.get(4)) : ("Best Plays list is empty"))
+							,
 							null,
 							false);
 
@@ -174,37 +228,46 @@ public class MlbStatsController {
 			String home = parts[1];
 			Date gameTime = new Date(Long.parseLong(parts[2]));
 
-//			bm.getOddsService().removeAll(Sport.MLB_STATS);
 
 			// for each site, find the game I want on the list and pass in the link
-//			try {
-//				bm.acquireMlbStats(getUpcomingGame(  upcomingGames, Sportsbook.BETMGM,     away, home, gameTime));
-//			} catch(Exception e) {
-//				System.out.println("Exception processing game for BETMGM: " + e.getMessage());
-//			}
+			if(books.contains(Sportsbook.BETMGM)) {
+				try {
+					bm.acquireMlbStats(getUpcomingGame(  upcomingGames, Sportsbook.BETMGM,     away, home, gameTime));
+				} catch(Exception e) {
+					System.out.println("Exception processing game for BETMGM: " + e.getMessage());
+				}
+			}
 			
-			try {
-				fd.acquireMlbStats(getUpcomingGame(  upcomingGames, Sportsbook.FANDUEL,    away, home, gameTime));
-			} catch(Exception e) {
-				System.out.println("Exception processing game for FANDUEL: " + e.getMessage());
+			if(books.contains(Sportsbook.FANDUEL)) {
+				try {
+					fd.acquireMlbStats(getUpcomingGame(  upcomingGames, Sportsbook.FANDUEL,    away, home, gameTime));
+				} catch(Exception e) {
+					System.out.println("Exception processing game for FANDUEL: " + e.getMessage());
+				}
 			}
 
-//			try {
-//				espn.acquireMlbStats(getUpcomingGame(upcomingGames, Sportsbook.ESPN,       away, home, gameTime));
-//			} catch(Exception e) {
-//				System.out.println("Exception processing game for ESPN: " + e.getMessage());
-//			}
-
-			try {
-				dk.acquireMlbStats(getUpcomingGame(  upcomingGames, Sportsbook.DRAFTKINGS, away, home, gameTime));
-			} catch(Exception e) {
-				System.out.println("Exception processing game for DK: " + e.getMessage());
+			if(books.contains(Sportsbook.ESPN)) {
+				try {
+					espn.acquireMlbStats(getUpcomingGame(upcomingGames, Sportsbook.ESPN,       away, home, gameTime));
+				} catch(Exception e) {
+					System.out.println("Exception processing game for ESPN: " + e.getMessage());
+				}
 			}
 
-			try {
-				br.acquireMlbStats(getUpcomingGame(  upcomingGames, Sportsbook.BETRIVERS,  away, home, gameTime));
-			} catch(Exception e) {
-				System.out.println("Exception processing game for BETRIVERS: " + e.getMessage());
+			if(books.contains(Sportsbook.DRAFTKINGS)) {
+				try {
+					dk.acquireMlbStats(getUpcomingGame(  upcomingGames, Sportsbook.DRAFTKINGS, away, home, gameTime));
+				} catch(Exception e) {
+					System.out.println("Exception processing game for DK: " + e.getMessage());
+				}
+			}
+
+			if(books.contains(Sportsbook.BETRIVERS)) {
+				try {
+					br.acquireMlbStats(getUpcomingGame(  upcomingGames, Sportsbook.BETRIVERS,  away, home, gameTime));
+				} catch(Exception e) {
+					System.out.println("Exception processing game for BETRIVERS: " + e.getMessage());
+				}
 			}
 			
 			// Update map entry with the time of the latest data grab
@@ -235,7 +298,7 @@ public class MlbStatsController {
 			for(Play p : bestPlays) {
 				System.out.println(p);
 //				if(p.getPerformance() >= (FinderService.betSizeMlbStats/100.0)) {
-				if(p.getPerformance() >= 0.25) {
+				if(p.getPerformance() >= MIN_WIN_AMT) {
 
 					try {
 
@@ -265,7 +328,7 @@ public class MlbStatsController {
 									false);
 							es.sendPlainTextEmail(
 									p.toStringForEmailSubject(), 
-									p.toStringForEmailBody(),
+									p.toStringForTextBody() + " " + new Date(),
 									false);
 
 						} else {

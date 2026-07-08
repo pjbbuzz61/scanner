@@ -119,6 +119,8 @@ public class FanDuel extends Book {
 							((sport == Sport.TENNIS) && link.getText().contains("Matches"))
 								||
 							((sport == Sport.TENNIS) && link.getText().contains("French Open"))
+								||
+							((sport == Sport.TENNIS) && link.getText().contains("Wimbledon"))
 							
 							) {
 						System.out.println(link.getText());

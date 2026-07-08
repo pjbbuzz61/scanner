@@ -499,12 +499,12 @@ public class FinderService {
 		double exRtn = 0.0;
 		switch(srcPlay) {
 			
-			case AWAY_MONEYLINE: exRtn = getEx(awayML,  awayPts,  amtSrc, 0.0, pctSrc, isBonus, true); break;
-			case AWAY_SPREAD:    exRtn = getEx(awayML,  awayPts,  amtSrc, 0.0, pctSrc, isBonus, true); break;
-			case HOME_MONEYLINE: exRtn = getEx(homeML,  homePts,  amtSrc, 0.0, pctSrc, isBonus, true); break;
-			case HOME_SPREAD:    exRtn = getEx(homeML,  homePts,  amtSrc, 0.0, pctSrc, isBonus, true); break;
-			case OVER:           exRtn = getEx(overML,  overPts,  amtSrc, 0.0, pctSrc, isBonus, true); break;
-			case UNDER:          exRtn = getEx(underML, underPts, amtSrc, 0.0, pctSrc, isBonus, true); break;
+			case AWAY_MONEYLINE: exRtn = getEx(awayML,  awayPts,  amtSrc, 0.0, pctSrc, isBonus, true, src.getBook(), tgt.getBook()); break;
+			case AWAY_SPREAD:    exRtn = getEx(awayML,  awayPts,  amtSrc, 0.0, pctSrc, isBonus, true, src.getBook(), tgt.getBook()); break;
+			case HOME_MONEYLINE: exRtn = getEx(homeML,  homePts,  amtSrc, 0.0, pctSrc, isBonus, true, src.getBook(), tgt.getBook()); break;
+			case HOME_SPREAD:    exRtn = getEx(homeML,  homePts,  amtSrc, 0.0, pctSrc, isBonus, true, src.getBook(), tgt.getBook()); break;
+			case OVER:           exRtn = getEx(overML,  overPts,  amtSrc, 0.0, pctSrc, isBonus, true, src.getBook(), tgt.getBook()); break;
+			case UNDER:          exRtn = getEx(underML, underPts, amtSrc, 0.0, pctSrc, isBonus, true, src.getBook(), tgt.getBook()); break;
 			default:
 				System.out.println("WTF src: " + srcPlay);
 				return play;
@@ -517,12 +517,12 @@ public class FinderService {
 		double exBetAmt = 0.0;
 		switch(tgtPlay) {
 		
-			case AWAY_MONEYLINE: exBetAmt = getEx(awayML,  awayPts,  amtTgt, exRtn, pctTgt, isBonus, false); break;
-			case AWAY_SPREAD:    exBetAmt = getEx(awayML,  awayPts,  amtTgt, exRtn, pctTgt, isBonus, false); break;
-			case HOME_MONEYLINE: exBetAmt = getEx(homeML,  homePts,  amtTgt, exRtn, pctTgt, isBonus, false); break;
-			case HOME_SPREAD:    exBetAmt = getEx(homeML,  homePts,  amtTgt, exRtn, pctTgt, isBonus, false); break;
-			case OVER:           exBetAmt = getEx(overML,  overPts,  amtTgt, exRtn, pctTgt, isBonus, false); break;
-			case UNDER:          exBetAmt = getEx(underML, underPts, amtTgt, exRtn, pctTgt, isBonus, false); break;
+			case AWAY_MONEYLINE: exBetAmt = getEx(awayML,  awayPts,  amtTgt, exRtn, pctTgt, isBonus, false, src.getBook(), tgt.getBook()); break;
+			case AWAY_SPREAD:    exBetAmt = getEx(awayML,  awayPts,  amtTgt, exRtn, pctTgt, isBonus, false, src.getBook(), tgt.getBook()); break;
+			case HOME_MONEYLINE: exBetAmt = getEx(homeML,  homePts,  amtTgt, exRtn, pctTgt, isBonus, false, src.getBook(), tgt.getBook()); break;
+			case HOME_SPREAD:    exBetAmt = getEx(homeML,  homePts,  amtTgt, exRtn, pctTgt, isBonus, false, src.getBook(), tgt.getBook()); break;
+			case OVER:           exBetAmt = getEx(overML,  overPts,  amtTgt, exRtn, pctTgt, isBonus, false, src.getBook(), tgt.getBook()); break;
+			case UNDER:          exBetAmt = getEx(underML, underPts, amtTgt, exRtn, pctTgt, isBonus, false, src.getBook(), tgt.getBook()); break;
 			default:
 				System.out.println("WTF tgt: " + tgtPlay);
 				return play;
@@ -541,11 +541,37 @@ public class FinderService {
 		return play;
 	}
 
-	private double getEx(int ml, double pts, double amt, double rtn, Double pct, boolean isBonus, boolean isSrc) {
+	private double getEx(
+			int ml, double pts, double amt, double rtn, Double pct, 
+			boolean isBonus, boolean isSrc,
+			Sportsbook srcBook, Sportsbook tgtBook) {
 		
-		double actML = (double)ml/100.0;
-		if(ml < 0) {
-			actML = -100.0/ml;
+		double brAdjusted = 0.0;
+		boolean brHasBeenAdjusted = false;
+		if(isSrc && srcBook == Sportsbook.BETRIVERS) {
+			if(ml < 0) {
+				double exRtn = 100.0 + 100.0 /(-(double)ml/100.0);
+				double roundUp = Math.ceil(exRtn);
+				brAdjusted = -100.0/(10000.0/(100.0-roundUp));
+				brHasBeenAdjusted = true;
+			}
+		} else if(!isSrc && tgtBook == Sportsbook.BETRIVERS) {
+			if(ml < 0) {
+				double exRtn = 100.0 + 100.0 /(-(double)ml/100.0);
+				double roundUp = Math.ceil(exRtn);
+				brAdjusted = -100.0/(10000.0/(100.0-roundUp));
+				brHasBeenAdjusted = true;
+			}
+		}
+		
+		double actML = 0;
+		if(brHasBeenAdjusted) {
+			actML = brAdjusted;
+		} else {
+			actML = (double)ml/100.0;
+			if(ml < 0) {
+				actML = -100.0/ml;
+			}
 		}
 		
 		// Apply power boost if not a bonus and not the other side of the boost play (amt is 0 for other side)
